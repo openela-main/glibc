@@ -132,7 +132,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.7
+Release: %{glibcrelease}.12
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1053,6 +1053,14 @@ Patch865: glibc-RHEL-2435.patch
 Patch866: glibc-RHEL-2435-2.patch
 Patch867: glibc-RHEL-2423.patch
 Patch868: glibc-RHEL-3036.patch
+Patch869: glibc-RHEL-21522-1.patch
+Patch870: glibc-RHEL-21522-2.patch
+Patch871: glibc-RHEL-21522-3.patch
+Patch872: glibc-RHEL-21522-4.patch
+Patch873: glibc-RHEL-21519.patch
+Patch874: glibc-RHEL-22441.patch
+Patch875: glibc-RHEL-22846.patch
+Patch876: glibc-RHEL-22847.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2883,6 +2891,21 @@ fi
 %files -f compat-libpthread-nonshared.filelist -n compat-libpthread-nonshared
 
 %changelog
+* Mon Jan 29 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.12
+- Re-enable output buffering for wide stdio streams (RHEL-22847)
+
+* Mon Jan 29 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.11
+- Avoid lazy binding failures during dlclose (RHEL-22846)
+
+* Fri Jan 26 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.10
+- nscd: Skip unusable entries in first pass in prune_cache (RHEL-22441)
+
+* Fri Jan 26 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.9
+- Fix force-first handling in dlclose (RHEL-21519)
+
+* Fri Jan 26 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.8
+- Improve compatibility between underlinking and IFUNC resolvers (RHEL-21522)
+
 * Wed Sep 20 2023 Siddhesh Poyarekar <siddhesh@redhat.com> - 2.28-236.7
 - CVE-2023-4911 glibc: buffer overflow in ld.so leading to privilege escalation (RHEL-3036)
 
