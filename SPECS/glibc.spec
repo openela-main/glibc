@@ -155,7 +155,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: 83%{?dist}.7
+Release: 83%{?dist}.12
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -770,6 +770,19 @@ Patch533: glibc-RHEL-2426-13.patch
 Patch534: glibc-RHEL-3000.patch
 Patch535: glibc-RHEL-2426-14.patch
 Patch536: glibc-RHEL-2426-15.patch
+Patch537: glibc-RHEL-21527.patch
+Patch538: glibc-RHEL-21518.patch
+Patch539: glibc-RHEL-21521-1.patch
+Patch540: glibc-RHEL-21521-2.patch
+Patch541: glibc-RHEL-21521-3.patch
+Patch542: glibc-RHEL-21521-4.patch
+Patch543: glibc-RHEL-21007-1.patch
+Patch544: glibc-RHEL-21007-2.patch
+Patch545: glibc-RHEL-21007-3.patch
+Patch546: glibc-RHEL-21007-4.patch
+Patch547: glibc-RHEL-21007-5.patch
+Patch548: glibc-RHEL-21007-6.patch
+Patch549: glibc-RHEL-21240.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2927,6 +2940,21 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Wed Feb 07 2024 Carlos O'Donell <carlos@redhat.com> - 2.34-83.12
+- getaddrinfo: Return correct error EAI_MEMORY when out-of-memory (RHEL-21240)
+
+* Wed Feb 07 2024 Carlos O'Donell <carlos@redhat.com> - 2.34-83.11
+- getaddrinfo: Fix occasionally empty result due to nscd cache order (RHEL-21007)
+
+* Wed Feb 07 2024 Carlos O'Donell <carlos@redhat.com> - 2.34-83.10
+- Improve compatibility between underlinking and IFUNC resolvers (RHEL-21521)
+
+* Wed Feb 07 2024 Carlos O'Donell <carlos@redhat.com> - 2.34-83.9
+- Fix force-first handling in dlclose (RHEL-21518)
+
+* Mon Jan 29 2024 DJ Delorie <dj@redhat.com> - 2.34-83.8
+- malloc: Use __get_nprocs on arena_get2. (RHEL-21527)
+
 * Mon Sep 25 2023 Florian Weimer <fweimer@redhat.com> - 2.34-83.7
 - Fix memory leak regression in getaddrinfo (RHEL-2426)
 
