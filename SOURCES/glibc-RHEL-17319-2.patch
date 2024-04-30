@@ -9,7 +9,7 @@ Date:   Mon Nov 27 11:28:10 2023 +0100
     Reviewed-by: Carlos O'Donell <carlos@redhat.com>
 
 diff --git a/elf/dl-open.c b/elf/dl-open.c
-index 633b047ad2497296..bc4d38d6a6b1b5a0 100644
+index c8a5d88161441031..cf3baccccb461878 100644
 --- a/elf/dl-open.c
 +++ b/elf/dl-open.c
 @@ -467,6 +467,50 @@ activate_nodelete (struct link_map *new)

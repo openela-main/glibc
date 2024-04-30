@@ -16,7 +16,7 @@ Date:   Thu Nov 16 19:55:35 2023 +0100
     Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
 
 diff --git a/elf/dl-close.c b/elf/dl-close.c
-index 985cd4e2821436af..1aedd89bc48d4827 100644
+index 95a03c9616c6a786..9d158c25498fd8ae 100644
 --- a/elf/dl-close.c
 +++ b/elf/dl-close.c
 @@ -182,6 +182,16 @@ _dl_close_worker (struct link_map *map, bool force)

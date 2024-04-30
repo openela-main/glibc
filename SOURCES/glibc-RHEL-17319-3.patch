@@ -75,7 +75,7 @@ index 8e1f91bcd917fd4e..7b7c6c171ce23247 100644
 +$(objpfx)tst-nodeps2.out: \
 +  $(objpfx)tst-nodeps1-mod.so $(objpfx)tst-nodeps2-mod.so
 diff --git a/elf/dl-open.c b/elf/dl-open.c
-index bc4d38d6a6b1b5a0..3d81187ede4b09af 100644
+index cf3baccccb461878..4b58bdd668634130 100644
 --- a/elf/dl-open.c
 +++ b/elf/dl-open.c
 @@ -705,6 +705,17 @@ dl_open_worker_begin (void *a)
