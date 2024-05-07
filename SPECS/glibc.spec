@@ -132,7 +132,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.12
+Release: %{glibcrelease}.13
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1061,6 +1061,7 @@ Patch873: glibc-RHEL-21519.patch
 Patch874: glibc-RHEL-22441.patch
 Patch875: glibc-RHEL-22846.patch
 Patch876: glibc-RHEL-22847.patch
+Patch877: glibc-RHEL-32475.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2891,6 +2892,9 @@ fi
 %files -f compat-libpthread-nonshared.filelist -n compat-libpthread-nonshared
 
 %changelog
+* Tue Apr 16 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.13
+- CVE-2024-2961: Out of bounds write in iconv conversion to ISO-2022-CN-EXT (RHEL-32475)
+
 * Mon Jan 29 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.12
 - Re-enable output buffering for wide stdio streams (RHEL-22847)
 
