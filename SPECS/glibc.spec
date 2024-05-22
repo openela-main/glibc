@@ -1,6 +1,6 @@
 %define glibcsrcdir glibc-2.28
 %define glibcversion 2.28
-%define glibcrelease 251%{?dist}
+%define glibcrelease 251%{?dist}.1
 # Pre-release tarballs are pulled in from git using a command that is
 # effectively:
 #
@@ -1183,6 +1183,7 @@ Patch995: glibc-RHEL-3010-2.patch
 Patch996: glibc-RHEL-3010-3.patch
 Patch997: glibc-RHEL-19445.patch
 Patch998: glibc-RHEL-21997.patch
+Patch999: glibc-RHEL-31804.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -3014,6 +3015,9 @@ fi
 %files -f compat-libpthread-nonshared.filelist -n compat-libpthread-nonshared
 
 %changelog
+* Mon Apr 15 2024 Florian Weimer <fweimer@redhat.com> - 2.28-251.1
+- CVE-2024-2961: Out of bounds write in iconv conversion to ISO-2022-CN-EXT (RHEL-31804)
+
 * Thu Jan 18 2024 Florian Weimer <fweimer@redhat.com> - 2.28-251
 - Cache information in x86_64 ld.so --list-diagnostics output (RHEL-21997)
 
