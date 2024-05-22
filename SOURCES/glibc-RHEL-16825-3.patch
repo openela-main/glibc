@@ -15,11 +15,12 @@ Conflicts:
 	elf/rtld.c
 	  (removal of prelink support upstream)
 
+
 diff --git a/elf/Makefile b/elf/Makefile
-index 634c3113227d64a6..6f0f36cdfe3961e8 100644
+index 42dc878209b11d29..ebf46a297d241d8f 100644
 --- a/elf/Makefile
 +++ b/elf/Makefile
-@@ -386,6 +386,8 @@ tests += \
+@@ -387,6 +387,8 @@ tests += \
    tst-nodelete2 \
    tst-nodelete-dlclose \
    tst-nodelete-opened \
@@ -28,7 +29,7 @@ index 634c3113227d64a6..6f0f36cdfe3961e8 100644
    tst-noload \
    tst-null-argv \
    tst-relsort1 \
-@@ -740,6 +742,8 @@ modules-names = \
+@@ -743,6 +745,8 @@ modules-names = \
    tst-nodelete-dlclose-dso \
    tst-nodelete-dlclose-plugin \
    tst-nodelete-opened-lib \
@@ -37,7 +38,7 @@ index 634c3113227d64a6..6f0f36cdfe3961e8 100644
    tst-null-argv-lib \
    tst-relsort1mod1 \
    tst-relsort1mod2 \
-@@ -886,8 +890,13 @@ modules-execstack-yes = tst-execstack-mod
+@@ -889,8 +893,13 @@ modules-execstack-yes = tst-execstack-mod
  extra-test-objs += $(addsuffix .os,$(strip $(modules-names)))
  
  # filtmod1.so has a special rule
@@ -53,11 +54,10 @@ index 634c3113227d64a6..6f0f36cdfe3961e8 100644
  
  tests += $(tests-static)
  
-@@ -2697,3 +2706,19 @@ $(objpfx)tst-dlmopen-twice: $(libdl)
- $(objpfx)tst-dlmopen-twice.out: \
-   $(objpfx)tst-dlmopen-twice-mod1.so \
-   $(objpfx)tst-dlmopen-twice-mod2.so
-+
+@@ -2707,3 +2716,18 @@ $(objpfx)tst-dlclose-lazy: $(libdl)
+ $(objpfx)tst-dlclose-lazy.out: \
+   $(objpfx)tst-dlclose-lazy-mod1.so $(objpfx)tst-dlclose-lazy-mod2.so
+ 
 +# The object tst-nodeps1-mod.so has no explicit dependencies on libc.so.
 +$(objpfx)tst-nodeps1-mod.so: $(objpfx)tst-nodeps1-mod.os
 +	$(LINK.o) -nostartfiles -nostdlib -shared -o $@ $^
@@ -74,7 +74,7 @@ index 634c3113227d64a6..6f0f36cdfe3961e8 100644
 +$(objpfx)tst-nodeps2.out: \
 +  $(objpfx)tst-nodeps1-mod.so $(objpfx)tst-nodeps2-mod.so
 diff --git a/elf/dl-open.c b/elf/dl-open.c
-index 1505fdb73088dcdb..6508b0ea545440b8 100644
+index 160451790bb88447..f32e2fd4ee39db93 100644
 --- a/elf/dl-open.c
 +++ b/elf/dl-open.c
 @@ -692,6 +692,17 @@ dl_open_worker_begin (void *a)

@@ -1,6 +1,6 @@
 %define glibcsrcdir glibc-2.28
 %define glibcversion 2.28
-%define glibcrelease 236%{?dist}
+%define glibcrelease 251%{?dist}
 # Pre-release tarballs are pulled in from git using a command that is
 # effectively:
 #
@@ -132,7 +132,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.13
+Release: %{glibcrelease}
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1053,15 +1053,136 @@ Patch865: glibc-RHEL-2435.patch
 Patch866: glibc-RHEL-2435-2.patch
 Patch867: glibc-RHEL-2423.patch
 Patch868: glibc-RHEL-3036.patch
-Patch869: glibc-RHEL-21522-1.patch
-Patch870: glibc-RHEL-21522-2.patch
-Patch871: glibc-RHEL-21522-3.patch
-Patch872: glibc-RHEL-21522-4.patch
-Patch873: glibc-RHEL-21519.patch
-Patch874: glibc-RHEL-22441.patch
-Patch875: glibc-RHEL-22846.patch
-Patch876: glibc-RHEL-22847.patch
-Patch877: glibc-RHEL-32475.patch
+Patch869: glibc-RHEL-3757.patch
+Patch870: glibc-RHEL-2122.patch
+Patch871: glibc-RHEL-1192.patch
+Patch872: glibc-RHEL-3639.patch
+Patch873: glibc-RHEL-10481.patch
+Patch874: glibc-RHEL-13720-1.patch
+Patch875: glibc-RHEL-13720-2.patch
+Patch876: glibc-RHEL-15867.patch
+Patch877: glibc-RHEL-16825-1.patch
+Patch878: glibc-RHEL-16825-2.patch
+Patch879: glibc-RHEL-16825-3.patch
+Patch880: glibc-RHEL-16825-4.patch
+Patch881: glibc-RHEL-15696-1.patch
+Patch882: glibc-RHEL-15696-2.patch
+Patch883: glibc-RHEL-15696-3.patch
+Patch884: glibc-RHEL-15696-4.patch
+Patch885: glibc-RHEL-15696-5.patch
+Patch886: glibc-RHEL-15696-6.patch
+Patch887: glibc-RHEL-15696-7.patch
+Patch888: glibc-RHEL-15696-8.patch
+Patch889: glibc-RHEL-15696-9.patch
+Patch890: glibc-RHEL-15696-10.patch
+Patch891: glibc-RHEL-15696-11.patch
+Patch892: glibc-RHEL-15696-12.patch
+Patch893: glibc-RHEL-15696-13.patch
+Patch894: glibc-RHEL-15696-14.patch
+Patch895: glibc-RHEL-15696-15.patch
+Patch896: glibc-RHEL-15696-16.patch
+Patch897: glibc-RHEL-15696-17.patch
+Patch898: glibc-RHEL-15696-18.patch
+Patch899: glibc-RHEL-15696-19.patch
+Patch900: glibc-RHEL-15696-20.patch
+Patch901: glibc-RHEL-15696-21.patch
+Patch902: glibc-RHEL-15696-22.patch
+Patch903: glibc-RHEL-15696-23.patch
+Patch904: glibc-RHEL-15696-24.patch
+Patch905: glibc-RHEL-15696-25.patch
+Patch906: glibc-RHEL-15696-26.patch
+Patch907: glibc-RHEL-15696-27.patch
+Patch908: glibc-RHEL-15696-28.patch
+Patch909: glibc-RHEL-15696-29.patch
+Patch910: glibc-RHEL-15696-30.patch
+Patch911: glibc-RHEL-15696-31.patch
+Patch912: glibc-RHEL-15696-32.patch
+Patch913: glibc-RHEL-15696-33.patch
+Patch914: glibc-RHEL-15696-34.patch
+Patch915: glibc-RHEL-15696-35.patch
+Patch916: glibc-RHEL-15696-36.patch
+Patch917: glibc-RHEL-15696-37.patch
+Patch918: glibc-RHEL-15696-38.patch
+Patch919: glibc-RHEL-15696-39.patch
+Patch920: glibc-RHEL-15696-40.patch
+Patch921: glibc-RHEL-15696-41.patch
+Patch922: glibc-RHEL-15696-42.patch
+Patch923: glibc-RHEL-15696-43.patch
+Patch924: glibc-RHEL-15696-44.patch
+Patch925: glibc-RHEL-15696-45.patch
+Patch926: glibc-RHEL-15696-46.patch
+Patch927: glibc-RHEL-15696-47.patch
+Patch928: glibc-RHEL-15696-48.patch
+Patch929: glibc-RHEL-15696-49.patch
+Patch930: glibc-RHEL-15696-50.patch
+Patch931: glibc-RHEL-15696-51.patch
+Patch932: glibc-RHEL-15696-52.patch
+Patch933: glibc-RHEL-15696-53.patch
+Patch934: glibc-RHEL-15696-54.patch
+Patch935: glibc-RHEL-15696-55.patch
+Patch936: glibc-RHEL-15696-56.patch
+Patch937: glibc-RHEL-15696-57.patch
+Patch938: glibc-RHEL-15696-58.patch
+Patch939: glibc-RHEL-15696-59.patch
+Patch940: glibc-RHEL-15696-60.patch
+Patch941: glibc-RHEL-15696-61.patch
+Patch942: glibc-RHEL-15696-62.patch
+Patch943: glibc-RHEL-15696-63.patch
+Patch944: glibc-RHEL-15696-64.patch
+Patch945: glibc-RHEL-15696-65.patch
+Patch946: glibc-RHEL-15696-66.patch
+Patch947: glibc-RHEL-15696-67.patch
+Patch948: glibc-RHEL-15696-68.patch
+Patch949: glibc-RHEL-15696-69.patch
+Patch950: glibc-RHEL-15696-70.patch
+Patch951: glibc-RHEL-15696-71.patch
+Patch952: glibc-RHEL-15696-72.patch
+Patch953: glibc-RHEL-15696-73.patch
+Patch954: glibc-RHEL-15696-74.patch
+Patch955: glibc-RHEL-15696-75.patch
+Patch956: glibc-RHEL-15696-76.patch
+Patch957: glibc-RHEL-15696-77.patch
+Patch958: glibc-RHEL-15696-78.patch
+Patch959: glibc-RHEL-15696-79.patch
+Patch960: glibc-RHEL-15696-80.patch
+Patch961: glibc-RHEL-15696-81.patch
+Patch962: glibc-RHEL-15696-82.patch
+Patch963: glibc-RHEL-15696-83.patch
+Patch964: glibc-RHEL-15696-84.patch
+Patch965: glibc-RHEL-15696-85.patch
+Patch966: glibc-RHEL-15696-86.patch
+Patch967: glibc-RHEL-15696-87.patch
+Patch968: glibc-RHEL-15696-88.patch
+Patch969: glibc-RHEL-15696-89.patch
+Patch970: glibc-RHEL-15696-90.patch
+Patch971: glibc-RHEL-15696-91.patch
+Patch972: glibc-RHEL-15696-92.patch
+Patch973: glibc-RHEL-15696-93.patch
+Patch974: glibc-RHEL-15696-94.patch
+Patch975: glibc-RHEL-15696-95.patch
+Patch976: glibc-RHEL-15696-96.patch
+Patch977: glibc-RHEL-15696-97.patch
+Patch978: glibc-RHEL-15696-98.patch
+Patch979: glibc-RHEL-15696-99.patch
+Patch980: glibc-RHEL-15696-100.patch
+Patch981: glibc-RHEL-15696-101.patch
+Patch982: glibc-RHEL-15696-102.patch
+Patch983: glibc-RHEL-15696-103.patch
+Patch984: glibc-RHEL-15696-104.patch
+Patch985: glibc-RHEL-15696-105.patch
+Patch986: glibc-RHEL-15696-106.patch
+Patch987: glibc-RHEL-15696-107.patch
+Patch988: glibc-RHEL-15696-108.patch
+Patch989: glibc-RHEL-15696-109.patch
+Patch990: glibc-RHEL-15696-110.patch
+Patch991: glibc-RHEL-17468-1.patch
+Patch992: glibc-RHEL-17468-2.patch
+Patch993: glibc-RHEL-19824.patch
+Patch994: glibc-RHEL-3010-1.patch
+Patch995: glibc-RHEL-3010-2.patch
+Patch996: glibc-RHEL-3010-3.patch
+Patch997: glibc-RHEL-19445.patch
+Patch998: glibc-RHEL-21997.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -1921,6 +2042,7 @@ gzip -9nvf %{glibc_sysroot}%{_infodir}/libc*
 # Copy the debugger interface documentation over to the right location
 mkdir -p %{glibc_sysroot}%{_docdir}/glibc
 cp elf/rtld-debugger-interface.txt %{glibc_sysroot}%{_docdir}/glibc
+cp posix/gai.conf %{glibc_sysroot}%{_docdir}/glibc
 %else
 rm -f %{glibc_sysroot}%{_infodir}/dir
 rm -f %{glibc_sysroot}%{_infodir}/libc.info*
@@ -2892,23 +3014,50 @@ fi
 %files -f compat-libpthread-nonshared.filelist -n compat-libpthread-nonshared
 
 %changelog
-* Tue Apr 16 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.13
-- CVE-2024-2961: Out of bounds write in iconv conversion to ISO-2022-CN-EXT (RHEL-32475)
+* Thu Jan 18 2024 Florian Weimer <fweimer@redhat.com> - 2.28-251
+- Cache information in x86_64 ld.so --list-diagnostics output (RHEL-21997)
 
-* Mon Jan 29 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.12
-- Re-enable output buffering for wide stdio streams (RHEL-22847)
+* Wed Jan 10 2024 Arjun Shankar <arjun@redhat.com> - 2.28-250
+- getaddrinfo: Return correct error EAI_MEMORY when out-of-memory (RHEL-19445)
 
-* Mon Jan 29 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.11
-- Avoid lazy binding failures during dlclose (RHEL-22846)
+* Wed Jan  3 2024 Florian Weimer <fweimer@redhat.com> - 2.28-249
+- Updates for AMD cache size computation (RHEL-3010)
 
-* Fri Jan 26 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.10
-- nscd: Skip unusable entries in first pass in prune_cache (RHEL-22441)
+* Tue Jan  2 2024 Florian Weimer <fweimer@redhat.com> - 2.28-248
+- Re-enable output buffering for wide stdio streams (RHEL-19824)
 
-* Fri Jan 26 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.9
-- Fix force-first handling in dlclose (RHEL-21519)
+* Thu Dec 21 2023 Carlos O'Donell <carlos@redhat.com> - 2.28-247
+- Fix TLS corruption during dlopen()/dlclose() sequences (RHEL-17468)
 
-* Fri Jan 26 2024 Florian Weimer <fweimer@redhat.com> - 2.28-236.8
-- Improve compatibility between underlinking and IFUNC resolvers (RHEL-21522)
+* Thu Dec 14 2023 DJ Delorie <dj@redhat.com> - 2.28-246
+- Include CentOS Hyperscaler SIG patches backported by Intel (RHEL-15696)
+
+* Fri Dec  8 2023 Florian Weimer <fweimer@redhat.com> - 2.28-245
+- Improve compatibility between underlinking and IFUNC resolvers (RHEL-16825)
+
+* Fri Nov 24 2023 Florian Weimer <fweimer@redhat.com> - 2.28-244
+- Restore <sys/cdefs.h> compatibility with C90 compilers (RHEL-15867)
+
+* Tue Nov 21 2023 Florian Weimer <fweimer@redhat.com> - 2.28-243
+- ldconfig should skip temporary files created by RPM (RHEL-13720)
+
+* Mon Nov 20 2023 Florian Weimer <fweimer@redhat.com> - 2.28-242
+- Fix force-first handling in dlclose (RHEL-10481)
+
+* Fri Nov 10 2023 Florian Weimer <fweimer@redhat.com> - 2.28-241
+- Avoid lazy binding failures during dlclose (RHEL-3639)
+
+* Tue Oct 24 2023 Arjun Shankar <arjun@redhat.com> - 2.28-240
+- Add /usr/share/doc/glibc/gai.conf to glibc-doc (RHEL-12894)
+
+* Fri Oct 20 2023 Florian Weimer <fweimer@redhat.com> - 2.28-239
+- nscd: Skip unusable entries in first pass in prune_cache (RHEL-1192)
+
+* Mon Oct 16 2023 DJ Delorie <dj@redhat.com> - 2.28-238
+- Fix slow tls access after dlopen (RHEL-2122)
+
+* Mon Oct 16 2023 Arjun Shankar <arjun@redhat.com> - 2.28-237
+- Enable running a single test from the testsuite (RHEL-3757)
 
 * Wed Sep 20 2023 Siddhesh Poyarekar <siddhesh@redhat.com> - 2.28-236.7
 - CVE-2023-4911 glibc: buffer overflow in ld.so leading to privilege escalation (RHEL-3036)

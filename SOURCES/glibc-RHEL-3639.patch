@@ -20,7 +20,7 @@ Conflicts:
 	  (usual test differences, link test with -ldl)
 
 diff --git a/elf/Makefile b/elf/Makefile
-index 6f0f36cdfe3961e8..ebf46a297d241d8f 100644
+index 634c3113227d64a6..42dc878209b11d29 100644
 --- a/elf/Makefile
 +++ b/elf/Makefile
 @@ -362,6 +362,7 @@ tests += \
@@ -31,7 +31,7 @@ index 6f0f36cdfe3961e8..ebf46a297d241d8f 100644
    tst-dlmodcount \
    tst-dlmopen1 \
    tst-dlmopen3 \
-@@ -711,6 +712,8 @@ modules-names = \
+@@ -709,6 +710,8 @@ modules-names = \
    tst-deep1mod2 \
    tst-deep1mod3 \
    tst-dlmopen1mod \
@@ -40,19 +40,17 @@ index 6f0f36cdfe3961e8..ebf46a297d241d8f 100644
    tst-dlmopen-dlerror-mod \
    tst-dlmopen-gethostbyname-mod \
    tst-dlmopen-twice-mod1 \
-@@ -2707,6 +2710,12 @@ $(objpfx)tst-dlmopen-twice.out: \
+@@ -2697,3 +2700,10 @@ $(objpfx)tst-dlmopen-twice: $(libdl)
+ $(objpfx)tst-dlmopen-twice.out: \
    $(objpfx)tst-dlmopen-twice-mod1.so \
    $(objpfx)tst-dlmopen-twice-mod2.so
- 
++
 +LDFLAGS-tst-dlclose-lazy-mod1.so = -Wl,-z,lazy,--no-as-needed
 +$(objpfx)tst-dlclose-lazy-mod1.so: $(objpfx)tst-dlclose-lazy-mod2.so
 +$(objpfx)tst-dlclose-lazy: $(libdl)
 +$(objpfx)tst-dlclose-lazy.out: \
 +  $(objpfx)tst-dlclose-lazy-mod1.so $(objpfx)tst-dlclose-lazy-mod2.so
 +
- # The object tst-nodeps1-mod.so has no explicit dependencies on libc.so.
- $(objpfx)tst-nodeps1-mod.so: $(objpfx)tst-nodeps1-mod.os
- 	$(LINK.o) -nostartfiles -nostdlib -shared -o $@ $^
 diff --git a/elf/dl-lookup.c b/elf/dl-lookup.c
 index 47acd134600b44b5..9e8f14b8483f5eba 100644
 --- a/elf/dl-lookup.c

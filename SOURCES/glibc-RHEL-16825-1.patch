@@ -10,7 +10,7 @@ Date:   Mon Nov 27 11:28:07 2023 +0100
     Reviewed-by: Carlos O'Donell <carlos@redhat.com>
 
 diff --git a/elf/dl-reloc.c b/elf/dl-reloc.c
-index 7a84b1fa8c3a7fdd..a80a54fb013adab5 100644
+index 7d8b2bd2336eecb6..66c9266d7f9d65af 100644
 --- a/elf/dl-reloc.c
 +++ b/elf/dl-reloc.c
 @@ -165,6 +165,9 @@ void
