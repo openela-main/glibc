@@ -1,6 +1,6 @@
 %define glibcsrcdir glibc-2.28
 %define glibcversion 2.28
-%define glibcrelease 251%{?dist}.1
+%define glibcrelease 251%{?dist}
 # Pre-release tarballs are pulled in from git using a command that is
 # effectively:
 #
@@ -132,7 +132,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}
+Release: %{glibcrelease}.2
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1184,6 +1184,10 @@ Patch996: glibc-RHEL-3010-3.patch
 Patch997: glibc-RHEL-19445.patch
 Patch998: glibc-RHEL-21997.patch
 Patch999: glibc-RHEL-31804.patch
+Patch1000: glibc-RHEL-34264.patch
+Patch1001: glibc-RHEL-34267-1.patch
+Patch1002: glibc-RHEL-34267-2.patch
+Patch1003: glibc-RHEL-34273.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -3015,6 +3019,12 @@ fi
 %files -f compat-libpthread-nonshared.filelist -n compat-libpthread-nonshared
 
 %changelog
+* Fri Apr 26 2024 Florian Weimer <fweimer@redhat.com> - 2.28-251.2
+- CVE-2024-33599: nscd: buffer overflow in netgroup cache (RHEL-34264)
+- CVE-2024-33600: nscd: null pointer dereferences in netgroup cache (RHEL-34267)
+- CVE-2024-33601: nscd: crash on out-of-memory condition (RHEL-34271)
+- CVE-2024-33602: nscd: memory corruption with NSS netgroup modules (RHEL-34273)
+
 * Mon Apr 15 2024 Florian Weimer <fweimer@redhat.com> - 2.28-251.1
 - CVE-2024-2961: Out of bounds write in iconv conversion to ISO-2022-CN-EXT (RHEL-31804)
 
