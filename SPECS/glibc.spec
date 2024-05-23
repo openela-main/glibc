@@ -155,7 +155,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: 100%{?dist}
+Release: 100%{?dist}.2
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -808,6 +808,11 @@ Patch571: glibc-RHEL-16643-5.patch
 Patch572: glibc-RHEL-16643-6.patch
 Patch573: glibc-RHEL-19444.patch
 Patch574: glibc-RHEL-21556.patch
+Patch575: glibc-RHEL-32480.patch
+Patch576: glibc-RHEL-34318-1.patch
+Patch577: glibc-RHEL-34318-2.patch
+Patch578: glibc-RHEL-34318-3.patch
+Patch579: glibc-RHEL-34318-4.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2966,6 +2971,15 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Mon Apr 29 2024 Florian Weimer <fweimer@redhat.com> - 2.34-100.2
+- CVE-2024-33599: nscd: buffer overflow in netgroup cache (RHEL-34318)
+- CVE-2024-33600: nscd: null pointer dereferences in netgroup cache
+- CVE-2024-33601: nscd: crash on out-of-memory condition
+- CVE-2024-33602: nscd: memory corruption with NSS netgroup modules
+
+* Tue Apr 16 2024 Florian Weimer <fweimer@redhat.com> - 2.34-100.1
+- CVE-2024-2961: Out of bounds write in iconv conversion to ISO-2022-CN-EXT (RHEL-32480)
+
 * Wed Jan 24 2024 Patsy Griffin <patsy@redhat.com> - 2.34-100
 - manual: fix order of arguments of memalign and aligned_alloc (RHEL-21556)
 
