@@ -132,7 +132,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.2
+Release: %{glibcrelease}.4
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1188,6 +1188,10 @@ Patch1000: glibc-RHEL-34264.patch
 Patch1001: glibc-RHEL-34267-1.patch
 Patch1002: glibc-RHEL-34267-2.patch
 Patch1003: glibc-RHEL-34273.patch
+Patch1004: glibc-RHEL-52428-1.patch
+Patch1005: glibc-RHEL-52428-2.patch
+Patch1006: glibc-RHEL-39994-1.patch
+Patch1007: glibc-RHEL-39994-2.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -3019,6 +3023,13 @@ fi
 %files -f compat-libpthread-nonshared.filelist -n compat-libpthread-nonshared
 
 %changelog
+* Thu Aug  8 2024 Patsy Griffin <patsy@redhat.com> - 2.28-251.4
+- elf: Avoid some free (NULL) calls in _dl_update_slotinfo
+- elf: Support recursive use of dynamic TLS in interposed malloc (RHEL-39994)
+
+* Mon Aug  5 2024 Patsy Griffin <patsy@redhat.com> - 2.28-251.3
+- Update i386 libm-test-ulps (RHEL-52428)
+
 * Fri Apr 26 2024 Florian Weimer <fweimer@redhat.com> - 2.28-251.2
 - CVE-2024-33599: nscd: buffer overflow in netgroup cache (RHEL-34264)
 - CVE-2024-33600: nscd: null pointer dereferences in netgroup cache (RHEL-34267)
