@@ -10,8 +10,8 @@ Date:   Thu Aug 1 23:31:23 2024 +0200
     Reviewed-by: Carlos O'Donell <carlos@redhat.com>
 
 diff -Nrup a/elf/dl-tls.c b/elf/dl-tls.c
---- a/elf/dl-tls.c	2024-08-21 13:11:01.422983765 -0400
-+++ b/elf/dl-tls.c	2024-08-21 12:51:17.789904690 -0400
+--- a/elf/dl-tls.c	2024-08-27 22:51:44.720953314 -0400
++++ b/elf/dl-tls.c	2024-08-27 22:51:07.686759191 -0400
 @@ -558,9 +558,14 @@ _dl_resize_dtv (dtv_t *dtv, size_t max_m
  /* Allocate initial TLS.  RESULT should be a non-NULL pointer to storage
     for the TLS space.  The DTV may be resized, and so this function may
@@ -48,8 +48,8 @@ diff -Nrup a/elf/dl-tls.c b/elf/dl-tls.c
  rtld_hidden_def (_dl_allocate_tls)
  
 diff -Nrup a/elf/rtld.c b/elf/rtld.c
---- a/elf/rtld.c	2024-08-21 13:11:01.422983765 -0400
-+++ b/elf/rtld.c	2024-08-21 12:57:33.134783030 -0400
+--- a/elf/rtld.c	2024-08-27 22:51:44.720953314 -0400
++++ b/elf/rtld.c	2024-08-27 22:54:51.136930475 -0400
 @@ -2485,7 +2485,7 @@ dl_main (const ElfW(Phdr) *phdr,
       into the main thread's TLS area, which we allocated above.
       Note: thread-local variables must only be accessed after completing
@@ -60,8 +60,8 @@ diff -Nrup a/elf/rtld.c b/elf/rtld.c
    /* And finally install it for the main thread.  */
    if (! tls_init_tp_called)
 diff -Nrup a/nptl/allocatestack.c b/nptl/allocatestack.c
---- a/nptl/allocatestack.c	2024-08-21 13:11:00.640979593 -0400
-+++ b/nptl/allocatestack.c	2024-08-21 12:51:17.789904690 -0400
+--- a/nptl/allocatestack.c	2024-08-27 22:51:43.922949131 -0400
++++ b/nptl/allocatestack.c	2024-08-27 22:51:07.687759197 -0400
 @@ -137,7 +137,7 @@ get_cached_stack (size_t *sizep, void **
    memset (dtv, '\0', (dtv[-1].counter + 1) * sizeof (dtv_t));
  
@@ -72,8 +72,8 @@ diff -Nrup a/nptl/allocatestack.c b/nptl/allocatestack.c
    return result;
  }
 diff -Nrup a/sysdeps/generic/ldsodefs.h b/sysdeps/generic/ldsodefs.h
---- a/sysdeps/generic/ldsodefs.h	2024-08-21 13:11:01.423983770 -0400
-+++ b/sysdeps/generic/ldsodefs.h	2024-08-21 13:30:39.072207595 -0400
+--- a/sysdeps/generic/ldsodefs.h	2024-08-27 22:51:44.720953314 -0400
++++ b/sysdeps/generic/ldsodefs.h	2024-08-27 22:56:44.425524320 -0400
 @@ -1258,10 +1258,8 @@ extern void _dl_get_tls_static_info (siz
  
  extern void _dl_allocate_static_tls (struct link_map *map) attribute_hidden;
