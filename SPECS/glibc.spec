@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.11
+Release: %{glibcrelease}.13
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1248,6 +1248,16 @@ Patch1013: glibc-RHEL-61255.patch
 Patch1014: glibc-RHEL-61259-1.patch
 Patch1015: glibc-RHEL-61259-2.patch
 Patch1016: glibc-RHEL-67806.patch
+Patch1017: glibc-RHEL-8381-1.patch
+Patch1018: glibc-RHEL-8381-2.patch
+Patch1019: glibc-RHEL-8381-3.patch
+Patch1020: glibc-RHEL-8381-4.patch
+Patch1021: glibc-RHEL-8381-5.patch
+Patch1022: glibc-RHEL-8381-6.patch
+Patch1023: glibc-RHEL-8381-7.patch
+Patch1024: glibc-RHEL-8381-8.patch
+Patch1025: glibc-RHEL-8381-9.patch
+Patch1026: glibc-RHEL-8381-10.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2909,6 +2919,12 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Fri Feb  7 2025 Carlos O'Donell <carlos@redhat.com> - 2.28-251.13
+- Restore internal ABI to avoid tooling false positives (RHEL-8381)
+
+* Thu Jan 30 2025 Carlos O'Donell <carlos@redhat.com> - 2.28-251.12
+- Fix missed wakeup in POSIX thread condition variables (RHEL-8381)
+
 * Mon Dec  9 2024 DJ Delorie <dj@redhat.com> - 2.28-251.11
 - add GB18030-2022 charmap and tests (RHEL-67806)
 
