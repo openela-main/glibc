@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.13
+Release: %{glibcrelease}.14
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1258,6 +1258,7 @@ Patch1023: glibc-RHEL-8381-7.patch
 Patch1024: glibc-RHEL-8381-8.patch
 Patch1025: glibc-RHEL-8381-9.patch
 Patch1026: glibc-RHEL-8381-10.patch
+Patch1027: glibc-RHEL-78390.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2919,6 +2920,9 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Tue Feb 11 2025 Patsy Griffin <patsy@redhat.com> - 2.28-251.14
+- Correct locking and cancellation cleanup in syslog functions (RHEL-78390)
+
 * Fri Feb  7 2025 Carlos O'Donell <carlos@redhat.com> - 2.28-251.13
 - Restore internal ABI to avoid tooling false positives (RHEL-8381)
 
