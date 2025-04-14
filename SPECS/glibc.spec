@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.14
+Release: %{glibcrelease}.16
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1259,6 +1259,9 @@ Patch1024: glibc-RHEL-8381-8.patch
 Patch1025: glibc-RHEL-8381-9.patch
 Patch1026: glibc-RHEL-8381-10.patch
 Patch1027: glibc-RHEL-78390.patch
+Patch1028: glibc-RHEL-83306-1.patch
+Patch1029: glibc-RHEL-83306-2.patch
+Patch1030: glibc-RHEL-35280.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2920,6 +2923,12 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Thu Mar 27 2025 Arjun Shankar <arjun@redhat.com> - 2.28-251.16
+- nscd: Fix an unlikely TTL issue in the netgroup cache (RHEL-35280)
+
+* Thu Mar 20 2025 Arjun Shankar <arjun@redhat.com> - 2.28-251.15
+- CVE-2025-0395: Fix a buffer overflow in assert (RHEL-83306)
+
 * Tue Feb 11 2025 Patsy Griffin <patsy@redhat.com> - 2.28-251.14
 - Correct locking and cancellation cleanup in syslog functions (RHEL-78390)
 
