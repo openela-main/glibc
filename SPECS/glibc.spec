@@ -157,7 +157,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: 125%{?dist}.3
+Release: 125%{?dist}.8
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -882,6 +882,20 @@ Patch643: glibc-RHEL-78939-7.patch
 Patch644: glibc-RHEL-78939-8.patch
 Patch645: glibc-RHEL-78939-9.patch
 Patch646: glibc-RHEL-78939-10.patch
+Patch647: glibc-RHEL-70707-1.patch
+Patch648: glibc-RHEL-70707-2.patch
+Patch649: glibc-RHEL-70707-3.patch
+Patch650: glibc-RHEL-70707-4.patch
+Patch651: glibc-RHEL-84324.patch
+Patch652: glibc-RHEL-83294-1.patch
+Patch653: glibc-RHEL-83294-2.patch
+Patch654: glibc-RHEL-83294-3.patch
+Patch655: glibc-RHEL-65285-1.patch
+Patch656: glibc-RHEL-65285-2.patch
+Patch657: glibc-RHEL-65285-3.patch
+Patch658: glibc-RHEL-65285-4.patch
+Patch659: glibc-RHEL-65285-5.patch
+Patch660: glibc-RHEL-83524.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -3041,6 +3055,21 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Thu Apr  3 2025 Florian Weimer <fweimer@redhat.com> - 2.34-125.8
+- Re-activate rseq acceleration for sched_getcpu (RHEL-83524)
+
+* Thu Apr  3 2025 Florian Weimer <fweimer@redhat.com> - 2.34-125.7
+- Adjust __rseq_size behavior to upstream (RHEL-65285)
+
+* Fri Mar 28 2025 Arjun Shankar <arjun@redhat.com> - 2.34-125.6
+- CVE-2025-0395: Fix a buffer overflow in assert (RHEL-83294)
+
+* Fri Mar 28 2025 Arjun Shankar <arjun@redhat.com> - 2.34-125.5
+- Make test tst-cpuclock2 run more reliably (RHEL-84324)
+
+* Wed Feb 26 2025 Patsy Griffin <patsy@redhat.com> - 2.34-125.4
+- stdlib: Make getenv thread-safe in more cases (RHEL-70707)
+
 * Thu Feb 13 2025 Carlos O'Donell <carlos@redhat.com> - 2.34-125.3
 - Fix missed wakeup in POSIX thread condition variables (RHEL-78939)
 
