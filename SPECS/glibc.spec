@@ -157,7 +157,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: 168%{?dist}
+Release: 168%{?dist}.14
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1114,6 +1114,58 @@ Patch806: glibc-RHEL-24740-1.patch
 Patch807: glibc-RHEL-24740-2.patch
 Patch808: glibc-RHEL-24740-3.patch
 Patch809: glibc-RHEL-71547.patch
+Patch810: glibc-RHEL-46729.patch
+Patch811: glibc-RHEL-61569-1.patch
+Patch812: glibc-RHEL-61569-2.patch
+Patch813: glibc-RHEL-83581.patch
+Patch814: glibc-RHEL-83525.patch
+Patch815: glibc-RHEL-83528-1.patch
+Patch816: glibc-RHEL-83528-2.patch
+Patch817: glibc-RHEL-80088-1.patch
+Patch818: glibc-RHEL-80088-2.patch
+Patch819: glibc-RHEL-80088-3.patch
+Patch820: glibc-RHEL-80088-4.patch
+Patch821: glibc-RHEL-80088-5.patch
+Patch822: glibc-RHEL-84325.patch
+Patch823: glibc-RHEL-83968.patch
+Patch824: glibc-RHEL-83980-1.patch
+Patch825: glibc-RHEL-83980-2.patch
+Patch826: glibc-RHEL-83980-3.patch
+Patch827: glibc-RHEL-83980-4.patch
+Patch828: glibc-RHEL-83970-1.patch
+Patch829: glibc-RHEL-83970-2.patch
+Patch830: glibc-RHEL-83970-3.patch
+Patch831: glibc-RHEL-83970-4.patch
+Patch832: glibc-RHEL-83970-5.patch
+Patch833: glibc-RHEL-83970-6.patch
+Patch834: glibc-RHEL-83970-7.patch
+Patch835: glibc-RHEL-83970-8.patch
+Patch836: glibc-RHEL-83984-1.patch
+Patch837: glibc-RHEL-83984-2.patch
+Patch838: glibc-RHEL-83984-3.patch
+Patch839: glibc-RHEL-83984-4.patch
+Patch840: glibc-RHEL-83984-5.patch
+Patch841: glibc-RHEL-83984-6.patch
+Patch842: glibc-RHEL-83984-7.patch
+Patch843: glibc-RHEL-83984-8.patch
+Patch844: glibc-RHEL-84306-1.patch
+Patch845: glibc-RHEL-84306-2.patch
+Patch846: glibc-RHEL-84306-3.patch
+Patch847: glibc-RHEL-84306-4.patch
+Patch848: glibc-RHEL-84306-5.patch
+Patch849: glibc-RHEL-84306-6.patch
+Patch850: glibc-RHEL-84306-7.patch
+Patch851: glibc-RHEL-84306-8.patch
+Patch852: glibc-RHEL-84306-9.patch
+Patch853: glibc-RHEL-84306-10.patch
+Patch854: glibc-RHEL-84306-11.patch
+Patch855: glibc-RHEL-84306-12.patch
+Patch856: glibc-RHEL-84306-13.patch
+Patch857: glibc-RHEL-84306-14.patch
+Patch858: glibc-RHEL-84306-15.patch
+Patch859: glibc-RHEL-83982-1.patch
+Patch860: glibc-RHEL-83982-2.patch
+Patch861: glibc-RHEL-83982-3.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -3107,6 +3159,48 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Tue Apr  8 2025 Florian Weimer <fweimer@redhat.com> - 2.34-168.14
+- Increase reliability of stdio-common/tst-setvbuf2 (RHEL-83982)
+
+* Wed Apr  2 2025 DJ Delorie <dj@redhat.com> - 2.34-168.13
+- Extend setvbuf testing (RHEL-83982)
+
+* Wed Apr  2 2025 Florian Weimer <fweimer@redhat.com> - 2.34-168.12
+- Extend scanf testing (RHEL-84306)
+
+* Tue Apr 01 2025 Frédéric Bérat <fberat@redhat.com> - 2.34-168.11
+- Fortify inet_ntop and inet_pton (RHEL-83984)
+
+* Fri Mar 28 2025 Arjun Shankar <arjun@redhat.com> - 2.34-168.10
+- Add sched_setattr, sched_getattr, pthread_gettid_np (RHEL-83970)
+
+* Thu Mar 27 2025 Arjun Shankar <arjun@redhat.com> - 2.34-168.9
+- Improve printf fortification against %n in writeable memory (RHEL-83980)
+
+* Fri Mar 21 2025 Arjun Shankar <arjun@redhat.com> - 2.34-168.8
+- nptl: extend test coverage for sched_yield (RHEL-83968)
+
+* Fri Mar 21 2025 Arjun Shankar <arjun@redhat.com> - 2.34-168.7
+- Make test tst-cpuclock2 run more reliably (RHEL-84325)
+
+* Fri Mar 21 2025 Arjun Shankar <arjun@redhat.com> - 2.34-168.6
+- nptl: Keep __rseq_size consistent (RHEL-80088)
+
+* Fri Mar 21 2025 Arjun Shankar <arjun@redhat.com> - 2.34-168.5
+- assert: Add test for CVE-2025-0395 (RHEL-83528)
+
+* Thu Mar 20 2025 Patsy Griffin <patsy@redhat.com> - 2.34-168.4
+- Use rseq area unconditionally in sched_getcpu (RHEL-83525)
+
+* Wed Mar 19 2025 Patsy Griffin <patsy@redhat.com> - 2.34-168.3
+- tst-fopen-threaded: Only check EOF for failing read (RHEL-83581)
+
+* Wed Mar 05 2025 Frederic Berat <fberat@redhat.com> - 2.34-168.2
+- Improve cpuset test coverage (RHEL-82118)
+
+* Wed Mar 05 2025 Frederic Berat <fberat@redhat.com> - 2.34-168.1
+- Increase test coverage for standard IO APIs (RHEL-82259)
+
 * Thu Feb 13 2025 Florian Weimer <fweimer@redhat.com> - 2.34-168
 - Fix transliteration regression in iconv tool (RHEL-71547)
 
