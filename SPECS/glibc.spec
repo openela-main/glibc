@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.16
+Release: %{glibcrelease}.22
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1262,6 +1262,21 @@ Patch1027: glibc-RHEL-78390.patch
 Patch1028: glibc-RHEL-83306-1.patch
 Patch1029: glibc-RHEL-83306-2.patch
 Patch1030: glibc-RHEL-35280.patch
+Patch1031: glibc-RHEL-76211.patch
+Patch1032: glibc-RHEL-76387.patch
+Patch1033: glibc-RHEL-86018-1.patch
+Patch1034: glibc-RHEL-86018-2.patch
+Patch1035: glibc-RHEL-88813.patch
+Patch1036: glibc-RHEL-71921.patch
+Patch1037: glibc-RHEL-92685-1.patch
+Patch1038: glibc-RHEL-92685-2.patch
+Patch1039: glibc-RHEL-92685-3.patch
+Patch1040: glibc-RHEL-92685-4.patch
+Patch1041: glibc-RHEL-92685-5.patch
+Patch1042: glibc-RHEL-92685-6.patch
+Patch1043: glibc-RHEL-92685-7.patch
+Patch1044: glibc-RHEL-92685-8.patch
+Patch1045: glibc-RHEL-92685-9.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2923,6 +2938,25 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Mon May 26 2025 Florian Weimer  <fweimer@redhat.com> - 2.28-251.22
+- CVE-2025-4802: static setuid dlopen may search LD_LIBRARY_PATH (RHEL-92685)
+
+* Wed May 14 2025 Patsy Griffin <patsy@redhat.com> - 2.28-251.21
+- elf: Keep using minimal malloc after early DTV resize (RHEL-71921)
+
+* Fri May 02 2025 Patsy Griffin <patsy@redhat.com> - 2.28-251.20
+- Add missing libnss_testX.so requirement for tst-nss-test3 (RHEL-88813)
+
+* Fri Apr 25 2025 Patsy Griffin <patsy@redhat.com> - 2.28-251.19
+- libio: Fix a deadlock after fork in popen
+- libio: Correctly link tst-popen-fork against libpthread (RHEL-86018)
+
+* Fri Apr 18 2025 Patsy Griffin <patsy@redhat.com> - 2.28-251.18
+- x86: Avoid integer truncation with large cache sizes (RHEL-76387)
+
+* Wed Apr 16 2025 Patsy Griffin <patsy@redhat.com> - 2.28-251.17
+- x86: Check the lower byte of EAX of CPUID leaf 2 (RHEL-76211)
+
 * Thu Mar 27 2025 Arjun Shankar <arjun@redhat.com> - 2.28-251.16
 - nscd: Fix an unlikely TTL issue in the netgroup cache (RHEL-35280)
 
