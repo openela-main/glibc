@@ -157,7 +157,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: 168%{?dist}.14
+Release: 168%{?dist}.19
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1166,6 +1166,18 @@ Patch858: glibc-RHEL-84306-15.patch
 Patch859: glibc-RHEL-83982-1.patch
 Patch860: glibc-RHEL-83982-2.patch
 Patch861: glibc-RHEL-83982-3.patch
+Patch862: glibc-RHEL-92690-1.patch
+Patch863: glibc-RHEL-92690-2.patch
+Patch864: glibc-RHEL-92690-3.patch
+Patch865: glibc-RHEL-92690-4.patch
+Patch866: glibc-RHEL-92690-5.patch
+Patch867: glibc-RHEL-92690-6.patch
+Patch868: glibc-RHEL-92690-7.patch
+Patch869: glibc-RHEL-92690-8.patch
+Patch870: glibc-RHEL-71583.patch
+Patch871: glibc-RHEL-93665-1.patch
+Patch872: glibc-RHEL-93665-2.patch
+Patch873: glibc-RHEL-93877.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -3159,6 +3171,21 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Wed May 28 2025 Florian Weimer  <fweimer@redhat.com> - 2.34-168.19
+- elf: Keep using minimal malloc after early DTV resize (RHEL-93877)
+
+* Wed May 28 2025 Frédéric Bérat <fberat@redhat.com> - 2.34-168.18
+- Fix deadlock in popen after multi-threaded fork (RHEL-93665)
+
+* Tue May 27 2025 Florian Weimer  <fweimer@redhat.com> - 2.34-168.17
+- x86: Avoid integer truncation with large cache sizes (RHEL-71583)
+
+* Thu May 22 2025 Florian Weimer  <fweimer@redhat.com> - 2.34-168.16
+- SGID test enhancements (RHEL-92690)
+
+* Wed May 21 2025 Florian Weimer  <fweimer@redhat.com> - 2.34-168.15
+- CVE-2025-4802: static setuid dlopen may search LD_LIBRARY_PATH (RHEL-92690)
+
 * Tue Apr  8 2025 Florian Weimer <fweimer@redhat.com> - 2.34-168.14
 - Increase reliability of stdio-common/tst-setvbuf2 (RHEL-83982)
 
