@@ -157,7 +157,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: 168%{?dist}.20
+Release: 168%{?dist}.23
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1181,6 +1181,9 @@ Patch873: glibc-RHEL-93877.patch
 Patch874: glibc-RHEL-95547-1.patch
 Patch875: glibc-RHEL-95547-2.patch
 Patch876: glibc-RHEL-95547-3.patch
+Patch877: glibc-RHEL-104150.patch
+Patch878: glibc-RHEL-105328.patch
+Patch879: glibc-RHEL-106230.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -3174,6 +3177,15 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Tue Jul 29 2025 Florian Weimer  <fweimer@redhat.com> - 2.34-168.23
+- Fix namespace pollution in inet_ntop with fortification (RHEL-106230)
+
+* Thu Jul 24 2025 Florian Weimer  <fweimer@redhat.com> - 2.34-168.22
+- CVE-2025-8058: Double free in regcomp (RHEL-105328)
+
+* Wed Jul 23 2025 Florian Weimer  <fweimer@redhat.com> - 2.34-168.21
+- iconv: Do not create executable output files (RHEL-104150)
+
 * Mon Jun 16 2025 Frédéric Bérat <fberat@redhat.com> - 2.34-168.20
 - CVE-2025-5702 glibc: Vector register overwrite bug in glibc (RHEL-95547)
 
