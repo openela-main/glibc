@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.22
+Release: %{glibcrelease}.25
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1277,6 +1277,15 @@ Patch1042: glibc-RHEL-92685-6.patch
 Patch1043: glibc-RHEL-92685-7.patch
 Patch1044: glibc-RHEL-92685-8.patch
 Patch1045: glibc-RHEL-92685-9.patch
+Patch1046: glibc-RHEL-93937-1.patch
+Patch1047: glibc-RHEL-93937-2.patch
+Patch1048: glibc-RHEL-18039-1.patch
+Patch1049: glibc-RHEL-18039-2.patch
+Patch1050: glibc-RHEL-18039-3.patch
+Patch1051: glibc-RHEL-18039-4.patch
+Patch1052: glibc-RHEL-18039-5.patch
+Patch1053: glibc-RHEL-18039-6.patch
+Patch1054: glibc-RHEL-105326.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2938,6 +2947,18 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Thu Jul 24 2025 Florian Weimer  <fweimer@redhat.com> - 2.28-251.25
+- CVE-2025-8058: Double free in regcomp (RHEL-105326)
+
+* Thu Jun 05 2025 Patsy Griffin <patsy@redhat.com> - 2.28-251.24
+- Keep reloading /etc/resolv.conf after timeouts with getaddrinfo
+  and AF_UNSPEC.
+- Avoid timeouts with getaddrinfo, AF_UNSPEC, and certain DNS error
+  responses. (RHEL-18039)
+
+* Thu Jun 05 2025 Arjun Shankar <arjun@redhat.com> - 2.28-251.23
+- Reduce spurious rebuilds while running tests (RHEL-93937)
+
 * Mon May 26 2025 Florian Weimer  <fweimer@redhat.com> - 2.28-251.22
 - CVE-2025-4802: static setuid dlopen may search LD_LIBRARY_PATH (RHEL-92685)
 
