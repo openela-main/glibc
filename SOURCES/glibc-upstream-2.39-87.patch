@@ -1,0 +1,81 @@
+commit cb19cef087eaa551568739aa5b59cf97b8d5da1e
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Tue Jul 16 07:57:45 2024 -0300
+
+    elf: Fix localplt.awk for DT_RELR-enabled builds (BZ 31978)
+    
+    For each input readelf output, localplt.awk parses each 'Relocation
+    section' entry, checks its offset against the dynamic section entry, and
+    saves each DT_JMPREL, DT_RELA, and DT_REL offset value it finds. After
+    all lines are read, the script checks if any segment offset differed
+    from 0, meaning at least one 'Relocation section' was matched.
+    
+    However, if the shared object was built with RELR support and the static
+    linker could place all the relocation on DT_RELR, there would be no
+    DT_JMPREL, DT_RELA, and DT_REL entries; only a DT_RELR.
+    
+    For the current three ABIs that support (aarch64, x86, and powerpc64),
+    the powerpc64 ld.so shows the behavior above. Both x86_64 and aarch64
+    show extra relocations on '.rela.dyn', which makes the script check to
+    succeed.
+    
+    This patch fixes by handling DT_RELR, where the offset is checked
+    against the dynamic section entries and if the shared object contains an
+    entry it means that there are no extra PLT entries (since all
+    relocations are relative).
+    
+    It fixes the elf/check-localplt failure on powerpc.
+    
+    Checked with a build/check for aarch64-linux-gnu, x86_64-linux-gnu,
+    i686-linux-gnu, arm-linux-gnueabihf, s390x-linux-gnu, powerpc-linux-gnu,
+    powerpc64-linux-gnu, and powerpc64le-linux-gnu.
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+    
+    (cherry picked from commit 4f047d9edecb1a9b796a9a904dcd42bd3cc3d3b6)
+
+diff --git a/scripts/localplt.awk b/scripts/localplt.awk
+index fe79ca01abcb1a75..621ae7d8e815a4e5 100644
+--- a/scripts/localplt.awk
++++ b/scripts/localplt.awk
+@@ -10,7 +10,8 @@ BEGIN {
+ }
+ 
+ FILENAME != lastfile {
+-  if (lastfile && jmprel_offset == 0 && rela_offset == 0 && rel_offset == 0) {
++  if (lastfile && jmprel_offset == 0 && rela_offset == 0 && rel_offset == 0 \
++      && relr_offset == 0) {
+     print FILENAME ": *** failed to find expected output (readelf -WSdr)";
+     result = 2;
+   }
+@@ -22,6 +23,7 @@ FILENAME != lastfile {
+   jmprel_offset = 0;
+   rela_offset = 0;
+   rel_offset = 0;
++  relr_offset = 0;
+   pltrelsz = -1;
+   delete section_offset_by_address;
+ }
+@@ -77,6 +79,8 @@ in_relocs && relocs_offset == rel_offset && NF >= 5 {
+   }
+ }
+ 
++# No need to handle DT_RELR (all packed relocations are relative).
++
+ in_relocs { next }
+ 
+ $1 == "Relocation" && $2 == "section" && $5 == "offset" {
+@@ -121,4 +125,14 @@ $2 == "(REL)" {
+   }
+   next
+ }
++
++$2 == "(RELR)" {
++  relr_addr = strtonum($3);
++  if (relr_addr in section_offset_by_address) {
++    relr_offset = section_offset_by_address[relr_addr];
++  } else {
++    print FILENAME ": *** DT_RELR does not match any section's address";
++    result = 2;
++  }
++}
+ END { exit(result) }

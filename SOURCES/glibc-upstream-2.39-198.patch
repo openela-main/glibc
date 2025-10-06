@@ -1,0 +1,34 @@
+commit 9fe51d34bbce71d186e7adee74e523ccc64a9727
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Thu Feb 15 03:22:55 2024 -0800
+
+    sort-makefile-lines.py: Allow '_' in name and "^# name"
+    
+    '_' is used in Makefile variable names and many variables end with
+    "^# name".  Relax sort-makefile-lines.py to allow '_' in name and
+    "^# name" as variable end.  This fixes BZ #31385.
+    
+    (cherry picked from commit 6a2512bf1605a4208dd94ef67408488d8acb2409)
+
+diff --git a/scripts/sort-makefile-lines.py b/scripts/sort-makefile-lines.py
+index f65ee40e27fb85ff..b2249aef6d028cf7 100755
+--- a/scripts/sort-makefile-lines.py
++++ b/scripts/sort-makefile-lines.py
+@@ -129,7 +129,7 @@ def sort_makefile_lines():
+     for i in range(len(lines)):
+         # Look for things like "var = \", "var := \" or "var += \"
+         # to start the sorted list.
+-        var = re.search(r'^([a-zA-Z0-9-]*) [\+:]?\= \\$', lines[i])
++        var = re.search(r'^([-_a-zA-Z0-9]*) [\+:]?\= \\$', lines[i])
+         if var:
+             # Remember the index and the name.
+             startmarks.append((i, var.group(1)))
+@@ -140,7 +140,7 @@ def sort_makefile_lines():
+     rangemarks = []
+     for sm in startmarks:
+         # Look for things like "  # var" to end the sorted list.
+-        reg = r'^  # ' + sm[1] + r'$'
++        reg = r'^ *# ' + sm[1] + r'$'
+         for j in range(sm[0] + 1, len(lines)):
+             if re.search(reg, lines[j]):
+                 # Remember the block to sort (inclusive).

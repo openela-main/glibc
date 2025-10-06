@@ -1,0 +1,202 @@
+commit 0da58e8be087ca7011ec918977c2ffac9034d1d4
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Fri May 24 12:38:51 2024 -0500
+
+    x86: Add seperate non-temporal tunable for memset
+    
+    The tuning for non-temporal stores for memset vs memcpy is not always
+    the same. This includes both the exact value and whether non-temporal
+    stores are profitable at all for a given arch.
+    
+    This patch add `x86_memset_non_temporal_threshold`. Currently we
+    disable non-temporal stores for non Intel vendors as the only
+    benchmarks showing its benefit have been on Intel hardware.
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    
+    (cherry picked from commit 46b5e98ef6f1b9f4b53851f152ecb8209064b26c)
+
+diff --git a/manual/tunables.texi b/manual/tunables.texi
+index be97190d67b1c82e..b255a149d10aecf6 100644
+--- a/manual/tunables.texi
++++ b/manual/tunables.texi
+@@ -52,6 +52,7 @@ glibc.elision.skip_lock_busy: 3 (min: 0, max: 2147483647)
+ glibc.malloc.top_pad: 0x20000 (min: 0x0, max: 0xffffffffffffffff)
+ glibc.cpu.x86_rep_stosb_threshold: 0x800 (min: 0x1, max: 0xffffffffffffffff)
+ glibc.cpu.x86_non_temporal_threshold: 0xc0000 (min: 0x4040, max: 0xfffffffffffffff)
++glibc.cpu.x86_memset_non_temporal_threshold: 0xc0000 (min: 0x4040, max: 0xfffffffffffffff)
+ glibc.cpu.x86_shstk:
+ glibc.pthread.stack_cache_size: 0x2800000 (min: 0x0, max: 0xffffffffffffffff)
+ glibc.cpu.hwcap_mask: 0x6 (min: 0x0, max: 0xffffffffffffffff)
+@@ -485,7 +486,8 @@ thread stack originally backup by Huge Pages to default pages.
+ @cindex shared_cache_size tunables
+ @cindex tunables, shared_cache_size
+ @cindex non_temporal_threshold tunables
+-@cindex tunables, non_temporal_threshold
++@cindex memset_non_temporal_threshold tunables
++@cindex tunables, non_temporal_threshold, memset_non_temporal_threshold
+ 
+ @deftp {Tunable namespace} glibc.cpu
+ Behavior of @theglibc{} can be tuned to assume specific hardware capabilities
+@@ -561,6 +563,18 @@ like memmove and memcpy.
+ This tunable is specific to i386 and x86-64.
+ @end deftp
+ 
++@deftp Tunable glibc.cpu.x86_memset_non_temporal_threshold
++The @code{glibc.cpu.x86_memset_non_temporal_threshold} tunable allows
++the user to set threshold in bytes for non temporal store in
++memset. Non temporal stores give a hint to the hardware to move data
++directly to memory without displacing other data from the cache. This
++tunable is used by some platforms to determine when to use non
++temporal stores memset.
++
++This tunable is specific to i386 and x86-64.
++@end deftp
++
++
+ @deftp Tunable glibc.cpu.x86_rep_movsb_threshold
+ The @code{glibc.cpu.x86_rep_movsb_threshold} tunable allows the user to
+ set threshold in bytes to start using "rep movsb".  The value must be
+diff --git a/sysdeps/x86/cacheinfo.h b/sysdeps/x86/cacheinfo.h
+index ab73556772209402..83491607c761ccc6 100644
+--- a/sysdeps/x86/cacheinfo.h
++++ b/sysdeps/x86/cacheinfo.h
+@@ -35,9 +35,12 @@ long int __x86_data_cache_size attribute_hidden = 32 * 1024;
+ long int __x86_shared_cache_size_half attribute_hidden = 1024 * 1024 / 2;
+ long int __x86_shared_cache_size attribute_hidden = 1024 * 1024;
+ 
+-/* Threshold to use non temporal store.  */
++/* Threshold to use non temporal store in memmove.  */
+ long int __x86_shared_non_temporal_threshold attribute_hidden;
+ 
++/* Threshold to use non temporal store in memset.  */
++long int __x86_memset_non_temporal_threshold attribute_hidden;
++
+ /* Threshold to use Enhanced REP MOVSB.  */
+ long int __x86_rep_movsb_threshold attribute_hidden = 2048;
+ 
+@@ -77,6 +80,9 @@ init_cacheinfo (void)
+   __x86_shared_non_temporal_threshold
+     = cpu_features->non_temporal_threshold;
+ 
++  __x86_memset_non_temporal_threshold
++      = cpu_features->memset_non_temporal_threshold;
++
+   __x86_rep_movsb_threshold = cpu_features->rep_movsb_threshold;
+   __x86_rep_stosb_threshold = cpu_features->rep_stosb_threshold;
+   __x86_rep_movsb_stop_threshold =  cpu_features->rep_movsb_stop_threshold;
+diff --git a/sysdeps/x86/dl-cacheinfo.h b/sysdeps/x86/dl-cacheinfo.h
+index 1f68968a9a457586..0e7c1e0415d4137b 100644
+--- a/sysdeps/x86/dl-cacheinfo.h
++++ b/sysdeps/x86/dl-cacheinfo.h
+@@ -986,6 +986,13 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+   if (CPU_FEATURE_USABLE_P (cpu_features, FSRM))
+     rep_movsb_threshold = 2112;
+ 
++  /* Non-temporal stores in memset have only been tested on Intel hardware.
++     Until we benchmark data on other x86 processor, disable non-temporal
++     stores in memset. */
++  unsigned long int memset_non_temporal_threshold = SIZE_MAX;
++  if (cpu_features->basic.kind == arch_kind_intel)
++      memset_non_temporal_threshold = non_temporal_threshold;
++
+    /* For AMD CPUs that support ERMS (Zen3+), REP MOVSB is in a lot of
+       cases slower than the vectorized path (and for some alignments,
+       it is really slow, check BZ #30994).  */
+@@ -1012,6 +1019,11 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+       && tunable_size <= maximum_non_temporal_threshold)
+     non_temporal_threshold = tunable_size;
+ 
++  tunable_size = TUNABLE_GET (x86_memset_non_temporal_threshold, long int, NULL);
++  if (tunable_size > minimum_non_temporal_threshold
++      && tunable_size <= maximum_non_temporal_threshold)
++    memset_non_temporal_threshold = tunable_size;
++
+   tunable_size = TUNABLE_GET (x86_rep_movsb_threshold, long int, NULL);
+   if (tunable_size > minimum_rep_movsb_threshold)
+     rep_movsb_threshold = tunable_size;
+@@ -1032,6 +1044,9 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+   TUNABLE_SET_WITH_BOUNDS (x86_non_temporal_threshold, non_temporal_threshold,
+ 			   minimum_non_temporal_threshold,
+ 			   maximum_non_temporal_threshold);
++  TUNABLE_SET_WITH_BOUNDS (
++      x86_memset_non_temporal_threshold, memset_non_temporal_threshold,
++      minimum_non_temporal_threshold, maximum_non_temporal_threshold);
+   TUNABLE_SET_WITH_BOUNDS (x86_rep_movsb_threshold, rep_movsb_threshold,
+ 			   minimum_rep_movsb_threshold, SIZE_MAX);
+   TUNABLE_SET_WITH_BOUNDS (x86_rep_stosb_threshold, rep_stosb_threshold, 1,
+@@ -1045,6 +1060,7 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+   cpu_features->data_cache_size = data;
+   cpu_features->shared_cache_size = shared;
+   cpu_features->non_temporal_threshold = non_temporal_threshold;
++  cpu_features->memset_non_temporal_threshold = memset_non_temporal_threshold;
+   cpu_features->rep_movsb_threshold = rep_movsb_threshold;
+   cpu_features->rep_stosb_threshold = rep_stosb_threshold;
+   cpu_features->rep_movsb_stop_threshold = rep_movsb_stop_threshold;
+diff --git a/sysdeps/x86/dl-diagnostics-cpu.c b/sysdeps/x86/dl-diagnostics-cpu.c
+index 9f10645ee9778741..8113a93883cfe7a2 100644
+--- a/sysdeps/x86/dl-diagnostics-cpu.c
++++ b/sysdeps/x86/dl-diagnostics-cpu.c
+@@ -85,6 +85,8 @@ _dl_diagnostics_cpu (void)
+                             cpu_features->shared_cache_size);
+   print_cpu_features_value ("non_temporal_threshold",
+                             cpu_features->non_temporal_threshold);
++  print_cpu_features_value ("memset_non_temporal_threshold",
++                            cpu_features->memset_non_temporal_threshold);
+   print_cpu_features_value ("rep_movsb_threshold",
+                             cpu_features->rep_movsb_threshold);
+   print_cpu_features_value ("rep_movsb_stop_threshold",
+diff --git a/sysdeps/x86/dl-tunables.list b/sysdeps/x86/dl-tunables.list
+index 7d82da0dece49c45..a0a12995927dc4f1 100644
+--- a/sysdeps/x86/dl-tunables.list
++++ b/sysdeps/x86/dl-tunables.list
+@@ -30,6 +30,9 @@ glibc {
+     x86_non_temporal_threshold {
+       type: SIZE_T
+     }
++    x86_memset_non_temporal_threshold {
++      type: SIZE_T
++    }
+     x86_rep_movsb_threshold {
+       type: SIZE_T
+       # Since there is overhead to set up REP MOVSB operation, REP
+diff --git a/sysdeps/x86/include/cpu-features.h b/sysdeps/x86/include/cpu-features.h
+index a11d4be30b696ac3..03c71387dd08982b 100644
+--- a/sysdeps/x86/include/cpu-features.h
++++ b/sysdeps/x86/include/cpu-features.h
+@@ -942,8 +942,10 @@ struct cpu_features
+   /* Shared cache size for use in memory and string routines, typically
+      L2 or L3 size.  */
+   unsigned long int shared_cache_size;
+-  /* Threshold to use non temporal store.  */
++  /* Threshold to use non temporal store in memmove.  */
+   unsigned long int non_temporal_threshold;
++  /* Threshold to use non temporal store in memset.  */
++  unsigned long int memset_non_temporal_threshold;
+   /* Threshold to use "rep movsb".  */
+   unsigned long int rep_movsb_threshold;
+   /* Threshold to stop using "rep movsb".  */
+diff --git a/sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S b/sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S
+index 637caadb406b2544..88bf08e4f4a2260e 100644
+--- a/sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S
++++ b/sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S
+@@ -24,9 +24,9 @@
+    5. If size is more to 4 * VEC_SIZE, align to 1 * VEC_SIZE with
+       4 VEC stores and store 4 * VEC at a time until done.
+    6. On machines ERMS feature, if size is range
+-	  [__x86_rep_stosb_threshold, __x86_shared_non_temporal_threshold)
++	  [__x86_rep_stosb_threshold, __x86_memset_non_temporal_threshold)
+ 	  then REP STOSB will be used.
+-   7. If size >= __x86_shared_non_temporal_threshold, use a
++   7. If size >= __x86_memset_non_temporal_threshold, use a
+ 	  non-temporal stores.  */
+ 
+ #include <sysdep.h>
+@@ -318,7 +318,7 @@ L(return_vzeroupper):
+ 	/* If no USE_LESS_VEC_MASK put L(stosb_local) here. Will be in
+ 	   range for 2-byte jump encoding.  */
+ L(stosb_local):
+-	cmp	__x86_shared_non_temporal_threshold(%rip), %RDX_LP
++	cmp	__x86_memset_non_temporal_threshold(%rip), %RDX_LP
+ 	jae	L(nt_memset)
+ 	movzbl	%sil, %eax
+ 	mov	%RDX_LP, %RCX_LP

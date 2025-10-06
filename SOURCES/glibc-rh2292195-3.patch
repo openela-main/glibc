@@ -1,0 +1,31 @@
+commit 2a6c922f09e7a1c206e0cbdb4424f1cf101a5bda
+Author: Andreas Schwab <schwab@suse.de>
+Date:   Thu Jun 20 14:13:01 2024 +0200
+
+    mtrace: make shell commands robust against meta characters
+    
+    Use the list form of the open function to avoid interpreting meta
+    characters in the arguments.
+
+diff --git a/malloc/mtrace.pl b/malloc/mtrace.pl
+index 0a631a07bc4cfbb6..32b4da935f7c7c4a 100644
+--- a/malloc/mtrace.pl
++++ b/malloc/mtrace.pl
+@@ -87,7 +87,7 @@ if ($#ARGV == 0) {
+     }
+     # Set the environment variable LD_TRACE_LOADED_OBJECTS to 2 so the
+     # executable is also printed.
+-    if (open (locs, "env LD_TRACE_LOADED_OBJECTS=2 $prog |")) {
++    if (open (locs, "-|", "env", "LD_TRACE_LOADED_OBJECTS=2", $prog)) {
+ 	while (<locs>) {
+ 	    chop;
+ 	    if (/^.*=> (.*) .(0x[0123456789abcdef]*).$/) {
+@@ -104,7 +104,7 @@ if ($#ARGV == 0) {
+ sub addr2line {
+     my $addr = pop(@_);
+     my $prog = pop(@_);
+-    if (open (ADDR, "addr2line -e $prog $addr|")) {
++    if (open (ADDR, "-|", "addr2line", "-e", $prog, $addr)) {
+ 	my $line = <ADDR>;
+ 	chomp $line;
+ 	close (ADDR);

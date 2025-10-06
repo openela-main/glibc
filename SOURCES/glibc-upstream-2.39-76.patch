@@ -1,0 +1,155 @@
+commit 74630b1bb717fb98f4692261f2be8d5c84851fa3
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Mon May 6 13:20:56 2024 -0300
+
+    posix: Fix pidfd_spawn/pidfd_spawnp leak if execve fails (BZ 31695)
+    
+    If the pidfd_spawn/pidfd_spawnp helper process succeeds, but evecve
+    fails for some reason (either with an invalid/non-existent, memory
+    allocation, etc.) the resulting pidfd is never closed, nor returned
+    to caller (so it can call close).
+    
+    Since the process creation failed, it should be up to posix_spawn to
+    also, close the file descriptor in this case (similar to what it
+    does to reap the process).
+    
+    This patch also changes the waitpid with waitid (P_PIDFD) for pidfd
+    case, to avoid a possible pid re-use.
+    
+    Checked on x86_64-linux-gnu.
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+    
+    (cherry picked from commit c90cfce849d010474e8cccf3e5bff49a2c8b141f)
+
+diff --git a/posix/tst-spawn2.c b/posix/tst-spawn2.c
+index bb507204a2b25271..b2bad3f1f7e026fd 100644
+--- a/posix/tst-spawn2.c
++++ b/posix/tst-spawn2.c
+@@ -26,6 +26,7 @@
+ #include <stdio.h>
+ 
+ #include <support/check.h>
++#include <support/descriptors.h>
+ #include <tst-spawn.h>
+ 
+ int
+@@ -38,38 +39,53 @@ do_test (void)
+   char * const args[] = { 0 };
+   PID_T_TYPE pid = -1;
+ 
+-  int ret = POSIX_SPAWN (&pid, program, 0, 0, args, environ);
+-  if (ret != ENOENT)
+-    {
+-      errno = ret;
+-      FAIL_EXIT1 ("posix_spawn: %m");
+-    }
+-
+-  /* POSIX states the value returned on pid variable in case of an error
+-     is not specified.  GLIBC will update the value iff the child
+-     execution is successful.  */
+-  if (pid != -1)
+-    FAIL_EXIT1 ("posix_spawn returned pid != -1 (%i)", (int) pid);
+-
+-  /* Check if no child is actually created.  */
+-  TEST_COMPARE (WAITID (P_ALL, 0, NULL, WEXITED), -1);
+-  TEST_COMPARE (errno, ECHILD);
+-
+-  /* Same as before, but with posix_spawnp.  */
+-  char *args2[] = { (char*) program, 0 };
+-
+-  ret = POSIX_SPAWNP (&pid, args2[0], 0, 0, args2, environ);
+-  if (ret != ENOENT)
+-    {
+-      errno = ret;
+-      FAIL_EXIT1 ("posix_spawnp: %m");
+-    }
+-
+-  if (pid != -1)
+-    FAIL_EXIT1 ("posix_spawnp returned pid != -1 (%i)", (int) pid);
+-
+-  TEST_COMPARE (WAITID (P_ALL, 0, NULL, WEXITED), -1);
+-  TEST_COMPARE (errno, ECHILD);
++  {
++    struct support_descriptors *descrs = support_descriptors_list ();
++
++    int ret = POSIX_SPAWN (&pid, program, 0, 0, args, environ);
++    if (ret != ENOENT)
++      {
++	errno = ret;
++	FAIL_EXIT1 ("posix_spawn: %m");
++      }
++
++    /* POSIX states the value returned on pid variable in case of an error
++       is not specified.  GLIBC will update the value iff the child
++       execution is successful.  */
++    if (pid != -1)
++      FAIL_EXIT1 ("posix_spawn returned pid != -1 (%i)", (int) pid);
++
++    /* Check if no child is actually created.  */
++    TEST_COMPARE (WAITID (P_ALL, 0, NULL, WEXITED), -1);
++    TEST_COMPARE (errno, ECHILD);
++
++    /* Also check if there is no leak descriptors.  */
++    support_descriptors_check (descrs);
++    support_descriptors_free (descrs);
++  }
++
++  {
++    /* Same as before, but with posix_spawnp.  */
++    char *args2[] = { (char*) program, 0 };
++
++    struct support_descriptors *descrs = support_descriptors_list ();
++
++    int ret = POSIX_SPAWNP (&pid, args2[0], 0, 0, args2, environ);
++    if (ret != ENOENT)
++      {
++	errno = ret;
++	FAIL_EXIT1 ("posix_spawnp: %m");
++      }
++
++    if (pid != -1)
++      FAIL_EXIT1 ("posix_spawnp returned pid != -1 (%i)", (int) pid);
++
++    TEST_COMPARE (WAITID (P_ALL, 0, NULL, WEXITED), -1);
++    TEST_COMPARE (errno, ECHILD);
++
++    support_descriptors_check (descrs);
++    support_descriptors_free (descrs);
++  }
+ 
+   return 0;
+ }
+diff --git a/sysdeps/unix/sysv/linux/spawni.c b/sysdeps/unix/sysv/linux/spawni.c
+index e8ed2babb9b13969..f57e92815eaf3c7b 100644
+--- a/sysdeps/unix/sysv/linux/spawni.c
++++ b/sysdeps/unix/sysv/linux/spawni.c
+@@ -449,13 +449,22 @@ __spawnix (int *pid, const char *file,
+ 	 caller to actually collect it.  */
+       ec = args.err;
+       if (ec > 0)
+-	/* There still an unlikely case where the child is cancelled after
+-	   setting args.err, due to a positive error value.  Also there is
+-	   possible pid reuse race (where the kernel allocated the same pid
+-	   to an unrelated process).  Unfortunately due synchronization
+-	   issues where the kernel might not have the process collected
+-	   the waitpid below can not use WNOHANG.  */
+-	__waitpid (new_pid, NULL, 0);
++	{
++	  /* There still an unlikely case where the child is cancelled after
++	     setting args.err, due to a positive error value.  Also there is
++	     possible pid reuse race (where the kernel allocated the same pid
++	     to an unrelated process).  Unfortunately due synchronization
++	     issues where the kernel might not have the process collected
++	     the waitpid below can not use WNOHANG.  */
++	  __waitid (use_pidfd ? P_PIDFD : P_PID,
++		    use_pidfd ? args.pidfd : new_pid,
++		    NULL,
++		    WEXITED);
++	  /* For pidfd we need to also close the file descriptor for the case
++	     where execve fails.  */
++	  if (use_pidfd)
++	    __close_nocancel_nostatus (args.pidfd);
++	}
+     }
+   else
+     ec = errno;

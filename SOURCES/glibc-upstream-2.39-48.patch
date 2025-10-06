@@ -1,0 +1,40 @@
+commit c16871e662cd0f3370173d916864b19e69f1bc9a
+Author: Sam James <sam@gentoo.org>
+Date:   Sat May 4 13:28:51 2024 +0100
+
+    Revert "i686: Fix multiple definitions of __memmove_chk and __memset_chk"
+    
+    This reverts commit ad92c483a4bd34db1cfb3eb625212ea64848244f.
+    
+    I had the wrong cherry-pick reference (the commit content is right; it's
+    just referring to a base that isn't upstream), but let's revert and reapply
+    for clarity.
+    
+    Signed-off-by: Sam James <sam@gentoo.org>
+
+diff --git a/sysdeps/i386/i686/memmove.S b/sysdeps/i386/i686/memmove.S
+index effd958120082b04..f230359ad62b2443 100644
+--- a/sysdeps/i386/i686/memmove.S
++++ b/sysdeps/i386/i686/memmove.S
+@@ -29,7 +29,7 @@
+ #define SRC	DEST+4
+ #define LEN	SRC+4
+ 
+-#if defined SHARED && IS_IN (libc)
++#if defined PIC && IS_IN (libc)
+ ENTRY_CHK (__memmove_chk)
+ 	movl	12(%esp), %eax
+ 	cmpl	%eax, 16(%esp)
+diff --git a/sysdeps/i386/i686/memset.S b/sysdeps/i386/i686/memset.S
+index ab06771ea0ca071f..f02f5a6df763d4e9 100644
+--- a/sysdeps/i386/i686/memset.S
++++ b/sysdeps/i386/i686/memset.S
+@@ -27,7 +27,7 @@
+ #define LEN	CHR+4
+ 
+         .text
+-#if defined SHARED && IS_IN (libc)
++#if defined PIC && IS_IN (libc)
+ ENTRY_CHK (__memset_chk)
+ 	movl	12(%esp), %eax
+ 	cmpl	%eax, 16(%esp)

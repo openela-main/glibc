@@ -1,0 +1,230 @@
+commit d591876303e368fde0b03e1536efb69b64d9d483
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Thu May 2 16:43:13 2024 +0100
+
+    aarch64: Fix AdvSIMD libmvec routines for big-endian
+    
+    Previously many routines used * to load from vector types stored
+    in the data table. This is emitted as ldr, which byte-swaps the
+    entire vector register, and causes bugs for big-endian when not
+    all lanes contain the same value. When a vector is to be used
+    this way, it has been replaced with an array and the load with an
+    explicit ld1 intrinsic, which byte-swaps only within lanes.
+    
+    As well, many routines previously used non-standard GCC syntax
+    for vector operations such as indexing into vectors types with []
+    and assembling vectors using {}. This syntax should not be mixed
+    with ACLE, as the former does not respect endianness whereas the
+    latter does. Such examples have been replaced with, for instance,
+    vcombine_* and vgetq_lane* intrinsics. Helpers which only use the
+    GCC syntax, such as the v_call helpers, do not need changing as
+    they do not use intrinsics.
+    
+    Reviewed-by: Szabolcs Nagy <szabolcs.nagy@arm.com>
+    (cherry picked from commit 90a6ca8b28bf34e361e577e526e1b0f4c39a32a5)
+
+diff --git a/sysdeps/aarch64/fpu/exp10f_advsimd.c b/sysdeps/aarch64/fpu/exp10f_advsimd.c
+index ab117b69da23e5f3..cf53e73290fcedb6 100644
+--- a/sysdeps/aarch64/fpu/exp10f_advsimd.c
++++ b/sysdeps/aarch64/fpu/exp10f_advsimd.c
+@@ -25,7 +25,8 @@
+ static const struct data
+ {
+   float32x4_t poly[5];
+-  float32x4_t log10_2_and_inv, shift;
++  float log10_2_and_inv[4];
++  float32x4_t shift;
+ 
+ #if !WANT_SIMD_EXCEPT
+   float32x4_t scale_thresh;
+@@ -111,10 +112,11 @@ float32x4_t VPCS_ATTR NOINLINE V_NAME_F1 (exp10) (float32x4_t x)
+   /* exp10(x) = 2^n * 10^r = 2^n * (1 + poly (r)),
+      with poly(r) in [1/sqrt(2), sqrt(2)] and
+      x = r + n * log10 (2), with r in [-log10(2)/2, log10(2)/2].  */
+-  float32x4_t z = vfmaq_laneq_f32 (d->shift, x, d->log10_2_and_inv, 0);
++  float32x4_t log10_2_and_inv = vld1q_f32 (d->log10_2_and_inv);
++  float32x4_t z = vfmaq_laneq_f32 (d->shift, x, log10_2_and_inv, 0);
+   float32x4_t n = vsubq_f32 (z, d->shift);
+-  float32x4_t r = vfmsq_laneq_f32 (x, n, d->log10_2_and_inv, 1);
+-  r = vfmsq_laneq_f32 (r, n, d->log10_2_and_inv, 2);
++  float32x4_t r = vfmsq_laneq_f32 (x, n, log10_2_and_inv, 1);
++  r = vfmsq_laneq_f32 (r, n, log10_2_and_inv, 2);
+   uint32x4_t e = vshlq_n_u32 (vreinterpretq_u32_f32 (z), 23);
+ 
+   float32x4_t scale = vreinterpretq_f32_u32 (vaddq_u32 (e, ExponentBias));
+diff --git a/sysdeps/aarch64/fpu/expm1_advsimd.c b/sysdeps/aarch64/fpu/expm1_advsimd.c
+index 3628398674468131..3db3b80c49292947 100644
+--- a/sysdeps/aarch64/fpu/expm1_advsimd.c
++++ b/sysdeps/aarch64/fpu/expm1_advsimd.c
+@@ -23,7 +23,9 @@
+ static const struct data
+ {
+   float64x2_t poly[11];
+-  float64x2_t invln2, ln2, shift;
++  float64x2_t invln2;
++  double ln2[2];
++  float64x2_t shift;
+   int64x2_t exponent_bias;
+ #if WANT_SIMD_EXCEPT
+   uint64x2_t thresh, tiny_bound;
+@@ -92,8 +94,9 @@ float64x2_t VPCS_ATTR V_NAME_D1 (expm1) (float64x2_t x)
+      where 2^i is exact because i is an integer.  */
+   float64x2_t n = vsubq_f64 (vfmaq_f64 (d->shift, d->invln2, x), d->shift);
+   int64x2_t i = vcvtq_s64_f64 (n);
+-  float64x2_t f = vfmsq_laneq_f64 (x, n, d->ln2, 0);
+-  f = vfmsq_laneq_f64 (f, n, d->ln2, 1);
++  float64x2_t ln2 = vld1q_f64 (&d->ln2[0]);
++  float64x2_t f = vfmsq_laneq_f64 (x, n, ln2, 0);
++  f = vfmsq_laneq_f64 (f, n, ln2, 1);
+ 
+   /* Approximate expm1(f) using polynomial.
+      Taylor expansion for expm1(x) has the form:
+diff --git a/sysdeps/aarch64/fpu/expm1f_advsimd.c b/sysdeps/aarch64/fpu/expm1f_advsimd.c
+index 93db200f618379be..a0616ec7542cbfce 100644
+--- a/sysdeps/aarch64/fpu/expm1f_advsimd.c
++++ b/sysdeps/aarch64/fpu/expm1f_advsimd.c
+@@ -23,7 +23,7 @@
+ static const struct data
+ {
+   float32x4_t poly[5];
+-  float32x4_t invln2_and_ln2;
++  float invln2_and_ln2[4];
+   float32x4_t shift;
+   int32x4_t exponent_bias;
+ #if WANT_SIMD_EXCEPT
+@@ -88,11 +88,12 @@ float32x4_t VPCS_ATTR NOINLINE V_NAME_F1 (expm1) (float32x4_t x)
+      and f = x - i * ln2, then f is in [-ln2/2, ln2/2].
+      exp(x) - 1 = 2^i * (expm1(f) + 1) - 1
+      where 2^i is exact because i is an integer.  */
+-  float32x4_t j = vsubq_f32 (
+-      vfmaq_laneq_f32 (d->shift, x, d->invln2_and_ln2, 0), d->shift);
++  float32x4_t invln2_and_ln2 = vld1q_f32 (d->invln2_and_ln2);
++  float32x4_t j
++      = vsubq_f32 (vfmaq_laneq_f32 (d->shift, x, invln2_and_ln2, 0), d->shift);
+   int32x4_t i = vcvtq_s32_f32 (j);
+-  float32x4_t f = vfmsq_laneq_f32 (x, j, d->invln2_and_ln2, 1);
+-  f = vfmsq_laneq_f32 (f, j, d->invln2_and_ln2, 2);
++  float32x4_t f = vfmsq_laneq_f32 (x, j, invln2_and_ln2, 1);
++  f = vfmsq_laneq_f32 (f, j, invln2_and_ln2, 2);
+ 
+   /* Approximate expm1(f) using polynomial.
+      Taylor expansion for expm1(x) has the form:
+diff --git a/sysdeps/aarch64/fpu/log10_advsimd.c b/sysdeps/aarch64/fpu/log10_advsimd.c
+index 1e5ef99e8907068b..c065aaebae8600fb 100644
+--- a/sysdeps/aarch64/fpu/log10_advsimd.c
++++ b/sysdeps/aarch64/fpu/log10_advsimd.c
+@@ -58,8 +58,10 @@ static inline struct entry
+ lookup (uint64x2_t i)
+ {
+   struct entry e;
+-  uint64_t i0 = (i[0] >> (52 - V_LOG10_TABLE_BITS)) & IndexMask;
+-  uint64_t i1 = (i[1] >> (52 - V_LOG10_TABLE_BITS)) & IndexMask;
++  uint64_t i0
++      = (vgetq_lane_u64 (i, 0) >> (52 - V_LOG10_TABLE_BITS)) & IndexMask;
++  uint64_t i1
++      = (vgetq_lane_u64 (i, 1) >> (52 - V_LOG10_TABLE_BITS)) & IndexMask;
+   float64x2_t e0 = vld1q_f64 (&__v_log10_data.table[i0].invc);
+   float64x2_t e1 = vld1q_f64 (&__v_log10_data.table[i1].invc);
+   e.invc = vuzp1q_f64 (e0, e1);
+diff --git a/sysdeps/aarch64/fpu/log2_advsimd.c b/sysdeps/aarch64/fpu/log2_advsimd.c
+index a34978f6cf1cdb44..4057c552d8dfc0bb 100644
+--- a/sysdeps/aarch64/fpu/log2_advsimd.c
++++ b/sysdeps/aarch64/fpu/log2_advsimd.c
+@@ -55,8 +55,10 @@ static inline struct entry
+ lookup (uint64x2_t i)
+ {
+   struct entry e;
+-  uint64_t i0 = (i[0] >> (52 - V_LOG2_TABLE_BITS)) & IndexMask;
+-  uint64_t i1 = (i[1] >> (52 - V_LOG2_TABLE_BITS)) & IndexMask;
++  uint64_t i0
++      = (vgetq_lane_u64 (i, 0) >> (52 - V_LOG2_TABLE_BITS)) & IndexMask;
++  uint64_t i1
++      = (vgetq_lane_u64 (i, 1) >> (52 - V_LOG2_TABLE_BITS)) & IndexMask;
+   float64x2_t e0 = vld1q_f64 (&__v_log2_data.table[i0].invc);
+   float64x2_t e1 = vld1q_f64 (&__v_log2_data.table[i1].invc);
+   e.invc = vuzp1q_f64 (e0, e1);
+diff --git a/sysdeps/aarch64/fpu/log_advsimd.c b/sysdeps/aarch64/fpu/log_advsimd.c
+index 21df61728ca87374..015a6da7d7fd693e 100644
+--- a/sysdeps/aarch64/fpu/log_advsimd.c
++++ b/sysdeps/aarch64/fpu/log_advsimd.c
+@@ -54,17 +54,12 @@ lookup (uint64x2_t i)
+ {
+   /* Since N is a power of 2, n % N = n & (N - 1).  */
+   struct entry e;
+-  uint64_t i0 = (i[0] >> (52 - V_LOG_TABLE_BITS)) & IndexMask;
+-  uint64_t i1 = (i[1] >> (52 - V_LOG_TABLE_BITS)) & IndexMask;
++  uint64_t i0 = (vgetq_lane_u64 (i, 0) >> (52 - V_LOG_TABLE_BITS)) & IndexMask;
++  uint64_t i1 = (vgetq_lane_u64 (i, 1) >> (52 - V_LOG_TABLE_BITS)) & IndexMask;
+   float64x2_t e0 = vld1q_f64 (&__v_log_data.table[i0].invc);
+   float64x2_t e1 = vld1q_f64 (&__v_log_data.table[i1].invc);
+-#if __BYTE_ORDER == __LITTLE_ENDIAN
+   e.invc = vuzp1q_f64 (e0, e1);
+   e.logc = vuzp2q_f64 (e0, e1);
+-#else
+-  e.invc = vuzp1q_f64 (e1, e0);
+-  e.logc = vuzp2q_f64 (e1, e0);
+-#endif
+   return e;
+ }
+ 
+diff --git a/sysdeps/aarch64/fpu/tan_advsimd.c b/sysdeps/aarch64/fpu/tan_advsimd.c
+index 0459821ab25487a8..d56a102dd17a3463 100644
+--- a/sysdeps/aarch64/fpu/tan_advsimd.c
++++ b/sysdeps/aarch64/fpu/tan_advsimd.c
+@@ -23,7 +23,8 @@
+ static const struct data
+ {
+   float64x2_t poly[9];
+-  float64x2_t half_pi, two_over_pi, shift;
++  double half_pi[2];
++  float64x2_t two_over_pi, shift;
+ #if !WANT_SIMD_EXCEPT
+   float64x2_t range_val;
+ #endif
+@@ -81,8 +82,9 @@ float64x2_t VPCS_ATTR V_NAME_D1 (tan) (float64x2_t x)
+   /* Use q to reduce x to r in [-pi/4, pi/4], by:
+      r = x - q * pi/2, in extended precision.  */
+   float64x2_t r = x;
+-  r = vfmsq_laneq_f64 (r, q, dat->half_pi, 0);
+-  r = vfmsq_laneq_f64 (r, q, dat->half_pi, 1);
++  float64x2_t half_pi = vld1q_f64 (dat->half_pi);
++  r = vfmsq_laneq_f64 (r, q, half_pi, 0);
++  r = vfmsq_laneq_f64 (r, q, half_pi, 1);
+   /* Further reduce r to [-pi/8, pi/8], to be reconstructed using double angle
+      formula.  */
+   r = vmulq_n_f64 (r, 0.5);
+diff --git a/sysdeps/aarch64/fpu/tanf_advsimd.c b/sysdeps/aarch64/fpu/tanf_advsimd.c
+index 5a7489390a9692c6..705586f0c0b664c1 100644
+--- a/sysdeps/aarch64/fpu/tanf_advsimd.c
++++ b/sysdeps/aarch64/fpu/tanf_advsimd.c
+@@ -23,7 +23,7 @@
+ static const struct data
+ {
+   float32x4_t poly[6];
+-  float32x4_t pi_consts;
++  float pi_consts[4];
+   float32x4_t shift;
+ #if !WANT_SIMD_EXCEPT
+   float32x4_t range_val;
+@@ -95,16 +95,17 @@ float32x4_t VPCS_ATTR NOINLINE V_NAME_F1 (tan) (float32x4_t x)
+ #endif
+ 
+   /* n = rint(x/(pi/2)).  */
+-  float32x4_t q = vfmaq_laneq_f32 (d->shift, x, d->pi_consts, 3);
++  float32x4_t pi_consts = vld1q_f32 (d->pi_consts);
++  float32x4_t q = vfmaq_laneq_f32 (d->shift, x, pi_consts, 3);
+   float32x4_t n = vsubq_f32 (q, d->shift);
+   /* Determine if x lives in an interval, where |tan(x)| grows to infinity.  */
+   uint32x4_t pred_alt = vtstq_u32 (vreinterpretq_u32_f32 (q), v_u32 (1));
+ 
+   /* r = x - n * (pi/2)  (range reduction into -pi./4 .. pi/4).  */
+   float32x4_t r;
+-  r = vfmaq_laneq_f32 (x, n, d->pi_consts, 0);
+-  r = vfmaq_laneq_f32 (r, n, d->pi_consts, 1);
+-  r = vfmaq_laneq_f32 (r, n, d->pi_consts, 2);
++  r = vfmaq_laneq_f32 (x, n, pi_consts, 0);
++  r = vfmaq_laneq_f32 (r, n, pi_consts, 1);
++  r = vfmaq_laneq_f32 (r, n, pi_consts, 2);
+ 
+   /* If x lives in an interval, where |tan(x)|
+      - is finite, then use a polynomial approximation of the form

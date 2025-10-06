@@ -1,0 +1,69 @@
+commit b7f5b0a7114e29577daf64e68970673b61e5fcba
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Mon Jun 10 13:02:06 2024 -0700
+
+    x86: Properly set MINIMUM_X86_ISA_LEVEL for i386 [BZ #31867]
+    
+    On i386, set the default minimum ISA level to 0, not 1 (baseline which
+    includes SSE2).  There are no changes in config.h nor in config.make on
+    x86-64.  This fixes BZ #31867.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Tested-by: Ian Jordan <immoloism@gmail.com>
+    Reviewed-by: Sam James <sam@gentoo.org>
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+    (cherry picked from commit 09bc68b0ac26331a0109f0578c9368e09176da18)
+
+diff --git a/sysdeps/x86/configure b/sysdeps/x86/configure
+index d28d9bcb296c6380..1e2325d0d7212d67 100644
+--- a/sysdeps/x86/configure
++++ b/sysdeps/x86/configure
+@@ -139,8 +139,10 @@ libc_cv_have_x86_isa_level=4
+ libc_cv_have_x86_isa_level=3
+ #elif MINIMUM_X86_ISA_LEVEL == 2
+ libc_cv_have_x86_isa_level=2
+-#else
++#elif defined __x86_64__
+ libc_cv_have_x86_isa_level=baseline
++#else
++libc_cv_have_x86_isa_level=MINIMUM_X86_ISA_LEVEL
+ #endif
+ EOF
+ 		 eval `${CC-cc} $CFLAGS $CPPFLAGS $ISAFLAG -I$srcdir -E conftest.c | grep libc_cv_have_x86_isa_level`
+@@ -148,8 +150,10 @@ EOF
+ fi
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $libc_cv_have_x86_isa_level" >&5
+ printf "%s\n" "$libc_cv_have_x86_isa_level" >&6; }
+-else
++elif test $base_machine = x86_64; then
+   libc_cv_have_x86_isa_level=baseline
++else
++  libc_cv_have_x86_isa_level=0
+ fi
+ if test $libc_cv_have_x86_isa_level = baseline; then
+   printf "%s\n" "#define MINIMUM_X86_ISA_LEVEL 1" >>confdefs.h
+diff --git a/sysdeps/x86/configure.ac b/sysdeps/x86/configure.ac
+index 5b0acd03d2a30c9b..0b32fdfd4f1bb115 100644
+--- a/sysdeps/x86/configure.ac
++++ b/sysdeps/x86/configure.ac
+@@ -96,14 +96,18 @@ libc_cv_have_x86_isa_level=4
+ libc_cv_have_x86_isa_level=3
+ #elif MINIMUM_X86_ISA_LEVEL == 2
+ libc_cv_have_x86_isa_level=2
+-#else
++#elif defined __x86_64__
+ libc_cv_have_x86_isa_level=baseline
++#else
++libc_cv_have_x86_isa_level=MINIMUM_X86_ISA_LEVEL
+ #endif
+ EOF
+ 		 eval `${CC-cc} $CFLAGS $CPPFLAGS $ISAFLAG -I$srcdir -E conftest.c | grep libc_cv_have_x86_isa_level`
+ 		 rm -rf conftest*])
+-else
++elif test $base_machine = x86_64; then
+   libc_cv_have_x86_isa_level=baseline
++else
++  libc_cv_have_x86_isa_level=0
+ fi
+ if test $libc_cv_have_x86_isa_level = baseline; then
+   AC_DEFINE_UNQUOTED(MINIMUM_X86_ISA_LEVEL, 1)

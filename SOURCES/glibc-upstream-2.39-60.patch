@@ -1,0 +1,195 @@
+commit 26e7005728f0eea2972474e6be2905c467661237
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Sat May 18 09:33:19 2024 +0200
+
+    socket: Use may_alias on sockaddr structs (bug 19622)
+    
+    This supports common coding patterns.  The GCC C front end before
+    version 7 rejects the may_alias attribute on a struct definition
+    if it was not present in a previous forward declaration, so this
+    attribute can only be conditionally applied.
+    
+    This implements the spirit of the change in Austin Group issue 1641.
+    
+    Suggested-by: Marek Polacek <polacek@redhat.com>
+    Suggested-by: Jakub Jelinek <jakub@redhat.com>
+    Reviewed-by: Sam James <sam@gentoo.org>
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+    (cherry picked from commit 8d7b6b4cb27d4dec1dd5f7960298c1699275f962)
+
+diff --git a/bits/socket.h b/bits/socket.h
+index 13de124bac67c217..772074d52ab957df 100644
+--- a/bits/socket.h
++++ b/bits/socket.h
+@@ -149,7 +149,7 @@ enum __socket_type
+ #include <bits/sockaddr.h>
+ 
+ /* Structure describing a generic socket address.  */
+-struct sockaddr
++struct __attribute_struct_may_alias__ sockaddr
+   {
+     __SOCKADDR_COMMON (sa_);	/* Common data: address family and length.  */
+     char sa_data[14];		/* Address data.  */
+@@ -166,7 +166,7 @@ struct sockaddr
+ #define _SS_PADSIZE \
+   (_SS_SIZE - __SOCKADDR_COMMON_SIZE - sizeof (__ss_aligntype))
+ 
+-struct sockaddr_storage
++struct __attribute_struct_may_alias__ sockaddr_storage
+   {
+     __SOCKADDR_COMMON (ss_);	/* Address family, etc.  */
+     char __ss_padding[_SS_PADSIZE];
+diff --git a/inet/netinet/in.h b/inet/netinet/in.h
+index fa57b6107908590c..f684be5beb26fc62 100644
+--- a/inet/netinet/in.h
++++ b/inet/netinet/in.h
+@@ -244,7 +244,7 @@ extern const struct in6_addr in6addr_loopback;   /* ::1 */
+ 
+ 
+ /* Structure describing an Internet socket address.  */
+-struct sockaddr_in
++struct __attribute_struct_may_alias__ sockaddr_in
+   {
+     __SOCKADDR_COMMON (sin_);
+     in_port_t sin_port;			/* Port number.  */
+@@ -257,9 +257,11 @@ struct sockaddr_in
+ 			   - sizeof (struct in_addr)];
+   };
+ 
+-#if !__USE_KERNEL_IPV6_DEFS
++#if __USE_KERNEL_IPV6_DEFS
++struct __attribute_struct_may_alias__ sockaddr_in6;
++#else
+ /* Ditto, for IPv6.  */
+-struct sockaddr_in6
++struct __attribute_struct_may_alias__ sockaddr_in6
+   {
+     __SOCKADDR_COMMON (sin6_);
+     in_port_t sin6_port;	/* Transport layer port # */
+diff --git a/misc/sys/cdefs.h b/misc/sys/cdefs.h
+index 520231dbea3a4e24..399ee7d24cae9446 100644
+--- a/misc/sys/cdefs.h
++++ b/misc/sys/cdefs.h
+@@ -720,4 +720,13 @@ _Static_assert (0, "IEEE 128-bits long double requires redirection on this platf
+ # define __attribute_returns_twice__ /* Ignore.  */
+ #endif
+ 
++/* Mark struct types as aliasable.  Restricted to compilers that
++   support forward declarations of structs in the presence of the
++   attribute.  */
++#if __GNUC_PREREQ (7, 1) || defined __clang__
++# define __attribute_struct_may_alias__ __attribute__ ((__may_alias__))
++#else
++# define __attribute_struct_may_alias__
++#endif
++
+ #endif	 /* sys/cdefs.h */
+diff --git a/socket/sys/un.h b/socket/sys/un.h
+index bf03b7d6ce959065..ff9cbd6efa7693d5 100644
+--- a/socket/sys/un.h
++++ b/socket/sys/un.h
+@@ -26,7 +26,7 @@
+ __BEGIN_DECLS
+ 
+ /* Structure describing the address of an AF_LOCAL (aka AF_UNIX) socket.  */
+-struct sockaddr_un
++struct __attribute_struct_may_alias__ sockaddr_un
+   {
+     __SOCKADDR_COMMON (sun_);
+     char sun_path[108];		/* Path name.  */
+diff --git a/sysdeps/mach/hurd/bits/socket.h b/sysdeps/mach/hurd/bits/socket.h
+index 3e72f9fa93add888..b5eeac373111e694 100644
+--- a/sysdeps/mach/hurd/bits/socket.h
++++ b/sysdeps/mach/hurd/bits/socket.h
+@@ -153,7 +153,7 @@ enum __socket_type
+ #include <bits/sockaddr.h>
+ 
+ /* Structure describing a generic socket address.  */
+-struct sockaddr
++struct __attribute_struct_may_alias__ sockaddr
+   {
+     __SOCKADDR_COMMON (sa_);	/* Common data: address family and length.  */
+     char sa_data[14];		/* Address data.  */
+@@ -170,7 +170,7 @@ struct sockaddr
+ #define _SS_PADSIZE \
+   (_SS_SIZE - __SOCKADDR_COMMON_SIZE - sizeof (__ss_aligntype))
+ 
+-struct sockaddr_storage
++struct __attribute_struct_may_alias__ sockaddr_storage
+   {
+     __SOCKADDR_COMMON (ss_);	/* Address family, etc.  */
+     char __ss_padding[_SS_PADSIZE];
+diff --git a/sysdeps/unix/sysv/linux/bits/socket.h b/sysdeps/unix/sysv/linux/bits/socket.h
+index 0d86feb4cadc13e3..6dab283a2ebeaed1 100644
+--- a/sysdeps/unix/sysv/linux/bits/socket.h
++++ b/sysdeps/unix/sysv/linux/bits/socket.h
+@@ -180,7 +180,7 @@ typedef __socklen_t socklen_t;
+ #include <bits/sockaddr.h>
+ 
+ /* Structure describing a generic socket address.  */
+-struct sockaddr
++struct __attribute_struct_may_alias__ sockaddr
+   {
+     __SOCKADDR_COMMON (sa_);	/* Common data: address family and length.  */
+     char sa_data[14];		/* Address data.  */
+@@ -193,7 +193,7 @@ struct sockaddr
+ #define _SS_PADSIZE \
+   (_SS_SIZE - __SOCKADDR_COMMON_SIZE - sizeof (__ss_aligntype))
+ 
+-struct sockaddr_storage
++struct __attribute_struct_may_alias__ sockaddr_storage
+   {
+     __SOCKADDR_COMMON (ss_);	/* Address family, etc.  */
+     char __ss_padding[_SS_PADSIZE];
+diff --git a/sysdeps/unix/sysv/linux/net/if_packet.h b/sysdeps/unix/sysv/linux/net/if_packet.h
+index 9ffb69b508cc8ca7..c17e1c23c5cf9169 100644
+--- a/sysdeps/unix/sysv/linux/net/if_packet.h
++++ b/sysdeps/unix/sysv/linux/net/if_packet.h
+@@ -26,7 +26,7 @@
+    From Linux 2.1 the AF_PACKET interface is preferred and you should
+    consider using it in place of this one.  */
+ 
+-struct sockaddr_pkt
++struct __attribute_struct_may_alias__ sockaddr_pkt
+   {
+     __SOCKADDR_COMMON (spkt_);
+     unsigned char spkt_device[14];
+diff --git a/sysdeps/unix/sysv/linux/netash/ash.h b/sysdeps/unix/sysv/linux/netash/ash.h
+index 7d885d17cc9ec313..7a6ff50b17b370c4 100644
+--- a/sysdeps/unix/sysv/linux/netash/ash.h
++++ b/sysdeps/unix/sysv/linux/netash/ash.h
+@@ -22,7 +22,7 @@
+ #include <features.h>
+ #include <bits/sockaddr.h>
+ 
+-struct sockaddr_ash
++struct __attribute_struct_may_alias__ sockaddr_ash
+   {
+     __SOCKADDR_COMMON (sash_);		/* Common data: address family etc.  */
+     int sash_ifindex;			/* Interface to use.  */
+diff --git a/sysdeps/unix/sysv/linux/neteconet/ec.h b/sysdeps/unix/sysv/linux/neteconet/ec.h
+index b07a10796196e28e..f3132f06ff9f8dee 100644
+--- a/sysdeps/unix/sysv/linux/neteconet/ec.h
++++ b/sysdeps/unix/sysv/linux/neteconet/ec.h
+@@ -28,7 +28,7 @@ struct ec_addr
+     unsigned char net;			/* Network number.  */
+   };
+ 
+-struct sockaddr_ec
++struct __attribute_struct_may_alias__ sockaddr_ec
+   {
+     __SOCKADDR_COMMON (sec_);
+     unsigned char port;			/* Port number.  */
+diff --git a/sysdeps/unix/sysv/linux/netiucv/iucv.h b/sysdeps/unix/sysv/linux/netiucv/iucv.h
+index f5fad817513f3c46..27151e8bbe1e7fa2 100644
+--- a/sysdeps/unix/sysv/linux/netiucv/iucv.h
++++ b/sysdeps/unix/sysv/linux/netiucv/iucv.h
+@@ -23,7 +23,7 @@
+ 
+ __BEGIN_DECLS
+ 
+-struct sockaddr_iucv
++struct __attribute_struct_may_alias__ sockaddr_iucv
+   {
+     __SOCKADDR_COMMON (siucv_);
+     unsigned short	siucv_port;		/* Reserved */

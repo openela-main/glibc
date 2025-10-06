@@ -1,0 +1,82 @@
+commit f05638731eeaae70c53b4fb30bfc58bc3c52a6d5
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Tue Jun 11 20:14:56 2024 -0700
+
+    x86: Properly set x86 minimum ISA level [BZ #31883]
+    
+    Properly set libc_cv_have_x86_isa_level in shell for MINIMUM_X86_ISA_LEVEL
+    defined as
+    
+    (__X86_ISA_V1 + __X86_ISA_V2 + __X86_ISA_V3 + __X86_ISA_V4)
+    
+    Also set __X86_ISA_V2 to 1 for i386 if __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8
+    is defined.  There are no changes in config.h nor in config.make on x86-64.
+    On i386, -march=x86-64-v2 with GCC generates
+    
+     #define MINIMUM_X86_ISA_LEVEL 2
+    
+    in config.h and
+    
+    have-x86-isa-level = 2
+    
+    in config.make.  This fixes BZ #31883.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Noah Goldstein <goldstein.w.n@gmail.com>
+    (cherry picked from commit 29807a271edca3e47195bda0c69ae45e245551a9)
+
+diff --git a/sysdeps/x86/configure b/sysdeps/x86/configure
+index 1e2325d0d7212d67..04c6ba3e6ca53fb6 100644
+--- a/sysdeps/x86/configure
++++ b/sysdeps/x86/configure
+@@ -141,8 +141,10 @@ libc_cv_have_x86_isa_level=3
+ libc_cv_have_x86_isa_level=2
+ #elif defined __x86_64__
+ libc_cv_have_x86_isa_level=baseline
++#elif MINIMUM_X86_ISA_LEVEL == 1
++libc_cv_have_x86_isa_level=1
+ #else
+-libc_cv_have_x86_isa_level=MINIMUM_X86_ISA_LEVEL
++libc_cv_have_x86_isa_level=0
+ #endif
+ EOF
+ 		 eval `${CC-cc} $CFLAGS $CPPFLAGS $ISAFLAG -I$srcdir -E conftest.c | grep libc_cv_have_x86_isa_level`
+diff --git a/sysdeps/x86/configure.ac b/sysdeps/x86/configure.ac
+index 0b32fdfd4f1bb115..8a259d3971488e4b 100644
+--- a/sysdeps/x86/configure.ac
++++ b/sysdeps/x86/configure.ac
+@@ -98,8 +98,10 @@ libc_cv_have_x86_isa_level=3
+ libc_cv_have_x86_isa_level=2
+ #elif defined __x86_64__
+ libc_cv_have_x86_isa_level=baseline
++#elif MINIMUM_X86_ISA_LEVEL == 1
++libc_cv_have_x86_isa_level=1
+ #else
+-libc_cv_have_x86_isa_level=MINIMUM_X86_ISA_LEVEL
++libc_cv_have_x86_isa_level=0
+ #endif
+ EOF
+ 		 eval `${CC-cc} $CFLAGS $CPPFLAGS $ISAFLAG -I$srcdir -E conftest.c | grep libc_cv_have_x86_isa_level`
+diff --git a/sysdeps/x86/isa-level.h b/sysdeps/x86/isa-level.h
+index 2c7f74212b9a27e5..03c1fe2bf54e0673 100644
+--- a/sysdeps/x86/isa-level.h
++++ b/sysdeps/x86/isa-level.h
+@@ -35,7 +35,17 @@
+ # define __X86_ISA_V1 0
+ #endif
+ 
+-#if __X86_ISA_V1 && defined __GCC_HAVE_SYNC_COMPARE_AND_SWAP_16               \
++#ifdef __x86_64__
++# ifdef __GCC_HAVE_SYNC_COMPARE_AND_SWAP_16
++#  define __GCC_HAVE_SYNC_COMPARE_AND_SWAP
++# endif
++#else
++# ifdef __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8
++#  define __GCC_HAVE_SYNC_COMPARE_AND_SWAP
++# endif
++#endif
++
++#if __X86_ISA_V1 && defined __GCC_HAVE_SYNC_COMPARE_AND_SWAP		      \
+     && defined HAVE_X86_LAHF_SAHF && defined __POPCNT__ && defined __SSE3__   \
+     && defined __SSSE3__ && defined __SSE4_1__ && defined __SSE4_2__
+ /* NB: ISAs in x86-64 ISA level v2 are used.  */

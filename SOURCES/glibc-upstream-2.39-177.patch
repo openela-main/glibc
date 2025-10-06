@@ -1,0 +1,121 @@
+commit bde201e92c1e64934f8ffe3e5b7d769100677037
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Mon Jul 15 16:19:17 2024 +0800
+
+    x86: Disable non-temporal memset on Skylake Server
+    
+    The original commit enabling non-temporal memset on Skylake Server had
+    erroneous benchmarks (actually done on ICX).
+    
+    Further benchmarks indicate non-temporal stores may in fact by a
+    regression on Skylake Server.
+    
+    This commit may be over-cautious in some cases, but should avoid any
+    regressions for 2.40.
+    
+    Tested using qemu on all x86_64 cpu arch supported by both qemu +
+    GLIBC.
+    
+    Reviewed-by: DJ Delorie <dj@redhat.com>
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    (cherry picked from commit 5bcf6265f215326d14dfacdce8532792c2c7f8f8)
+
+diff --git a/sysdeps/x86/cpu-features.c b/sysdeps/x86/cpu-features.c
+index 3be69558a4c3aa2d..77b5638daafe9a1e 100644
+--- a/sysdeps/x86/cpu-features.c
++++ b/sysdeps/x86/cpu-features.c
+@@ -872,11 +872,18 @@ init_cpu_features (struct cpu_features *cpu_features)
+ 
+ 	      /* Newer Bigcore microarch (larger non-temporal store
+ 		 threshold).  */
+-	    case INTEL_BIGCORE_SKYLAKE:
+-	    case INTEL_BIGCORE_KABYLAKE:
+-	    case INTEL_BIGCORE_COMETLAKE:
+ 	    case INTEL_BIGCORE_SKYLAKE_AVX512:
+ 	    case INTEL_BIGCORE_CANNONLAKE:
++	      /* Benchmarks indicate non-temporal memset is not
++		     necessarily profitable on SKX (and in some cases much
++		     worse). This is likely unique to SKX due its it unique
++		     mesh interconnect (not present on ICX or BWD). Disable
++		     non-temporal on all Skylake servers. */
++	      cpu_features->preferred[index_arch_Avoid_Non_Temporal_Memset]
++		  |= bit_arch_Avoid_Non_Temporal_Memset;
++	    case INTEL_BIGCORE_COMETLAKE:
++	    case INTEL_BIGCORE_SKYLAKE:
++	    case INTEL_BIGCORE_KABYLAKE:
+ 	    case INTEL_BIGCORE_ICELAKE:
+ 	    case INTEL_BIGCORE_TIGERLAKE:
+ 	    case INTEL_BIGCORE_ROCKETLAKE:
+diff --git a/sysdeps/x86/cpu-tunables.c b/sysdeps/x86/cpu-tunables.c
+index a72ba61d837c6383..a71772c9c07d01d7 100644
+--- a/sysdeps/x86/cpu-tunables.c
++++ b/sysdeps/x86/cpu-tunables.c
+@@ -245,6 +245,11 @@ TUNABLE_CALLBACK (set_hwcaps) (tunable_val_t *valp)
+ 		(n, cpu_features, MathVec_Prefer_No_AVX512, AVX512F, 24);
+ 	    }
+ 	  break;
++	case 25:
++	  {
++	    CHECK_GLIBC_IFUNC_PREFERRED_BOTH (n, cpu_features,
++					      Avoid_Non_Temporal_Memset, 25);
++	  }
+ 	case 26:
+ 	    {
+ 	      CHECK_GLIBC_IFUNC_PREFERRED_NEED_BOTH
+diff --git a/sysdeps/x86/dl-cacheinfo.h b/sysdeps/x86/dl-cacheinfo.h
+index 9b6f68e46de4bdaa..66e2b83fea0dc744 100644
+--- a/sysdeps/x86/dl-cacheinfo.h
++++ b/sysdeps/x86/dl-cacheinfo.h
+@@ -989,13 +989,14 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+   /* Non-temporal stores are more performant on Intel and AMD hardware above
+      non_temporal_threshold. Enable this for both Intel and AMD hardware. */
+   unsigned long int memset_non_temporal_threshold = SIZE_MAX;
+-  if (cpu_features->basic.kind == arch_kind_intel
+-      || cpu_features->basic.kind == arch_kind_amd)
+-      memset_non_temporal_threshold = non_temporal_threshold;
+-
+-   /* For AMD CPUs that support ERMS (Zen3+), REP MOVSB is in a lot of
+-      cases slower than the vectorized path (and for some alignments,
+-      it is really slow, check BZ #30994).  */
++  if (!CPU_FEATURES_ARCH_P (cpu_features, Avoid_Non_Temporal_Memset)
++      && (cpu_features->basic.kind == arch_kind_intel
++	  || cpu_features->basic.kind == arch_kind_amd))
++    memset_non_temporal_threshold = non_temporal_threshold;
++
++  /* For AMD CPUs that support ERMS (Zen3+), REP MOVSB is in a lot of
++     cases slower than the vectorized path (and for some alignments,
++     it is really slow, check BZ #30994).  */
+   if (cpu_features->basic.kind == arch_kind_amd)
+     rep_movsb_threshold = non_temporal_threshold;
+ 
+diff --git a/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def b/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
+index 85e7f54ec8204328..61bbbc2e8983482e 100644
+--- a/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
++++ b/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
+@@ -33,3 +33,4 @@ BIT (Prefer_No_AVX512)
+ BIT (MathVec_Prefer_No_AVX512)
+ BIT (Prefer_FSRM)
+ BIT (Avoid_Short_Distance_REP_MOVSB)
++BIT (Avoid_Non_Temporal_Memset)
+diff --git a/sysdeps/x86/tst-hwcap-tunables.c b/sysdeps/x86/tst-hwcap-tunables.c
+index f6a65b88dea6d9dc..bc573c7435130dee 100644
+--- a/sysdeps/x86/tst-hwcap-tunables.c
++++ b/sysdeps/x86/tst-hwcap-tunables.c
+@@ -60,7 +60,7 @@ static const struct test_t
+     /* Disable everything.  */
+     "-Prefer_ERMS,-Prefer_FSRM,-AVX,-AVX2,-AVX512F,-AVX512VL,"
+     "-SSE4_1,-SSE4_2,-SSSE3,-Fast_Unaligned_Load,-ERMS,"
+-    "-AVX_Fast_Unaligned_Load",
++    "-AVX_Fast_Unaligned_Load,-Avoid_Non_Temporal_Memset",
+     test_1,
+     array_length (test_1)
+   },
+@@ -68,7 +68,7 @@ static const struct test_t
+     /* Same as before, but with some empty suboptions.  */
+     ",-,-Prefer_ERMS,-Prefer_FSRM,-AVX,-AVX2,-AVX512F,-AVX512VL,"
+     "-SSE4_1,-SSE4_2,-SSSE3,-Fast_Unaligned_Load,,-,"
+-    "-ERMS,-AVX_Fast_Unaligned_Load,-,",
++    "-ERMS,-AVX_Fast_Unaligned_Load,-Avoid_Non_Temporal_Memset,-,",
+     test_1,
+     array_length (test_1)
+   }

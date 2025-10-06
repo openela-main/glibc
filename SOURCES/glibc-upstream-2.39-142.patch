@@ -1,0 +1,44 @@
+commit 2c882bf9c15d206aaf04766d1b8e3ae5b1002cc2
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Thu Dec 5 08:39:44 2024 +0800
+
+    math: Exclude internal math symbols for tests [BZ #32414]
+    
+    Since internal tests don't have access to internal symbols in libm,
+    exclude them for internal tests.  Also make tst-strtod5 and tst-strtod5i
+    depend on $(libm) to support older versions of GCC which can't inline
+    copysign family functions.  This fixes BZ #32414.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Sunil K Pandey <skpgkp2@gmail.com>
+    (cherry picked from commit 5df09b444835fca6e64b3d4b4a5beb19b3b2ba21)
+
+diff --git a/include/math.h b/include/math.h
+index fa11a710a6c152a4..035fd160ffb9e032 100644
+--- a/include/math.h
++++ b/include/math.h
+@@ -130,7 +130,10 @@ fabsf128 (_Float128 x)
+ }
+ # endif
+ 
+-# if !(defined __FINITE_MATH_ONLY__ && __FINITE_MATH_ONLY__ > 0)
++
++/* NB: Internal tests don't have access to internal symbols.  */
++# if !IS_IN (testsuite_internal) \
++     && !(defined __FINITE_MATH_ONLY__ && __FINITE_MATH_ONLY__ > 0)
+ #  ifndef NO_MATH_REDIRECT
+ /* Declare some functions for use within GLIBC.  Compilers typically
+    inline those functions as a single instruction.  Use an asm to
+diff --git a/stdlib/Makefile b/stdlib/Makefile
+index 70d7291c6e3454a8..ff1418f5bb2ea5c9 100644
+--- a/stdlib/Makefile
++++ b/stdlib/Makefile
+@@ -607,6 +607,8 @@ $(objpfx)bug-strtod2: $(libm)
+ $(objpfx)tst-strtod-round: $(libm)
+ $(objpfx)tst-tininess: $(libm)
+ $(objpfx)tst-strtod-underflow: $(libm)
++$(objpfx)tst-strtod5: $(libm)
++$(objpfx)tst-strtod5i: $(libm)
+ $(objpfx)tst-strtod6: $(libm)
+ $(objpfx)tst-strtod-nan-locale: $(libm)
+ $(objpfx)tst-strtod-nan-sign: $(libm)

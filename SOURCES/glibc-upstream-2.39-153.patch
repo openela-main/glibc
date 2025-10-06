@@ -1,0 +1,240 @@
+commit 5e354bf4e20ca3ccc15bda63c7b56ea0e97efa81
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Mon Sep 23 15:33:31 2024 +0100
+
+    AArch64: Simplify rounding-multiply pattern in several AdvSIMD routines
+    
+    This operation can be simplified to use simpler multiply-round-convert
+    sequence, which uses fewer instructions and constants.
+    
+    Reviewed-by: Wilco Dijkstra  <Wilco.Dijkstra@arm.com>
+    (cherry picked from commit 16a59571e4e9fd019d3fc23a2e7d73c1df8bb5cb)
+
+diff --git a/sysdeps/aarch64/fpu/cos_advsimd.c b/sysdeps/aarch64/fpu/cos_advsimd.c
+index 3924c9ce44c30d4d..11a89b1530825b5f 100644
+--- a/sysdeps/aarch64/fpu/cos_advsimd.c
++++ b/sysdeps/aarch64/fpu/cos_advsimd.c
+@@ -22,7 +22,7 @@
+ static const struct data
+ {
+   float64x2_t poly[7];
+-  float64x2_t range_val, shift, inv_pi, half_pi, pi_1, pi_2, pi_3;
++  float64x2_t range_val, inv_pi, pi_1, pi_2, pi_3;
+ } data = {
+   /* Worst-case error is 3.3 ulp in [-pi/2, pi/2].  */
+   .poly = { V2 (-0x1.555555555547bp-3), V2 (0x1.1111111108a4dp-7),
+@@ -30,11 +30,9 @@ static const struct data
+ 	    V2 (-0x1.ae633919987c6p-26), V2 (0x1.60e277ae07cecp-33),
+ 	    V2 (-0x1.9e9540300a1p-41) },
+   .inv_pi = V2 (0x1.45f306dc9c883p-2),
+-  .half_pi = V2 (0x1.921fb54442d18p+0),
+   .pi_1 = V2 (0x1.921fb54442d18p+1),
+   .pi_2 = V2 (0x1.1a62633145c06p-53),
+   .pi_3 = V2 (0x1.c1cd129024e09p-106),
+-  .shift = V2 (0x1.8p52),
+   .range_val = V2 (0x1p23)
+ };
+ 
+@@ -68,10 +66,9 @@ float64x2_t VPCS_ATTR V_NAME_D1 (cos) (float64x2_t x)
+ #endif
+ 
+   /* n = rint((|x|+pi/2)/pi) - 0.5.  */
+-  n = vfmaq_f64 (d->shift, d->inv_pi, vaddq_f64 (r, d->half_pi));
+-  odd = vshlq_n_u64 (vreinterpretq_u64_f64 (n), 63);
+-  n = vsubq_f64 (n, d->shift);
+-  n = vsubq_f64 (n, v_f64 (0.5));
++  n = vrndaq_f64 (vfmaq_f64 (v_f64 (0.5), r, d->inv_pi));
++  odd = vshlq_n_u64 (vreinterpretq_u64_s64 (vcvtq_s64_f64 (n)), 63);
++  n = vsubq_f64 (n, v_f64 (0.5f));
+ 
+   /* r = |x| - n*pi  (range reduction into -pi/2 .. pi/2).  */
+   r = vfmsq_f64 (r, d->pi_1, n);
+diff --git a/sysdeps/aarch64/fpu/cosf_advsimd.c b/sysdeps/aarch64/fpu/cosf_advsimd.c
+index d0c285b03a8bfe22..85a1b373733123fa 100644
+--- a/sysdeps/aarch64/fpu/cosf_advsimd.c
++++ b/sysdeps/aarch64/fpu/cosf_advsimd.c
+@@ -22,7 +22,7 @@
+ static const struct data
+ {
+   float32x4_t poly[4];
+-  float32x4_t range_val, inv_pi, half_pi, shift, pi_1, pi_2, pi_3;
++  float32x4_t range_val, inv_pi, pi_1, pi_2, pi_3;
+ } data = {
+   /* 1.886 ulp error.  */
+   .poly = { V4 (-0x1.555548p-3f), V4 (0x1.110df4p-7f), V4 (-0x1.9f42eap-13f),
+@@ -33,8 +33,6 @@ static const struct data
+   .pi_3 = V4 (-0x1.ee59dap-49f),
+ 
+   .inv_pi = V4 (0x1.45f306p-2f),
+-  .shift = V4 (0x1.8p+23f),
+-  .half_pi = V4 (0x1.921fb6p0f),
+   .range_val = V4 (0x1p20f)
+ };
+ 
+@@ -69,9 +67,8 @@ float32x4_t VPCS_ATTR NOINLINE V_NAME_F1 (cos) (float32x4_t x)
+ #endif
+ 
+   /* n = rint((|x|+pi/2)/pi) - 0.5.  */
+-  n = vfmaq_f32 (d->shift, d->inv_pi, vaddq_f32 (r, d->half_pi));
+-  odd = vshlq_n_u32 (vreinterpretq_u32_f32 (n), 31);
+-  n = vsubq_f32 (n, d->shift);
++  n = vrndaq_f32 (vfmaq_f32 (v_f32 (0.5), r, d->inv_pi));
++  odd = vshlq_n_u32 (vreinterpretq_u32_s32 (vcvtq_s32_f32 (n)), 31);
+   n = vsubq_f32 (n, v_f32 (0.5f));
+ 
+   /* r = |x| - n*pi  (range reduction into -pi/2 .. pi/2).  */
+diff --git a/sysdeps/aarch64/fpu/expf_advsimd.c b/sysdeps/aarch64/fpu/expf_advsimd.c
+index 99d2e647aab70260..5c9cb726205ece6e 100644
+--- a/sysdeps/aarch64/fpu/expf_advsimd.c
++++ b/sysdeps/aarch64/fpu/expf_advsimd.c
+@@ -22,7 +22,7 @@
+ static const struct data
+ {
+   float32x4_t poly[5];
+-  float32x4_t shift, inv_ln2, ln2_hi, ln2_lo;
++  float32x4_t inv_ln2, ln2_hi, ln2_lo;
+   uint32x4_t exponent_bias;
+ #if !WANT_SIMD_EXCEPT
+   float32x4_t special_bound, scale_thresh;
+@@ -31,7 +31,6 @@ static const struct data
+   /* maxerr: 1.45358 +0.5 ulp.  */
+   .poly = { V4 (0x1.0e4020p-7f), V4 (0x1.573e2ep-5f), V4 (0x1.555e66p-3f),
+ 	    V4 (0x1.fffdb6p-2f), V4 (0x1.ffffecp-1f) },
+-  .shift = V4 (0x1.8p23f),
+   .inv_ln2 = V4 (0x1.715476p+0f),
+   .ln2_hi = V4 (0x1.62e4p-1f),
+   .ln2_lo = V4 (0x1.7f7d1cp-20f),
+@@ -85,7 +84,7 @@ special_case (float32x4_t poly, float32x4_t n, uint32x4_t e, uint32x4_t cmp1,
+ float32x4_t VPCS_ATTR NOINLINE V_NAME_F1 (exp) (float32x4_t x)
+ {
+   const struct data *d = ptr_barrier (&data);
+-  float32x4_t n, r, r2, scale, p, q, poly, z;
++  float32x4_t n, r, r2, scale, p, q, poly;
+   uint32x4_t cmp, e;
+ 
+ #if WANT_SIMD_EXCEPT
+@@ -104,11 +103,10 @@ float32x4_t VPCS_ATTR NOINLINE V_NAME_F1 (exp) (float32x4_t x)
+ 
+   /* exp(x) = 2^n (1 + poly(r)), with 1 + poly(r) in [1/sqrt(2),sqrt(2)]
+      x = ln2*n + r, with r in [-ln2/2, ln2/2].  */
+-  z = vfmaq_f32 (d->shift, x, d->inv_ln2);
+-  n = vsubq_f32 (z, d->shift);
++  n = vrndaq_f32 (vmulq_f32 (x, d->inv_ln2));
+   r = vfmsq_f32 (x, n, d->ln2_hi);
+   r = vfmsq_f32 (r, n, d->ln2_lo);
+-  e = vshlq_n_u32 (vreinterpretq_u32_f32 (z), 23);
++  e = vshlq_n_u32 (vreinterpretq_u32_s32 (vcvtq_s32_f32 (n)), 23);
+   scale = vreinterpretq_f32_u32 (vaddq_u32 (e, d->exponent_bias));
+ 
+ #if !WANT_SIMD_EXCEPT
+diff --git a/sysdeps/aarch64/fpu/sin_advsimd.c b/sysdeps/aarch64/fpu/sin_advsimd.c
+index a0d9d3b81965db76..718125cbad81db41 100644
+--- a/sysdeps/aarch64/fpu/sin_advsimd.c
++++ b/sysdeps/aarch64/fpu/sin_advsimd.c
+@@ -22,7 +22,7 @@
+ static const struct data
+ {
+   float64x2_t poly[7];
+-  float64x2_t range_val, inv_pi, shift, pi_1, pi_2, pi_3;
++  float64x2_t range_val, inv_pi, pi_1, pi_2, pi_3;
+ } data = {
+   .poly = { V2 (-0x1.555555555547bp-3), V2 (0x1.1111111108a4dp-7),
+ 	    V2 (-0x1.a01a019936f27p-13), V2 (0x1.71de37a97d93ep-19),
+@@ -34,12 +34,13 @@ static const struct data
+   .pi_1 = V2 (0x1.921fb54442d18p+1),
+   .pi_2 = V2 (0x1.1a62633145c06p-53),
+   .pi_3 = V2 (0x1.c1cd129024e09p-106),
+-  .shift = V2 (0x1.8p52),
+ };
+ 
+ #if WANT_SIMD_EXCEPT
+-# define TinyBound v_u64 (0x3000000000000000) /* asuint64 (0x1p-255).  */
+-# define Thresh v_u64 (0x1160000000000000)    /* RangeVal - TinyBound.  */
++/* asuint64(0x1p-253)), below which multiply by inv_pi underflows.  */
++# define TinyBound v_u64 (0x3020000000000000)
++/* RangeVal - TinyBound.  */
++# define Thresh v_u64 (0x1160000000000000)
+ #endif
+ 
+ #define C(i) d->poly[i]
+@@ -72,16 +73,15 @@ float64x2_t VPCS_ATTR V_NAME_D1 (sin) (float64x2_t x)
+      fenv). These lanes will be fixed by special-case handler later.  */
+   uint64x2_t ir = vreinterpretq_u64_f64 (vabsq_f64 (x));
+   cmp = vcgeq_u64 (vsubq_u64 (ir, TinyBound), Thresh);
+-  r = vbslq_f64 (cmp, vreinterpretq_f64_u64 (cmp), x);
++  r = vreinterpretq_f64_u64 (vbicq_u64 (vreinterpretq_u64_f64 (x), cmp));
+ #else
+   r = x;
+   cmp = vcageq_f64 (x, d->range_val);
+ #endif
+ 
+   /* n = rint(|x|/pi).  */
+-  n = vfmaq_f64 (d->shift, d->inv_pi, r);
+-  odd = vshlq_n_u64 (vreinterpretq_u64_f64 (n), 63);
+-  n = vsubq_f64 (n, d->shift);
++  n = vrndaq_f64 (vmulq_f64 (r, d->inv_pi));
++  odd = vshlq_n_u64 (vreinterpretq_u64_s64 (vcvtq_s64_f64 (n)), 63);
+ 
+   /* r = |x| - n*pi  (range reduction into -pi/2 .. pi/2).  */
+   r = vfmsq_f64 (r, d->pi_1, n);
+diff --git a/sysdeps/aarch64/fpu/sinf_advsimd.c b/sysdeps/aarch64/fpu/sinf_advsimd.c
+index 375dfc3331fa6a9c..6ee9a23d5b7fd13f 100644
+--- a/sysdeps/aarch64/fpu/sinf_advsimd.c
++++ b/sysdeps/aarch64/fpu/sinf_advsimd.c
+@@ -22,7 +22,7 @@
+ static const struct data
+ {
+   float32x4_t poly[4];
+-  float32x4_t range_val, inv_pi, shift, pi_1, pi_2, pi_3;
++  float32x4_t range_val, inv_pi, pi_1, pi_2, pi_3;
+ } data = {
+   /* 1.886 ulp error.  */
+   .poly = { V4 (-0x1.555548p-3f), V4 (0x1.110df4p-7f), V4 (-0x1.9f42eap-13f),
+@@ -33,13 +33,14 @@ static const struct data
+   .pi_3 = V4 (-0x1.ee59dap-49f),
+ 
+   .inv_pi = V4 (0x1.45f306p-2f),
+-  .shift = V4 (0x1.8p+23f),
+   .range_val = V4 (0x1p20f)
+ };
+ 
+ #if WANT_SIMD_EXCEPT
+-# define TinyBound v_u32 (0x21000000) /* asuint32(0x1p-61f).  */
+-# define Thresh v_u32 (0x28800000)    /* RangeVal - TinyBound.  */
++/* asuint32(0x1p-59f), below which multiply by inv_pi underflows.  */
++# define TinyBound v_u32 (0x22000000)
++/* RangeVal - TinyBound.  */
++# define Thresh v_u32 (0x27800000)
+ #endif
+ 
+ #define C(i) d->poly[i]
+@@ -64,23 +65,22 @@ float32x4_t VPCS_ATTR NOINLINE V_NAME_F1 (sin) (float32x4_t x)
+   /* If fenv exceptions are to be triggered correctly, set any special lanes
+      to 1 (which is neutral w.r.t. fenv). These lanes will be fixed by
+      special-case handler later.  */
+-  r = vbslq_f32 (cmp, vreinterpretq_f32_u32 (cmp), x);
++  r = vreinterpretq_f32_u32 (vbicq_u32 (vreinterpretq_u32_f32 (x), cmp));
+ #else
+   r = x;
+   cmp = vcageq_f32 (x, d->range_val);
+ #endif
+ 
+-  /* n = rint(|x|/pi) */
+-  n = vfmaq_f32 (d->shift, d->inv_pi, r);
+-  odd = vshlq_n_u32 (vreinterpretq_u32_f32 (n), 31);
+-  n = vsubq_f32 (n, d->shift);
++  /* n = rint(|x|/pi).  */
++  n = vrndaq_f32 (vmulq_f32 (r, d->inv_pi));
++  odd = vshlq_n_u32 (vreinterpretq_u32_s32 (vcvtq_s32_f32 (n)), 31);
+ 
+-  /* r = |x| - n*pi  (range reduction into -pi/2 .. pi/2) */
++  /* r = |x| - n*pi  (range reduction into -pi/2 .. pi/2).  */
+   r = vfmsq_f32 (r, d->pi_1, n);
+   r = vfmsq_f32 (r, d->pi_2, n);
+   r = vfmsq_f32 (r, d->pi_3, n);
+ 
+-  /* y = sin(r) */
++  /* y = sin(r).  */
+   r2 = vmulq_f32 (r, r);
+   y = vfmaq_f32 (C (2), C (3), r2);
+   y = vfmaq_f32 (C (1), y, r2);

@@ -1,0 +1,136 @@
+commit c1f7bfbe081ebf807b6374a497ad5d5a9f499574
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Tue Dec 17 18:41:45 2024 +0800
+
+    Hide all malloc functions from compiler [BZ #32366]
+    
+    Since -1 isn't a power of two, compiler may reject it, hide memalign from
+    Clang 19 which issues an error:
+    
+    tst-memalign.c:86:31: error: requested alignment is not a power of 2 [-Werror,-Wnon-power-of-two-alignment]
+       86 |   p = memalign (-1, pagesize);
+          |                 ^~
+    tst-memalign.c:86:31: error: requested alignment must be 4294967296 bytes or smaller; maximum alignment assumed [-Werror,-Wbuiltin-assume-aligned-alignment]
+       86 |   p = memalign (-1, pagesize);
+          |                 ^~
+    
+    Update tst-malloc-aux.h to hide all malloc functions and include it in
+    all malloc tests to prevent compiler from optimizing out any malloc
+    functions.
+    
+    Tested with Clang 19.1.5 and GCC 15 20241206 for BZ #32366.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Sam James <sam@gentoo.org>
+    (cherry picked from commit f9493a15ea9cfb63a815c00c23142369ec09d8ce)
+
+diff --git a/malloc/tst-mallinfo2.c b/malloc/tst-mallinfo2.c
+index 2c02f5f700f5051e..f072b9f24b575792 100644
+--- a/malloc/tst-mallinfo2.c
++++ b/malloc/tst-mallinfo2.c
+@@ -23,6 +23,8 @@
+ #include <stdlib.h>
+ #include <support/check.h>
+ 
++#include "tst-malloc-aux.h"
++
+ /* This is not specifically needed for the test, but (1) does
+    something to the data so gcc doesn't optimize it away, and (2) may
+    help when developing future tests.  */
+diff --git a/malloc/tst-malloc-aux.h b/malloc/tst-malloc-aux.h
+index 54908b4a2464d510..3e1b61ce3414dad4 100644
+--- a/malloc/tst-malloc-aux.h
++++ b/malloc/tst-malloc-aux.h
+@@ -22,20 +22,35 @@
+ 
+ #include <stddef.h>
+ #include <stdlib.h>
+-
+-static void *(*volatile aligned_alloc_indirect)(size_t, size_t) = aligned_alloc;
+-static void *(*volatile calloc_indirect)(size_t, size_t) = calloc;
+-static void *(*volatile malloc_indirect)(size_t) = malloc;
+-static void *(*volatile realloc_indirect)(void*, size_t) = realloc;
++#include <malloc.h>
++
++static __typeof (aligned_alloc) * volatile aligned_alloc_indirect
++  = aligned_alloc;
++static __typeof (calloc) * volatile calloc_indirect = calloc;
++static __typeof (malloc) * volatile malloc_indirect = malloc;
++static __typeof (memalign) * volatile memalign_indirect = memalign;
++static __typeof (posix_memalign) * volatile posix_memalign_indirect
++  = posix_memalign;
++static __typeof (pvalloc) * volatile pvalloc_indirect = pvalloc;
++static __typeof (realloc) * volatile realloc_indirect = realloc;
++static __typeof (valloc) * volatile valloc_indirect = valloc;
+ 
+ #undef aligned_alloc
+ #undef calloc
+ #undef malloc
++#undef memalign
++#undef posix_memalign
++#undef pvalloc
+ #undef realloc
++#undef valloc
+ 
+ #define aligned_alloc aligned_alloc_indirect
+ #define calloc calloc_indirect
+ #define malloc malloc_indirect
++#define memalign memalign_indirect
++#define posix_memalign posix_memalign_indirect
++#define pvalloc pvalloc_indirect
+ #define realloc realloc_indirect
++#define valloc valloc_indirect
+ 
+ #endif /* TST_MALLOC_AUX_H */
+diff --git a/malloc/tst-malloc-backtrace.c b/malloc/tst-malloc-backtrace.c
+index c7b1d65e5c95c437..65fa91f6fdbdce91 100644
+--- a/malloc/tst-malloc-backtrace.c
++++ b/malloc/tst-malloc-backtrace.c
+@@ -22,6 +22,8 @@
+ #include <support/support.h>
+ #include <libc-diag.h>
+ 
++#include "tst-malloc-aux.h"
++
+ #define SIZE 4096
+ 
+ /* Wrap free with a function to prevent gcc from optimizing it out.  */
+diff --git a/malloc/tst-memalign.c b/malloc/tst-memalign.c
+index 563f6413d2da506b..ac9770d3f96313a7 100644
+--- a/malloc/tst-memalign.c
++++ b/malloc/tst-memalign.c
+@@ -23,6 +23,8 @@
+ #include <unistd.h>
+ #include <libc-diag.h>
+ 
++#include "tst-malloc-aux.h"
++
+ static int errors = 0;
+ 
+ static void
+diff --git a/malloc/tst-safe-linking.c b/malloc/tst-safe-linking.c
+index 01dd07004d65a767..63a7e2bc8e8ff536 100644
+--- a/malloc/tst-safe-linking.c
++++ b/malloc/tst-safe-linking.c
+@@ -26,6 +26,8 @@
+ #include <support/capture_subprocess.h>
+ #include <support/check.h>
+ 
++#include "tst-malloc-aux.h"
++
+ /* Run CALLBACK and check that the data on standard error equals
+    EXPECTED.  */
+ static void
+diff --git a/malloc/tst-valloc.c b/malloc/tst-valloc.c
+index 9bab8c6470d4fd95..0243d3dfd494d329 100644
+--- a/malloc/tst-valloc.c
++++ b/malloc/tst-valloc.c
+@@ -23,6 +23,8 @@
+ #include <unistd.h>
+ #include <libc-diag.h>
+ 
++#include "tst-malloc-aux.h"
++
+ static int errors = 0;
+ 
+ static void

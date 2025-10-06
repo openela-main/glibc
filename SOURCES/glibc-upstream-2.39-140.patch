@@ -1,0 +1,28 @@
+commit aa8768999e94fcee1695feb766c69dd8a93b706b
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Fri May 17 20:00:38 2024 -0700
+
+    Pass -nostdlib -nostartfiles together with -r [BZ #31753]
+    
+    Since -r in GCC 6/7/8 doesn't imply -nostdlib -nostartfiles, update the
+    link-static-libc.out rule to also pass -nostdlib -nostartfiles.  This
+    fixes BZ #31753.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+    (cherry picked from commit 2be3352f0b1ebaa39596393fffe1062275186669)
+
+diff --git a/Makefile b/Makefile
+index 37bf70aa4ad4403f..ae9bc09327dd2d5b 100644
+--- a/Makefile
++++ b/Makefile
+@@ -581,7 +581,8 @@ $(objpfx)lint-makefiles.out: scripts/lint-makefiles.sh
+ # definitions of any symbols.
+ tests-special += $(objpfx)link-static-libc.out
+ $(objpfx)link-static-libc.out:
+-	$(LINK.o) $(whole-archive) -r $(objpfx)libc.a -o /dev/null > $@ 2>&1; \
++	$(LINK.o) $(whole-archive) -nostdlib -nostartfiles -r \
++	  $(objpfx)libc.a -o /dev/null > $@ 2>&1; \
+ 	$(evaluate-test)
+ 
+ # Print test summary for tests in $1 .sum file;

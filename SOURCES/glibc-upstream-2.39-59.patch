@@ -1,0 +1,40 @@
+commit 9f2b100d6705b9bbb25206b53e80d7759644e06e
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Sat May 25 05:13:41 2024 -0700
+
+    parse_fdinfo: Don't advance pointer twice [BZ #31798]
+    
+    pidfd_getpid.c has
+    
+          /* Ignore invalid large values.  */
+          if (INT_MULTIPLY_WRAPV (10, n, &n)
+              || INT_ADD_WRAPV (n, *l++ - '0', &n))
+            return -1;
+    
+    For GCC older than GCC 7, INT_ADD_WRAPV(a, b, r) is defined as
+    
+       _GL_INT_OP_WRAPV (a, b, r, +, _GL_INT_ADD_RANGE_OVERFLOW)
+    
+    and *l++ - '0' is evaluated twice.  Fix BZ #31798 by moving "l++" out of
+    the if statement.  Tested with GCC 6.4 and GCC 14.1.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+    (cherry picked from commit f981bf6b9db87e0732b46bfe92fdad4d363225e8)
+
+diff --git a/sysdeps/unix/sysv/linux/pidfd_getpid.c b/sysdeps/unix/sysv/linux/pidfd_getpid.c
+index 8567b413dd2c210b..30025e5863f7b956 100644
+--- a/sysdeps/unix/sysv/linux/pidfd_getpid.c
++++ b/sysdeps/unix/sysv/linux/pidfd_getpid.c
+@@ -74,8 +74,10 @@ parse_fdinfo (const char *l, void *arg)
+ 
+       /* Ignore invalid large values.  */
+       if (INT_MULTIPLY_WRAPV (10, n, &n)
+-          || INT_ADD_WRAPV (n, *l++ - '0', &n))
++          || INT_ADD_WRAPV (n, *l - '0', &n))
+         return -1;
++
++      l++;
+     }
+ 
+   /* -1 indicates that the process is terminated.  */

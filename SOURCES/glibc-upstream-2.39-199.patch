@@ -1,0 +1,32 @@
+commit 37b30b6a685c5facccdff61663eb3adf0dd253cd
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Thu Feb 15 11:12:13 2024 -0800
+
+    sysdeps/x86_64/Makefile (tests): Add the end marker
+    
+    (cherry picked from commit 71d133c500b0d23f6b6a7c6e3595e3fc447bfe91)
+
+diff --git a/sysdeps/x86_64/Makefile b/sysdeps/x86_64/Makefile
+index 0ede447405d549b5..08ec882159990e97 100644
+--- a/sysdeps/x86_64/Makefile
++++ b/sysdeps/x86_64/Makefile
+@@ -32,7 +32,8 @@ sysdep_routines += \
+ # sysdep_routines
+ gen-as-const-headers += locale-defines.sym
+ tests += \
+-  tst-rsi-strlen
++  tst-rsi-strlen \
++# tests
+ endif
+ 
+ ifeq ($(subdir),elf)
+@@ -232,7 +233,8 @@ sysdep_routines += \
+ # sysdep_routines
+ 
+ tests += \
+-  tst-rsi-wcslen
++  tst-rsi-wcslen \
++# tests
+ endif
+ 
+ 

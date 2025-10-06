@@ -1,0 +1,28 @@
+commit 734e7f91e752f44984fe42c2384c23a0290b6e56
+Author: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Date:   Tue Aug 20 16:22:07 2024 +0200
+
+    Rules: Also build memcheck tests even when not running them
+    
+    This will avoid in the future cases like a57cbbd85379 ("malloc: Link
+    threading tests with $(shared-thread-library") missing the memcheck
+    cases added in 251843e16fce ("malloc: Link threading tests with
+    $(shared-thread-library)")
+
+diff --git a/Rules b/Rules
+index 9010c5d5b269a805..27846abf82b65f60 100644
+--- a/Rules
++++ b/Rules
+@@ -145,7 +145,11 @@ others: $(py-const)
+ ifeq ($(run-built-tests),no)
+ tests: $(addprefix $(objpfx),$(filter-out $(tests-unsupported), \
+                                           $(tests) $(tests-internal) \
+-					  $(tests-container)) \
++					  $(tests-container) \
++					  $(tests-mcheck:%=%-mcheck) \
++					  $(tests-malloc-check:%=%-malloc-check) \
++					  $(tests-malloc-hugetlb1:%=%-malloc-hugetlb1) \
++					  $(tests-malloc-hugetlb2:%=%-malloc-hugetlb2)) \
+ 			     $(test-srcs)) $(tests-special) \
+ 			     $(tests-printers-programs)
+ xtests: tests $(xtests-special)

@@ -1,0 +1,72 @@
+commit 086910fc41655152812b515dc324d2ac0dc36e67
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Jun 20 10:32:16 2024 +0200
+
+    malloc: Always install mtrace (bug 31892)
+    
+    Generation of the Perl script does not depend on Perl, so we can
+    always install it even if $(PERL) is not set during the build.
+    
+    Change the malloc/mtrace.pl text substition not to rely on $(PERL).
+    Instead use PATH at run time to find the Perl interpreter. The Perl
+    interpreter cannot execute directly a script that starts with
+    “#! /bin/sh”: it always executes it with /bin/sh.  There is no
+    perl command line switch to disable this behavior.  Instead, use
+    the Perl require function to execute the script.  The additional
+    shift calls remove the “.” shell arguments.  Perl interprets the
+    “.” as a string concatenation operator, making the expression
+    syntactically valid.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/malloc/Makefile b/malloc/Makefile
+index cc14cf66c9661f99..02aff1bd1dc664c3 100644
+--- a/malloc/Makefile
++++ b/malloc/Makefile
+@@ -250,7 +250,6 @@ others-extras = mcheck-init.o
+ aux := set-freeres thread-freeres
+ 
+ # The Perl script to analyze the output of the mtrace functions.
+-ifneq ($(PERL),no)
+ install-bin-script = mtrace
+ generated += mtrace
+ 
+@@ -261,7 +260,6 @@ address-width=10
+ else
+ address-width=18
+ endif
+-endif
+ 
+ # Unless we get a test for the availability of libgd which also works
+ # for cross-compiling we disable the memusagestat generation in this
+@@ -349,7 +347,7 @@ sLIBdir := $(shell echo $(slibdir) | sed 's,lib\(\|64\)$$,\\\\$$LIB,')
+ 
+ $(objpfx)mtrace: mtrace.pl
+ 	rm -f $@.new
+-	sed -e 's|@PERL@|$(PERL)|' -e 's|@XXX@|$(address-width)|' \
++	sed -e 's|@XXX@|$(address-width)|' \
+ 	    -e 's|@VERSION@|$(version)|' \
+ 	    -e 's|@PKGVERSION@|$(PKGVERSION)|' \
+ 	    -e 's|@REPORT_BUGS_TO@|$(REPORT_BUGS_TO)|' $^ > $@.new \
+diff --git a/malloc/mtrace.pl b/malloc/mtrace.pl
+index 075da0d9f11da15c..dc6085820e62092c 100644
+--- a/malloc/mtrace.pl
++++ b/malloc/mtrace.pl
+@@ -1,6 +1,6 @@
+-#! @PERL@
+-eval "exec @PERL@ -S $0 $@"
+-    if 0;
++#! /bin/sh
++eval exec "perl -e 'shift; \$progname=shift; shift; require \$progname'" . "$0" . "$@"
++   if 0;
+ # Copyright (C) 1997-2024 Free Software Foundation, Inc.
+ # This file is part of the GNU C Library.
+ # Based on the mtrace.awk script.
+@@ -22,7 +22,6 @@ eval "exec @PERL@ -S $0 $@"
+ $VERSION = "@VERSION@";
+ $PKGVERSION = "@PKGVERSION@";
+ $REPORT_BUGS_TO = '@REPORT_BUGS_TO@';
+-$progname = $0;
+ 
+ sub usage {
+     print "Usage: mtrace [OPTION]... [Binary] MtraceData\n";

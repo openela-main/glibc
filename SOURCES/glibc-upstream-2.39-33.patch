@@ -1,0 +1,20 @@
+commit e701c7d761f6e5c48d8e9dd5da88cbe2e94943f4
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Apr 25 12:56:48 2024 +0200
+
+    i386: ulp update for SSE2 --disable-multi-arch configurations
+    
+    (cherry picked from commit 3a3a4497421422aa854c855cbe5110ca7d598ffc)
+
+diff --git a/sysdeps/i386/fpu/libm-test-ulps b/sysdeps/i386/fpu/libm-test-ulps
+index 84e6686eba5fe79a..f2139fc172ceef7b 100644
+--- a/sysdeps/i386/fpu/libm-test-ulps
++++ b/sysdeps/i386/fpu/libm-test-ulps
+@@ -1232,6 +1232,7 @@ ldouble: 6
+ 
+ Function: "hypot":
+ double: 1
++float: 1
+ float128: 1
+ ldouble: 1
+ 

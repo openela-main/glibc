@@ -1,0 +1,107 @@
+commit 6cb25aff8583421cf7a55ddd40abd7bd49176c60
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Thu Mar 14 14:59:35 2024 -0300
+
+    math: Fix i386 and m68k fmod/fmodf on static build (BZ 31488)
+    
+    The commit 16439f419b removed the static fmod/fmodf on i386 and m68k
+    with and empty w_fmod.c (required for the ABIs that uses the newly
+    implementation).  This patch fixes by adding the required symbols on
+    the arch-specific w_fmod{f}_compat.c implementation.
+    
+    To statically build fmod fails on some ABI (alpha, s390, sparc) because
+    it does not export the ldexpf128, this is also fixed by this patch.
+    
+    Checked on i686-linux-gnu and with a build for m68k-linux-gnu.
+    
+    Reviewed-by: Aurelien Jarno <aurelien@aurel32.net>
+    Tested-by: Aurelien Jarno <aurelien@aurel32.net>
+    (cherry picked from commit 0b716305dfb48c2d13ed4f7d06c082b90c1d226f)
+
+diff --git a/sysdeps/i386/fpu/w_fmod_compat.c b/sysdeps/i386/fpu/w_fmod_compat.c
+index 5ac9995ffd862a7f..528bfc2a135b5251 100644
+--- a/sysdeps/i386/fpu/w_fmod_compat.c
++++ b/sysdeps/i386/fpu/w_fmod_compat.c
+@@ -7,8 +7,9 @@
+ # define LIBM_SVID_COMPAT 1
+ # undef compat_symbol
+ # define compat_symbol(a, b, c, d)
+-#endif
+-#include <math/w_fmod_compat.c>
+-#ifdef SHARED
++# include <math/w_fmod_compat.c>
+ libm_alias_double (__fmod_compat, fmod)
++#else
++#include <math-type-macros-double.h>
++#include <w_fmod_template.c>
+ #endif
+diff --git a/sysdeps/i386/fpu/w_fmodf_compat.c b/sysdeps/i386/fpu/w_fmodf_compat.c
+index cc417e07d39b271d..5a61693e51f98f8f 100644
+--- a/sysdeps/i386/fpu/w_fmodf_compat.c
++++ b/sysdeps/i386/fpu/w_fmodf_compat.c
+@@ -7,8 +7,9 @@
+ # define LIBM_SVID_COMPAT 1
+ # undef compat_symbol
+ # define compat_symbol(a, b, c, d)
+-#endif
+-#include <math/w_fmodf_compat.c>
+-#ifdef SHARED
++# include <math/w_fmodf_compat.c>
+ libm_alias_float (__fmod_compat, fmod)
++#else
++#include <math-type-macros-float.h>
++#include <w_fmod_template.c>
+ #endif
+diff --git a/sysdeps/ieee754/ldbl-opt/s_ldexpl.c b/sysdeps/ieee754/ldbl-opt/s_ldexpl.c
+index 1afbe7d8adbb00ae..932cc4341c53dec3 100644
+--- a/sysdeps/ieee754/ldbl-opt/s_ldexpl.c
++++ b/sysdeps/ieee754/ldbl-opt/s_ldexpl.c
+@@ -17,13 +17,13 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
+-#if IS_IN (libc)
++#if IS_IN (libc) && defined SHARED
+ # define declare_mgen_alias(f,t)
+ #endif
+ #include <math-type-macros-ldouble.h>
+ #include <s_ldexp_template.c>
+ 
+-#if IS_IN (libc)
++#if IS_IN (libc) && defined SHARED
+ long_double_symbol (libc, __ldexpl, ldexpl);
+ long_double_symbol (libc, __wrap_scalbnl, scalbnl);
+ #endif
+diff --git a/sysdeps/m68k/m680x0/fpu/w_fmod_compat.c b/sysdeps/m68k/m680x0/fpu/w_fmod_compat.c
+index 527d4fbed201d4b4..57f38091e6724848 100644
+--- a/sysdeps/m68k/m680x0/fpu/w_fmod_compat.c
++++ b/sysdeps/m68k/m680x0/fpu/w_fmod_compat.c
+@@ -7,8 +7,9 @@
+ # define LIBM_SVID_COMPAT 1
+ # undef compat_symbol
+ # define compat_symbol(a, b, c, d)
+-#endif
+ #include <math/w_fmod_compat.c>
+-#ifdef SHARED
+ libm_alias_double (__fmod_compat, fmod)
++#else
++#include <math-type-macros-double.h>
++#include <w_fmod_template.c>
+ #endif
+diff --git a/sysdeps/m68k/m680x0/fpu/w_fmodf_compat.c b/sysdeps/m68k/m680x0/fpu/w_fmodf_compat.c
+index 5043586b910e765f..88db07f443b0c339 100644
+--- a/sysdeps/m68k/m680x0/fpu/w_fmodf_compat.c
++++ b/sysdeps/m68k/m680x0/fpu/w_fmodf_compat.c
+@@ -7,8 +7,9 @@
+ # define LIBM_SVID_COMPAT 1
+ # undef compat_symbol
+ # define compat_symbol(a, b, c, d)
+-#endif
+-#include <math/w_fmodf_compat.c>
+-#ifdef SHARED
++# include <math/w_fmodf_compat.c>
+ libm_alias_float (__fmod_compat, fmod)
++#else
++#include <math-type-macros-float.h>
++#include <w_fmod_template.c>
+ #endif

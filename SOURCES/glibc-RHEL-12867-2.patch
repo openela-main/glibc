@@ -1,0 +1,117 @@
+commit 4f5704ea347e52ac3f272d1341da10aed6e9973e
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Tue Dec 10 16:17:06 2024 +0100
+
+    powerpc: Use correct procedure call standard for getrandom vDSO call (bug 32440)
+    
+    A plain indirect function call does not work on POWER because
+    success and failure are signaled through a flag register, and
+    not via the usual Linux negative return value convention.
+    
+    This has potential security impact, in two ways: the return value
+    could be out of bounds (EAGAIN is 11 on powerpc6le), and no
+    random bytes have been written despite the non-error return value.
+    
+    Fixes commit 461cab1de747f3842f27a5d24977d78d561d45f9 ("linux: Add
+    support for getrandom vDSO").
+    
+    Reported-by: Ján Stanček <jstancek@redhat.com>
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/stdlib/Makefile b/stdlib/Makefile
+index 44a118da59f96c17..d3f55249434cc3e8 100644
+--- a/stdlib/Makefile
++++ b/stdlib/Makefile
+@@ -276,6 +276,7 @@ tests := \
+   tst-cxa_atexit \
+   tst-environ \
+   tst-getrandom \
++  tst-getrandom-errno \
+   tst-getrandom2 \
+   tst-labs \
+   tst-limits \
+diff --git a/stdlib/tst-getrandom-errno.c b/stdlib/tst-getrandom-errno.c
+new file mode 100644
+index 0000000000000000..75a60e53ad4e7350
+--- /dev/null
++++ b/stdlib/tst-getrandom-errno.c
+@@ -0,0 +1,37 @@
++/* Test errno handling in getrandom (bug 32440).
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <errno.h>
++#include <stdlib.h>
++#include <support/check.h>
++#include <sys/random.h>
++
++static
++int do_test (void)
++{
++  errno = -1181968554;          /* Just a random value.  */
++  char buf[4];
++  int ret = getrandom (buf, sizeof (buf), -1); /* All flags set.  */
++  if (errno != ENOSYS)
++    TEST_COMPARE (errno, EINVAL);
++  TEST_COMPARE (ret, -1);
++
++  return 0;
++}
++
++#include <support/test-driver.c>
+diff --git a/sysdeps/unix/sysv/linux/getrandom.c b/sysdeps/unix/sysv/linux/getrandom.c
+index c8c578263da456b2..0dc8fa6e65b9ef6a 100644
+--- a/sysdeps/unix/sysv/linux/getrandom.c
++++ b/sysdeps/unix/sysv/linux/getrandom.c
+@@ -20,6 +20,8 @@
+ #include <errno.h>
+ #include <unistd.h>
+ #include <sysdep-cancel.h>
++#include <sysdep.h>
++#include <sysdep-vdso.h>
+ 
+ static inline ssize_t
+ getrandom_syscall (void *buffer, size_t length, unsigned int flags,
+@@ -201,11 +203,12 @@ getrandom_vdso (void *buffer, size_t length, unsigned int flags, bool cancel)
+      cancellation bridge (__syscall_cancel_arch), use GRND_NONBLOCK so there
+      is no potential unbounded blocking in the kernel.  It should be a rare
+      situation, only at system startup when RNG is not initialized.  */
+-  ssize_t ret = GLRO (dl_vdso_getrandom) (buffer,
+-					  length,
+-					  flags | GRND_NONBLOCK,
+-					  state,
+-					  state_size);
++  long int ret = INTERNAL_VSYSCALL_CALL (GLRO (dl_vdso_getrandom), 5,
++					 buffer,
++					 length,
++					 flags | GRND_NONBLOCK,
++					 state,
++					 state_size);
+   if (INTERNAL_SYSCALL_ERROR_P (ret))
+     {
+       /* Fallback to the syscall if the kernel would block.  */
+@@ -241,7 +244,9 @@ __getrandom_early_init (_Bool initial)
+ 	uint32_t mmap_flags;
+ 	uint32_t reserved[13];
+       } params;
+-      if (GLRO(dl_vdso_getrandom) (NULL, 0, 0, &params, ~0UL) == 0)
++      long int ret = INTERNAL_VSYSCALL_CALL (GLRO(dl_vdso_getrandom),
++					     5, NULL, 0, 0, &params, ~0UL);
++      if (! INTERNAL_SYSCALL_ERROR_P (ret))
+ 	{
+ 	  /* Align each opaque state to L1 data cache size to avoid false
+ 	     sharing.  If the size can not be obtained, use the kernel

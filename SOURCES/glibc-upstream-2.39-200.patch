@@ -1,0 +1,39 @@
+commit 4e5ee49a432b8569137bdacc302fc696ed37b1bd
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Wed Feb 28 05:46:40 2024 -0800
+
+    sysdeps/unix/sysv/linux/x86_64/Makefile: Add the end marker
+    
+    Add the end marker to tests, tests-container and modules-names.
+    
+    (cherry picked from commit e6350be7e9cae8f71c96c1f06eab61b9acb227c8)
+
+diff --git a/sysdeps/unix/sysv/linux/x86_64/Makefile b/sysdeps/unix/sysv/linux/x86_64/Makefile
+index 9a1e7aa6461725af..fcbffd81cbaa031d 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/Makefile
++++ b/sysdeps/unix/sysv/linux/x86_64/Makefile
+@@ -17,18 +17,21 @@ endif
+ ifeq ($(subdir),elf)
+ ifeq (yes,$(enable-x86-isa-level))
+ tests += \
+-  tst-glibc-hwcaps-2
++  tst-glibc-hwcaps-2 \
++# tests
+ ifeq (no,$(build-hardcoded-path-in-tests))
+ # This is an ld.so.cache test, and RPATH/RUNPATH in the executable
+ # interferes with its test objectives.
+ tests-container += \
+-  tst-glibc-hwcaps-2-cache
++  tst-glibc-hwcaps-2-cache \
++# tests-container
+ endif
+ modules-names += \
+   libx86-64-isa-level-1 \
+   libx86-64-isa-level-2 \
+   libx86-64-isa-level-3 \
+-  libx86-64-isa-level-4
++  libx86-64-isa-level-4 \
++# modules-names
+ 
+ $(objpfx)tst-glibc-hwcaps-2: $(objpfx)libx86-64-isa-level.so
+ 

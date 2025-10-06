@@ -1,0 +1,27 @@
+commit 14ec225d859091c048ec54e5c4ddf6738498aee7
+Author: Arjun Shankar <arjun@redhat.com>
+Date:   Fri Oct 25 09:33:45 2024 +0200
+
+    libio: Correctly link tst-popen-fork against libpthread
+    
+    tst-popen-fork failed to build for Hurd due to not being linked with
+    libpthread.  This commit fixes that.
+    
+    Tested with build-many-glibcs.py for i686-gnu.
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+    (cherry picked from commit 6a290b2895b77be839fcb7c44a6a9879560097ad)
+
+diff --git a/libio/Makefile b/libio/Makefile
+index d1f2342867601735..92d6c6bcab1818d0 100644
+--- a/libio/Makefile
++++ b/libio/Makefile
+@@ -140,6 +140,8 @@ tests = \
+   tst_wscanf \
+   # tests
+ 
++$(objpfx)tst-popen-fork: $(shared-thread-library)
++
+ tests-internal = tst-vtables tst-vtables-interposed
+ 
+ ifeq (yes,$(build-shared))

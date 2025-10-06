@@ -1,0 +1,49 @@
+commit 3463100f2d47f2897a24ba8023a5c7aaf2d26550
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Sat Apr 12 08:37:29 2025 -0700
+
+    x86: Detect Intel Diamond Rapids
+    
+    Detect Intel Diamond Rapids and tune it similar to Intel Granite Rapids.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Sunil K Pandey <skpgkp2@gmail.com>
+    (cherry picked from commit de14f1959ee5f9b845a7cae43bee03068b8136f0)
+
+diff --git a/sysdeps/x86/cpu-features.c b/sysdeps/x86/cpu-features.c
+index 6d2e660b4b20ff06..47dc3b1510a68fc9 100644
+--- a/sysdeps/x86/cpu-features.c
++++ b/sysdeps/x86/cpu-features.c
+@@ -542,6 +542,7 @@ enum intel_microarch
+   INTEL_BIGCORE_ARROWLAKE,
+   INTEL_BIGCORE_PANTHERLAKE,
+   INTEL_BIGCORE_GRANITERAPIDS,
++  INTEL_BIGCORE_DIAMONDRAPIDS,
+ 
+   /* Mixed (bigcore + atom SOC).  */
+   INTEL_MIXED_LAKEFIELD,
+@@ -817,6 +818,16 @@ disable_tsx:
+ 	      break;
+ 	    }
+ 	}
++      else if (family == 19)
++	switch (model)
++	  {
++	  case 0x01:
++	    microarch = INTEL_BIGCORE_DIAMONDRAPIDS;
++	    break;
++
++	  default:
++	    break;
++	  }
+ 
+       switch (microarch)
+ 	{
+@@ -926,6 +937,7 @@ disable_tsx:
+ 	case INTEL_BIGCORE_SAPPHIRERAPIDS:
+ 	case INTEL_BIGCORE_EMERALDRAPIDS:
+ 	case INTEL_BIGCORE_GRANITERAPIDS:
++	case INTEL_BIGCORE_DIAMONDRAPIDS:
+ 	  /* Default tuned Mixed (bigcore + atom SOC). */
+ 	case INTEL_MIXED_LAKEFIELD:
+ 	case INTEL_MIXED_ALDERLAKE:

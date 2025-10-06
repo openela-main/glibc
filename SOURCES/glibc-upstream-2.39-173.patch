@@ -1,0 +1,28 @@
+commit 837a36c371f18a3152d032e8060f4e5120c25e2b
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Mon Mar 31 21:33:18 2025 +0200
+
+    x86: Link tst-gnu2-tls2-x86-noxsave{,c,xsavec} with libpthread
+    
+    This fixes a test build failure on Hurd.
+    
+    Fixes commit 145097dff170507fe73190e8e41194f5b5f7e6bf ("x86: Use separate
+    variable for TLSDESC XSAVE/XSAVEC state size (bug 32810)").
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+    (cherry picked from commit c6e2895695118ab59c7b17feb0fcb75a53e3478c)
+
+diff --git a/sysdeps/x86/Makefile b/sysdeps/x86/Makefile
+index 8819fba1b7164f45..01b0192ddf5e23ca 100644
+--- a/sysdeps/x86/Makefile
++++ b/sysdeps/x86/Makefile
+@@ -104,6 +104,9 @@ LDFLAGS-tst-gnu2-tls2-x86-noxsavexsavec += -Wl,-z,lazy
+ tst-gnu2-tls2-x86-noxsave-ENV = GLIBC_TUNABLES=glibc.cpu.hwcaps=-XSAVE
+ tst-gnu2-tls2-x86-noxsavec-ENV = GLIBC_TUNABLES=glibc.cpu.hwcaps=-XSAVEC
+ tst-gnu2-tls2-x86-noxsavexsavec-ENV = GLIBC_TUNABLES=glibc.cpu.hwcaps=-XSAVE,-XSAVEC
++$(objpfx)tst-gnu2-tls2-x86-noxsave: $(shared-thread-library)
++$(objpfx)tst-gnu2-tls2-x86-noxsavec: $(shared-thread-library)
++$(objpfx)tst-gnu2-tls2-x86-noxsavexsavec: $(shared-thread-library)
+ $(objpfx)tst-gnu2-tls2-x86-noxsave.out \
+ $(objpfx)tst-gnu2-tls2-x86-noxsavec.out \
+ $(objpfx)tst-gnu2-tls2-x86-noxsavexsavec.out: \

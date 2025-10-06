@@ -1,0 +1,23 @@
+commit c7c3f5bf80ae86b34501f473f1a9fc545c911b7f
+Author: caiyinyu <caiyinyu@loongson.cn>
+Date:   Sat May 11 10:25:54 2024 +0800
+
+    LoongArch: Fix undefined `__memset_aligned` reference in ld.so linking.
+    
+    This patch from 095067efdf68c8061d6f99a21a0300841bede999 (LoongArch: Add
+    glibc.cpu.hwcap support.)
+
+diff --git a/sysdeps/loongarch/lp64/multiarch/dl-symbol-redir-ifunc.h b/sysdeps/loongarch/lp64/multiarch/dl-symbol-redir-ifunc.h
+index cb640d77b7695b93..a73390b12f67a3fc 100644
+--- a/sysdeps/loongarch/lp64/multiarch/dl-symbol-redir-ifunc.h
++++ b/sysdeps/loongarch/lp64/multiarch/dl-symbol-redir-ifunc.h
+@@ -19,6 +19,9 @@
+ #ifndef _DL_IFUNC_GENERIC_H
+ #define _DL_IFUNC_GENERIC_H
+ 
++#ifndef SHARED
+ asm ("memset = __memset_aligned");
++asm ("memcmp = __memcmp_aligned");
++#endif
+ 
+ #endif

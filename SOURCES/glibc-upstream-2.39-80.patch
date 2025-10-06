@@ -1,0 +1,66 @@
+commit d2cbfcf1d9a4b539007fe04d33e0bdb82d02a2f2
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Wed May 22 15:07:12 2024 -0300
+
+    math: Provide missing math symbols on libc.a (BZ 31781)
+    
+    The libc.a for alpha, s390, and sparcv9 does not provide
+    copysignf64x, copysignf128, frexpf64x, frexpf128, modff64x, and
+    modff128.
+    
+    Checked with a static build for the affected ABIs.
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    
+    (cherry picked from commit eaa8113bf0eb599025e3efdbe1bb214ee8dc645a)
+
+diff --git a/sysdeps/ieee754/ldbl-64-128/s_copysignl.c b/sysdeps/ieee754/ldbl-64-128/s_copysignl.c
+index 11b42d04ba61b446..80137847d32c7c08 100644
+--- a/sysdeps/ieee754/ldbl-64-128/s_copysignl.c
++++ b/sysdeps/ieee754/ldbl-64-128/s_copysignl.c
+@@ -1,10 +1,10 @@
+ #include <math_ldbl_opt.h>
+ #include <libm-alias-ldouble.h>
+-#if IS_IN (libc)
++#if IS_IN (libc) && defined SHARED
+ # undef libm_alias_ldouble
+ # define libm_alias_ldouble(from, to)
+ #endif
+ #include <sysdeps/ieee754/ldbl-128/s_copysignl.c>
+-#if IS_IN (libc)
++#if IS_IN (libc) && defined SHARED
+ long_double_symbol (libc, __copysignl, copysignl);
+ #endif
+diff --git a/sysdeps/ieee754/ldbl-64-128/s_frexpl.c b/sysdeps/ieee754/ldbl-64-128/s_frexpl.c
+index 73ac41e40c214394..f5f7d349f78ab64e 100644
+--- a/sysdeps/ieee754/ldbl-64-128/s_frexpl.c
++++ b/sysdeps/ieee754/ldbl-64-128/s_frexpl.c
+@@ -1,10 +1,10 @@
+ #include <math_ldbl_opt.h>
+ #include <libm-alias-ldouble.h>
+-#if IS_IN (libc)
++#if IS_IN (libc) && defined SHARED
+ # undef libm_alias_ldouble
+ # define libm_alias_ldouble(from, to)
+ #endif
+ #include <sysdeps/ieee754/ldbl-128/s_frexpl.c>
+-#if IS_IN (libc)
++#if IS_IN (libc) && defined SHARED
+ long_double_symbol (libc, __frexpl, frexpl);
+ #endif
+diff --git a/sysdeps/ieee754/ldbl-64-128/s_modfl.c b/sysdeps/ieee754/ldbl-64-128/s_modfl.c
+index 7d7aeae111fc6e7a..ba3d31334a0fefa0 100644
+--- a/sysdeps/ieee754/ldbl-64-128/s_modfl.c
++++ b/sysdeps/ieee754/ldbl-64-128/s_modfl.c
+@@ -1,10 +1,10 @@
+ #include <math_ldbl_opt.h>
+ #include <libm-alias-ldouble.h>
+-#if IS_IN (libc)
++#if IS_IN (libc) && defined SHARED
+ # undef libm_alias_ldouble
+ # define libm_alias_ldouble(from, to)
+ #endif
+ #include <sysdeps/ieee754/ldbl-128/s_modfl.c>
+-#if IS_IN (libc)
++#if IS_IN (libc) && defined SHARED
+ long_double_symbol (libc, __modfl, modfl);
+ #endif

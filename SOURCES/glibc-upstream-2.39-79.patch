@@ -1,0 +1,30 @@
+commit d473c9bb3b6b0448985cd195c558de2a49fd2dc2
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Tue May 21 13:52:54 2024 -0300
+
+    math: Fix isnanf128 static build (BZ 31774)
+    
+    Some static implementation of float128 routines might call __isnanf128,
+    which is not provided by the static object.
+    
+    Checked on x86_64-linux-gnu.
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    
+    (cherry picked from commit 5d4999e519ec77e75bef920e2540e8605015680a)
+
+diff --git a/sysdeps/ieee754/float128/s_isnanf128.c b/sysdeps/ieee754/float128/s_isnanf128.c
+index 59f71533cedc752e..b73a4e80d707eeb8 100644
+--- a/sysdeps/ieee754/float128/s_isnanf128.c
++++ b/sysdeps/ieee754/float128/s_isnanf128.c
+@@ -11,7 +11,11 @@
+ #include "../ldbl-128/s_isnanl.c"
+ #if !IS_IN (libm)
+ #include <float128-abi.h>
++#ifdef SHARED
+ hidden_ver (__isnanf128_impl, __isnanf128)
++#else
++strong_alias (__isnanf128_impl, __isnanf128)
++#endif
+ _weak_alias (__isnanf128_impl, isnanl)
+ versioned_symbol (libc, __isnanf128_impl, __isnanf128, GLIBC_2_34);
+ #if (SHLIB_COMPAT (libc, FLOAT128_VERSION_M, GLIBC_2_34))

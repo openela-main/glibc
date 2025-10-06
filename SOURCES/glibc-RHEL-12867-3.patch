@@ -1,0 +1,32 @@
+commit b933e5cef63a6c136fe57de29eba7abc51b678de
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Sun Dec 15 17:05:25 2024 +0100
+
+    Linux: Check for 0 return value from vDSO getrandom probe
+    
+    As of Linux 6.13, there is no code in the vDSO that declines this
+    initialization request with the special ~0UL state size.  If the vDSO
+    has the function, the call succeeds and returns 0.  It's expected
+    that the code would follow the “a negative value indicating an error”
+    convention, as indicated in the __cvdso_getrandom_data function
+    comment, so that INTERNAL_SYSCALL_ERROR_P on glibc's side would return
+    true.  This commit changes the commit to check for zero to indicate
+    success instead, which covers potential future non-zero success
+    return values and error returns.
+    
+    Fixes commit 4f5704ea347e52ac3f272d1341da10aed6e9973e ("powerpc: Use
+    correct procedure call standard for getrandom vDSO call (bug 32440)").
+
+diff --git a/sysdeps/unix/sysv/linux/getrandom.c b/sysdeps/unix/sysv/linux/getrandom.c
+index 0dc8fa6e65b9ef6a..d3eab66a1af6229e 100644
+--- a/sysdeps/unix/sysv/linux/getrandom.c
++++ b/sysdeps/unix/sysv/linux/getrandom.c
+@@ -246,7 +246,7 @@ __getrandom_early_init (_Bool initial)
+       } params;
+       long int ret = INTERNAL_VSYSCALL_CALL (GLRO(dl_vdso_getrandom),
+ 					     5, NULL, 0, 0, &params, ~0UL);
+-      if (! INTERNAL_SYSCALL_ERROR_P (ret))
++      if (ret == 0)
+ 	{
+ 	  /* Align each opaque state to L1 data cache size to avoid false
+ 	     sharing.  If the size can not be obtained, use the kernel

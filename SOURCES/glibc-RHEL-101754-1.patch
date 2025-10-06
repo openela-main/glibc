@@ -1,0 +1,96 @@
+Downstream-only patch to restore the original layout of
+struct cpu_features, removing the memset_non_temporal_threshold
+member that was added in glibc-upstream-2.39-174.patch, replacing
+it with __rtld_global_ro_memset_non_temporal_threshold@GLIBC_PRIVATE.
+
+diff --git a/sysdeps/x86/Versions b/sysdeps/x86/Versions
+index 4b10c4b5d722ecd0..33dbd67b64c3ab5e 100644
+--- a/sysdeps/x86/Versions
++++ b/sysdeps/x86/Versions
+@@ -1,6 +1,7 @@
+ ld {
+   GLIBC_PRIVATE {
+     _dl_x86_get_cpu_features;
++    __rtld_global_ro_memset_non_temporal_threshold;
+   }
+ }
+ libc {
+diff --git a/sysdeps/x86/cacheinfo.h b/sysdeps/x86/cacheinfo.h
+index 83491607c761ccc6..c041094d083baa11 100644
+--- a/sysdeps/x86/cacheinfo.h
++++ b/sysdeps/x86/cacheinfo.h
+@@ -81,7 +81,7 @@ init_cacheinfo (void)
+     = cpu_features->non_temporal_threshold;
+ 
+   __x86_memset_non_temporal_threshold
+-      = cpu_features->memset_non_temporal_threshold;
++      = __rtld_global_ro_memset_non_temporal_threshold;
+ 
+   __x86_rep_movsb_threshold = cpu_features->rep_movsb_threshold;
+   __x86_rep_stosb_threshold = cpu_features->rep_stosb_threshold;
+diff --git a/sysdeps/x86/cpu-features.c b/sysdeps/x86/cpu-features.c
+index 47dc3b1510a68fc9..4dc2b60aab65ed8e 100644
+--- a/sysdeps/x86/cpu-features.c
++++ b/sysdeps/x86/cpu-features.c
+@@ -86,6 +86,9 @@ extern void TUNABLE_CALLBACK (set_x86_shstk) (tunable_val_t *)
+ 
+ unsigned long int _dl_x86_features_tlsdesc_state_size;
+ 
++unsigned long int __rtld_global_ro_memset_non_temporal_threshold;
++rtld_hidden_def (__rtld_global_ro_memset_non_temporal_threshold)
++
+ static void
+ update_active (struct cpu_features *cpu_features)
+ {
+diff --git a/sysdeps/x86/dl-cacheinfo.h b/sysdeps/x86/dl-cacheinfo.h
+index 10ad18061a1b47af..ebfea0a32ce0cff6 100644
+--- a/sysdeps/x86/dl-cacheinfo.h
++++ b/sysdeps/x86/dl-cacheinfo.h
+@@ -1060,7 +1060,8 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+   cpu_features->data_cache_size = data;
+   cpu_features->shared_cache_size = shared;
+   cpu_features->non_temporal_threshold = non_temporal_threshold;
+-  cpu_features->memset_non_temporal_threshold = memset_non_temporal_threshold;
++  __rtld_global_ro_memset_non_temporal_threshold
++    = memset_non_temporal_threshold;
+   cpu_features->rep_movsb_threshold = rep_movsb_threshold;
+   cpu_features->rep_stosb_threshold = rep_stosb_threshold;
+   cpu_features->rep_movsb_stop_threshold = rep_movsb_stop_threshold;
+diff --git a/sysdeps/x86/dl-diagnostics-cpu.c b/sysdeps/x86/dl-diagnostics-cpu.c
+index 8113a93883cfe7a2..9a3e0ec8b9214a9c 100644
+--- a/sysdeps/x86/dl-diagnostics-cpu.c
++++ b/sysdeps/x86/dl-diagnostics-cpu.c
+@@ -86,7 +86,7 @@ _dl_diagnostics_cpu (void)
+   print_cpu_features_value ("non_temporal_threshold",
+                             cpu_features->non_temporal_threshold);
+   print_cpu_features_value ("memset_non_temporal_threshold",
+-                            cpu_features->memset_non_temporal_threshold);
++                            __rtld_global_ro_memset_non_temporal_threshold);
+   print_cpu_features_value ("rep_movsb_threshold",
+                             cpu_features->rep_movsb_threshold);
+   print_cpu_features_value ("rep_movsb_stop_threshold",
+diff --git a/sysdeps/x86/include/cpu-features.h b/sysdeps/x86/include/cpu-features.h
+index 03c71387dd08982b..e1290ca2d4c9c39f 100644
+--- a/sysdeps/x86/include/cpu-features.h
++++ b/sysdeps/x86/include/cpu-features.h
+@@ -944,8 +944,6 @@ struct cpu_features
+   unsigned long int shared_cache_size;
+   /* Threshold to use non temporal store in memmove.  */
+   unsigned long int non_temporal_threshold;
+-  /* Threshold to use non temporal store in memset.  */
+-  unsigned long int memset_non_temporal_threshold;
+   /* Threshold to use "rep movsb".  */
+   unsigned long int rep_movsb_threshold;
+   /* Threshold to stop using "rep movsb".  */
+@@ -992,6 +990,11 @@ extern const struct cpu_features *_dl_x86_get_cpu_features (void)
+    xsave_state_size from struct cpu_features, this includes additional
+    registers.  */
+ extern unsigned long int _dl_x86_features_tlsdesc_state_size attribute_hidden;
++
++/* Threshold to use non temporal store in memset.  Moved out struct
++   cpu_features to preserve _rtld_global_ro layout.  */
++extern unsigned long int __rtld_global_ro_memset_non_temporal_threshold;
++rtld_hidden_proto (__rtld_global_ro_memset_non_temporal_threshold)
+ #endif
+ 
+ #if defined (_LIBC) && !IS_IN (nonlib)

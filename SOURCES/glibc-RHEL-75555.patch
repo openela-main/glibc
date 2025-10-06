@@ -1,0 +1,115 @@
+commit abeae3c0061c0599ac2f012b270d6b4c8f59c82f
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Jan 16 18:45:25 2025 +0100
+
+    Linux: Fixes for getrandom fork handling
+    
+    Careful updates of grnd_alloc.len are required to ensure that
+    after fork, grnd_alloc.states does not contain entries that
+    are also encountered by __getrandom_reset_state in TCBs.
+    For the same reason, it is necessary to overwrite the TCB state
+    pointer with NULL before updating grnd_alloc.states in
+    __getrandom_vdso_release.
+    
+    Before this change, different TCBs could share the same getrandom
+    state after multi-threaded fork.  This would be a critical security
+    bug (predictable randomness) if not caught during development.
+    
+    The additional check in stdlib/tst-arc4random-thread makes it more
+    likely that the test fails due to the bugs mentioned above.
+    
+    Both __getrandom_reset_state and __getrandom_vdso_release could
+    put reserved NULL pointers into the states array.  This is also
+    fixed with this commit.  After these changes, no null pointers were
+    observed in the states array during testing.
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+diff --git a/stdlib/tst-arc4random-thread.c b/stdlib/tst-arc4random-thread.c
+index d1259626c62af5ad..5e8a4761fc39165a 100644
+--- a/stdlib/tst-arc4random-thread.c
++++ b/stdlib/tst-arc4random-thread.c
+@@ -49,7 +49,7 @@ static const int sizes[] = { 12, 15, 16, 17, 24, 31, max_size };
+ struct blob
+ {
+   unsigned int size;
+-  int thread_id;
++  int thread_id;		/* -1 means after fork.  */
+   unsigned int index;
+   unsigned char bytes[max_size];
+ };
+@@ -323,6 +323,20 @@ do_test_func (const char *fname, void (*func)(unsigned char *, size_t))
+         }
+     }
+ 
++  for (struct blob *p = dynarray_blob_begin (&global_result);
++       p < end; ++p)
++    {
++      unsigned int sum = 0;
++      for (unsigned int i = 0; i < p->size; ++i)
++	sum += p->bytes[i];
++      if (sum == 0)
++	{
++          support_record_failure ();
++	  printf ("error: all-zero result of length %u on thread %d\n",
++		  p->size, p->thread_id);
++	}
++    }
++
+   dynarray_blob_free (&global_result);
+ 
+   return 0;
+diff --git a/sysdeps/unix/sysv/linux/getrandom.c b/sysdeps/unix/sysv/linux/getrandom.c
+index d3eab66a1af6229e..d93901f6ea5cbc6b 100644
+--- a/sysdeps/unix/sysv/linux/getrandom.c
++++ b/sysdeps/unix/sysv/linux/getrandom.c
+@@ -168,6 +168,11 @@ vgetrandom_get_state (void)
+   if (grnd_alloc.len > 0 || vgetrandom_get_state_alloc ())
+     state = grnd_alloc.states[--grnd_alloc.len];
+ 
++  /* Barrier needed by fork: The state must be gone from the array
++     through len update before it becomes visible in the TCB.  (There
++     is also a release barrier implied by the unlock, but issue a
++     stronger barrier to help fork.)  */
++  atomic_thread_fence_seq_cst ();
+   __libc_lock_unlock (grnd_alloc.lock);
+   internal_signal_restore_set (&set);
+ 
+@@ -278,7 +283,10 @@ void
+ __getrandom_reset_state (struct pthread *curp)
+ {
+ #ifdef HAVE_GETRANDOM_VSYSCALL
+-  if (grnd_alloc.states == NULL || curp->getrandom_buf == NULL)
++  /* The pointer can be reserved if the fork happened during a
++     getrandom call.  */
++  void *buf = release_ptr (curp->getrandom_buf);
++  if (grnd_alloc.states == NULL || buf == NULL)
+     return;
+   assert (grnd_alloc.len < grnd_alloc.cap);
+   grnd_alloc.states[grnd_alloc.len++] = release_ptr (curp->getrandom_buf);
+@@ -294,11 +302,23 @@ void
+ __getrandom_vdso_release (struct pthread *curp)
+ {
+ #ifdef HAVE_GETRANDOM_VSYSCALL
+-  if (curp->getrandom_buf == NULL)
++  /* The pointer can be reserved if the thread was canceled in a
++     signal handler.  */
++  void *buf = release_ptr (curp->getrandom_buf);
++  if (buf == NULL)
+     return;
+ 
+   __libc_lock_lock (grnd_alloc.lock);
+-  grnd_alloc.states[grnd_alloc.len++] = curp->getrandom_buf;
++
++  size_t len = grnd_alloc.len;
++  grnd_alloc.states[len] = curp->getrandom_buf;
++  curp->getrandom_buf = NULL;
++  /* Barrier needed by fork: The state must vanish from the TCB before
++     it becomes visible in the states array.  Also avoid exposing the
++     previous entry value at the same index in the states array (which
++     may be in use by another thread).  */
++  atomic_thread_fence_seq_cst ();
++  grnd_alloc.len = len + 1;
+   __libc_lock_unlock (grnd_alloc.lock);
+ #endif
+ }

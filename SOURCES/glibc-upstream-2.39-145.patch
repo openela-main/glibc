@@ -1,0 +1,143 @@
+commit 994b129a35ca5218ecddd1add74aea68f1314560
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Fri Sep 27 15:50:10 2024 -0700
+
+    x86/string: Fixup alignment of main loop in str{n}cmp-evex [BZ #32212]
+    
+    The loop should be aligned to 32-bytes so that it can ideally run out
+    the DSB. This is particularly important on Skylake-Server where
+    deficiencies in it's DSB implementation make it prone to not being
+    able to run loops out of the DSB.
+    
+    For example running strcmp-evex on 200Mb string:
+    
+    32-byte aligned loop:
+        - 43,399,578,766      idq.dsb_uops
+    not 32-byte aligned loop:
+        - 6,060,139,704       idq.dsb_uops
+    
+    This results in a 25% performance degradation for the non-aligned
+    version.
+    
+    The fix is to just ensure the code layout is such that the loop is
+    aligned. (Which was previously the case but was accidentally dropped
+    in 84e7c46df).
+    
+    NB: The fix was actually 64-byte alignment. This is because 64-byte
+    alignment generally produces more stable performance than 32-byte
+    aligned code (cache line crosses can affect perf), so if we are going
+    past 16-byte alignmnent, might as well go to 64. 64-byte alignment
+    also matches most other functions we over-align, so it creates a
+    common point of optimization.
+    
+    Times are reported as ratio of Time_With_Patch /
+    Time_Without_Patch. Lower is better.
+    
+    The values being reported is the geometric mean of the ratio across
+    all tests in bench-strcmp and bench-strncmp.
+    
+    Note this patch is only attempting to improve the Skylake-Server
+    strcmp for long strings. The rest of the numbers are only to test for
+    regressions.
+    
+    Tigerlake Results Strings <= 512:
+        strcmp : 1.026
+        strncmp: 0.949
+    
+    Tigerlake Results Strings > 512:
+        strcmp : 0.994
+        strncmp: 0.998
+    
+    Skylake-Server Results Strings <= 512:
+        strcmp : 0.945
+        strncmp: 0.943
+    
+    Skylake-Server Results Strings > 512:
+        strcmp : 0.778
+        strncmp: 1.000
+    
+    The 2.6% regression on TGL-strcmp is due to slowdowns caused by
+    changes in alignment of code handling small sizes (most on the
+    page-cross logic). These should be safe to ignore because 1) We
+    previously only 16-byte aligned the function so this behavior is not
+    new and was essentially up to chance before this patch and 2) this
+    type of alignment related regression on small sizes really only comes
+    up in tight micro-benchmark loops and is unlikely to have any affect
+    on realworld performance.
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    (cherry picked from commit 483443d3211532903d7e790211af5a1d55fdb1f3)
+
+diff --git a/sysdeps/x86_64/multiarch/strcmp-evex.S b/sysdeps/x86_64/multiarch/strcmp-evex.S
+index 06730ab2a18f72a0..cea034f394ab45e2 100644
+--- a/sysdeps/x86_64/multiarch/strcmp-evex.S
++++ b/sysdeps/x86_64/multiarch/strcmp-evex.S
+@@ -209,7 +209,9 @@
+    returned.  */
+ 
+ 	.section SECTION(.text), "ax", @progbits
+-	.align	16
++	/* Align 64 bytes here. This is to get the L(loop) block ideally
++	   aligned for the DSB.  */
++	.align	64
+ 	.type	STRCMP, @function
+ 	.globl	STRCMP
+ # ifdef USE_AS_STRCASECMP_L
+@@ -509,9 +511,7 @@ L(ret4):
+ 	ret
+ # endif
+ 
+-	/* 32 byte align here ensures the main loop is ideally aligned
+-	   for DSB.  */
+-	.p2align 5
++	.p2align 4,, 4
+ L(more_3x_vec):
+ 	/* Safe to compare 4x vectors.  */
+ 	VMOVU	(VEC_SIZE)(%rdi), %VMM(0)
+@@ -1426,10 +1426,9 @@ L(less_32_till_page):
+ L(ret_zero_page_cross_slow_case0):
+ 	xorl	%eax, %eax
+ 	ret
+-# endif
+-
+-
++# else
+ 	.p2align 4,, 10
++# endif
+ L(less_16_till_page):
+ 	cmpl	$((VEC_SIZE - 8) / SIZE_OF_CHAR), %eax
+ 	ja	L(less_8_till_page)
+@@ -1482,8 +1481,12 @@ L(less_16_till_page):
+ # endif
+ 	jmp	L(prepare_loop_aligned)
+ 
+-
+-
++# ifndef USE_AS_STRNCMP
++	/* Fits in aligning bytes.  */
++L(ret_zero_4_loop):
++	xorl	%eax, %eax
++	ret
++# endif
+ 
+ 	.p2align 4,, 10
+ L(less_8_till_page):
+@@ -1554,6 +1557,7 @@ L(ret_less_8_wcs):
+ 
+ #  ifdef USE_AS_STRNCMP
+ 	.p2align 4,, 2
++L(ret_zero_4_loop):
+ L(ret_zero_page_cross_slow_case1):
+ 	xorl	%eax, %eax
+ 	ret
+@@ -1586,10 +1590,6 @@ L(less_4_loop):
+ 	subq	$-(CHAR_PER_VEC * 4), %rdx
+ #  endif
+ 	jmp	L(prepare_loop_aligned)
+-
+-L(ret_zero_4_loop):
+-	xorl	%eax, %eax
+-	ret
+ L(ret_less_4_loop):
+ 	xorl	%r8d, %eax
+ 	subl	%r8d, %eax

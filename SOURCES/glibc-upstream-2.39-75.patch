@@ -1,0 +1,28 @@
+commit 7f9f25f255ee2c00178779fbce502f4b94b848b9
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Tue Jun 18 10:56:34 2024 +0200
+
+    Linux: Include <dl-symbol-redir-ifunc.h> in dl-sysdep.c
+    
+    The _dl_sysdep_parse_arguments function contains initalization
+    of a large on-stack variable:
+    
+      dl_parse_auxv_t auxv_values = { 0, };
+    
+    This uses a non-inline version of memset on powerpc64le-linux-gnu,
+    so it must use the baseline memset.
+    
+    (cherry picked from commit f6ea5d1291cf3f264514d03872ebae84e0293b69)
+
+diff --git a/sysdeps/unix/sysv/linux/dl-sysdep.c b/sysdeps/unix/sysv/linux/dl-sysdep.c
+index e1b14e9eb34ff5cb..a8ec2d7c18cc423e 100644
+--- a/sysdeps/unix/sysv/linux/dl-sysdep.c
++++ b/sysdeps/unix/sysv/linux/dl-sysdep.c
+@@ -40,6 +40,7 @@
+ #include <sys/utsname.h>
+ #include <tls.h>
+ #include <unistd.h>
++#include <dl-symbol-redir-ifunc.h>
+ 
+ #include <dl-machine.h>
+ #include <dl-hwcap-check.h>

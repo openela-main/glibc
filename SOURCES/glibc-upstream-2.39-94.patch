@@ -1,0 +1,31 @@
+commit 4bdcc1963bc2b5ba5f8e319e402d9eb2cb6096c1
+Author: Lukas Bulwahn <lukas.bulwahn@redhat.com>
+Date:   Mon Jul 29 11:08:17 2024 +0200
+
+    manual: make setrlimit() description less ambiguous
+    
+    The existing description for setrlimit() has some ambiguity. It could be
+    understood to have the semantics of getrlimit(), i.e., the limits from the
+    process are stored in the provided rlp pointer.
+    
+    Make the description more explicit that rlp are the input values, and that
+    the limits of the process is changed with this function.
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+    (cherry picked from commit aedbf08891069fc029ed021e4dba933eb877b394)
+
+diff --git a/manual/resource.texi b/manual/resource.texi
+index 37462abc9e467690..743cc9439665b9d5 100644
+--- a/manual/resource.texi
++++ b/manual/resource.texi
+@@ -192,8 +192,8 @@ If the sources are compiled with @code{_FILE_OFFSET_BITS == 64} on a
+ @standards{BSD, sys/resource.h}
+ @safety{@prelim{}@mtsafe{}@assafe{}@acsafe{}}
+ @c Direct syscall on most systems; lock-taking critical section on HURD.
+-Store the current and maximum limits for the resource @var{resource}
+-in @code{*@var{rlp}}.
++Change the current and maximum limits of the process for the resource
++@var{resource} to the values provided in @code{*@var{rlp}}.
+ 
+ The return value is @code{0} on success and @code{-1} on failure.  The
+ following @code{errno} error condition is possible:

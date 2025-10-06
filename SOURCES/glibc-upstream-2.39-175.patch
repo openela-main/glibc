@@ -1,0 +1,43 @@
+commit cc59fa5dbc4db7c6d1fb792c55a5d83c54ee72bf
+Author: Joe Damato <jdamato@fastly.com>
+Date:   Fri Jun 7 23:04:47 2024 +0000
+
+    x86: Enable non-temporal memset tunable for AMD
+    
+    In commit 46b5e98ef6f1 ("x86: Add seperate non-temporal tunable for
+    memset") a tunable threshold for enabling non-temporal memset was added,
+    but only for Intel hardware.
+    
+    Since that commit, new benchmark results suggest that non-temporal
+    memset is beneficial on AMD, as well, so allow this tunable to be set
+    for AMD.
+    
+    See:
+    https://docs.google.com/spreadsheets/d/1opzukzvum4n6-RUVHTGddV6RjAEil4P2uMjjQGLbLcU/edit?usp=sharing
+    which has been updated to include data using different stategies for
+    large memset on AMD Zen2, Zen3, and Zen4.
+    
+    Signed-off-by: Joe Damato <jdamato@fastly.com>
+    Reviewed-by: Noah Goldstein <goldstein.w.n@gmail.com>
+    (cherry picked from commit bef2a827a55fc759693ccc5b0f614353b8ad712d)
+
+diff --git a/sysdeps/x86/dl-cacheinfo.h b/sysdeps/x86/dl-cacheinfo.h
+index 0e7c1e0415d4137b..9916c5d951361c90 100644
+--- a/sysdeps/x86/dl-cacheinfo.h
++++ b/sysdeps/x86/dl-cacheinfo.h
+@@ -986,11 +986,11 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+   if (CPU_FEATURE_USABLE_P (cpu_features, FSRM))
+     rep_movsb_threshold = 2112;
+ 
+-  /* Non-temporal stores in memset have only been tested on Intel hardware.
+-     Until we benchmark data on other x86 processor, disable non-temporal
+-     stores in memset. */
++  /* Non-temporal stores are more performant on Intel and AMD hardware above
++     non_temporal_threshold. Enable this for both Intel and AMD hardware. */
+   unsigned long int memset_non_temporal_threshold = SIZE_MAX;
+-  if (cpu_features->basic.kind == arch_kind_intel)
++  if (cpu_features->basic.kind == arch_kind_intel
++      || cpu_features->basic.kind == arch_kind_amd)
+       memset_non_temporal_threshold = non_temporal_threshold;
+ 
+    /* For AMD CPUs that support ERMS (Zen3+), REP MOVSB is in a lot of

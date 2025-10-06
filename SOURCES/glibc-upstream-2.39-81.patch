@@ -1,0 +1,32 @@
+commit a03631124602f2dcef40d46660b96d2e51c44bfd
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Fri Apr 5 10:27:29 2024 -0300
+
+    stdlib: fix arc4random fallback to /dev/urandom (BZ 31612)
+    
+    The __getrandom_nocancel used by __arc4random_buf uses
+    INLINE_SYSCALL_CALL (which returns -1/errno) and the loop checks for
+    the return value instead of errno to fallback to /dev/urandom.
+    
+    The malloc code now uses __getrandom_nocancel_nostatus, which uses
+    INTERNAL_SYSCALL_CALL, so there is no need to use the variant that does
+    not set errno (BZ#29624).
+    
+    Checked on x86_64-linux-gnu.
+    
+    Reviewed-by: Xi Ruoyao <xry111@xry111.site>
+    (cherry picked from commit 184b9e530e6326e668709826903b6d30dc6cac3f)
+
+diff --git a/stdlib/arc4random.c b/stdlib/arc4random.c
+index 3ae8fc130234b04d..7818cb9cf66e0f3b 100644
+--- a/stdlib/arc4random.c
++++ b/stdlib/arc4random.c
+@@ -51,7 +51,7 @@ __arc4random_buf (void *p, size_t n)
+ 	  n -= l;
+ 	  continue; /* Interrupted by a signal; keep going.  */
+ 	}
+-      else if (l == -ENOSYS)
++      else if (l < 0 && errno == ENOSYS)
+ 	break; /* No syscall, so fallback to /dev/urandom.  */
+       arc4random_getrandom_failure ();
+     }

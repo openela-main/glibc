@@ -1,0 +1,37 @@
+commit 38a7632f2d1ec86445904b356c54129591e8519b
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Fri Jun 14 13:01:58 2024 -0500
+
+    x86: Fix value for `x86_memset_non_temporal_threshold` when it is undesirable
+    
+    When we don't want to use non-temporal stores for memset, we set
+    `x86_memset_non_temporal_threshold` to SIZE_MAX.
+    
+    The current code, however, we using `maximum_non_temporal_threshold`
+    as the upper bound which is `SIZE_MAX >> 4` so we ended up with a
+    value of `0`.
+    
+    Fix is to just use `SIZE_MAX` as the upper bound for when setting the
+    tunable.
+    Tested-by: Borislav Petkov (AMD) <bp@alien8.de>
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    
+    (cherry picked from commit 5b54a33435e5533653a9956728f2de9d16a3b4ee)
+
+diff --git a/sysdeps/x86/dl-cacheinfo.h b/sysdeps/x86/dl-cacheinfo.h
+index 9916c5d951361c90..9b6f68e46de4bdaa 100644
+--- a/sysdeps/x86/dl-cacheinfo.h
++++ b/sysdeps/x86/dl-cacheinfo.h
+@@ -1044,9 +1044,9 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+   TUNABLE_SET_WITH_BOUNDS (x86_non_temporal_threshold, non_temporal_threshold,
+ 			   minimum_non_temporal_threshold,
+ 			   maximum_non_temporal_threshold);
+-  TUNABLE_SET_WITH_BOUNDS (
+-      x86_memset_non_temporal_threshold, memset_non_temporal_threshold,
+-      minimum_non_temporal_threshold, maximum_non_temporal_threshold);
++  TUNABLE_SET_WITH_BOUNDS (x86_memset_non_temporal_threshold,
++			   memset_non_temporal_threshold,
++			   minimum_non_temporal_threshold, SIZE_MAX);
+   TUNABLE_SET_WITH_BOUNDS (x86_rep_movsb_threshold, rep_movsb_threshold,
+ 			   minimum_rep_movsb_threshold, SIZE_MAX);
+   TUNABLE_SET_WITH_BOUNDS (x86_rep_stosb_threshold, rep_stosb_threshold, 1,

@@ -1,0 +1,55 @@
+commit 1432850ad8fbef6dea82d137e491b53840dc7f4d
+Author: Sam James <sam@gentoo.org>
+Date:   Fri Jan 10 03:03:47 2025 +0000
+
+    malloc: obscure calloc use in tst-calloc
+    
+    Similar to a9944a52c967ce76a5894c30d0274b824df43c7a and
+    f9493a15ea9cfb63a815c00c23142369ec09d8ce, we need to hide calloc use from
+    the compiler to accommodate GCC's r15-6566-g804e9d55d9e54c change.
+    
+    First, include tst-malloc-aux.h, but then use `volatile` variables
+    for size.
+    
+    The test passes without the tst-malloc-aux.h change but IMO we want
+    it there for consistency and to avoid future problems (possibly silent).
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    (cherry picked from commit c3d1dac96bdd10250aa37bb367d5ef8334a093a1)
+
+diff --git a/malloc/tst-calloc.c b/malloc/tst-calloc.c
+index 01f17f9e65591659..5a8c7ab121ef2d00 100644
+--- a/malloc/tst-calloc.c
++++ b/malloc/tst-calloc.c
+@@ -23,6 +23,7 @@
+ #include <stdio.h>
+ #include <libc-diag.h>
+ 
++#include "tst-malloc-aux.h"
+ 
+ /* Number of samples per size.  */
+ #define N 50000
+@@ -94,16 +95,19 @@ random_test (void)
+ static void
+ null_test (void)
+ {
++  /* Obscure allocation size from the compiler.  */
++  volatile size_t max_size = UINT_MAX;
++  volatile size_t zero_size = 0;
+   /* If the size is 0 the result is implementation defined.  Just make
+      sure the program doesn't crash.  The result of calloc is
+      deliberately ignored, so do not warn about that.  */
+   DIAG_PUSH_NEEDS_COMMENT;
+   DIAG_IGNORE_NEEDS_COMMENT (10, "-Wunused-result");
+   calloc (0, 0);
+-  calloc (0, UINT_MAX);
+-  calloc (UINT_MAX, 0);
+-  calloc (0, ~((size_t) 0));
+-  calloc (~((size_t) 0), 0);
++  calloc (0, max_size);
++  calloc (max_size, 0);
++  calloc (0, ~((size_t) zero_size));
++  calloc (~((size_t) zero_size), 0);
+   DIAG_POP_NEEDS_COMMENT;
+ }
+ 

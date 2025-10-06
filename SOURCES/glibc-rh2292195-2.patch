@@ -1,0 +1,84 @@
+commit dd144dce21c864781fade4561581d50fb4549956
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Jun 20 20:55:10 2024 +0200
+
+    malloc: Replace shell/Perl gate in mtrace
+    
+    The previous version expanded $0 and $@ twice.
+    
+    The new version defines a q no-op shell command.  The Perl syntax
+    error is masked by the eval Perl function.  The q { … } construct
+    is executed by the shell without errors because the q shell function
+    was defined, but treated as a non-expanding quoted string by Perl,
+    effectively hiding its context from the Perl interpreter.  As before
+    the script is read by require instead of executed directly, to avoid
+    infinite recursion because the #! line contains /bin/sh.
+    
+    Introduce the “fatal” function to produce diagnostics that are not
+    suppressed by “do”.  Use “do” instead of “require” because it has
+    fewer requirements on the executed script than “require”.
+    
+    Prefix relative paths with './' because “do” (and “require“ before)
+    searches for the script in @INC if the path is relative and does not
+    start with './'.  Use $_ to make the trampoline shorter.
+    
+    Add an Emacs mode marker to indentify the script as a Perl script.
+
+diff --git a/malloc/mtrace.pl b/malloc/mtrace.pl
+index dc6085820e62092c..0a631a07bc4cfbb6 100644
+--- a/malloc/mtrace.pl
++++ b/malloc/mtrace.pl
+@@ -1,6 +1,12 @@
+ #! /bin/sh
+-eval exec "perl -e 'shift; \$progname=shift; shift; require \$progname'" . "$0" . "$@"
+-   if 0;
++# -*- perl -*-
++eval "q () {
++  :
++}";
++q {
++    exec perl -e '$_ = shift; $_ = "./$_" unless m,^/,; do $_' "$0" "$@"
++}
++;
+ # Copyright (C) 1997-2024 Free Software Foundation, Inc.
+ # This file is part of the GNU C Library.
+ # Based on the mtrace.awk script.
+@@ -22,6 +28,7 @@ eval exec "perl -e 'shift; \$progname=shift; shift; require \$progname'" . "$0"
+ $VERSION = "@VERSION@";
+ $PKGVERSION = "@PKGVERSION@";
+ $REPORT_BUGS_TO = '@REPORT_BUGS_TO@';
++$progname = $_;
+ 
+ sub usage {
+     print "Usage: mtrace [OPTION]... [Binary] MtraceData\n";
+@@ -33,6 +40,11 @@ sub usage {
+     exit 0;
+ }
+ 
++sub fatal {
++    print STDERR "$_[0]\n";
++    exit 1;
++}
++
+ # We expect two arguments:
+ #   #1: the complete path to the binary
+ #   #2: the mtrace data filename
+@@ -86,7 +98,7 @@ if ($#ARGV == 0) {
+ 	close (LOCS);
+     }
+ } else {
+-    die "Wrong number of arguments, run $progname --help for help.";
++    fatal "Wrong number of arguments, run $progname --help for help.";
+ }
+ 
+ sub addr2line {
+@@ -148,7 +160,8 @@ sub location {
+ }
+ 
+ $nr=0;
+-open(DATA, "<$data") || die "Cannot open mtrace data file";
++open(DATA, "<$data")
++  or fatal "$progname: Cannot open mtrace data file $data: $!";
+ while (<DATA>) {
+     my @cols = split (' ');
+     my $n, $where;

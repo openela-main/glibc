@@ -1,0 +1,38 @@
+commit aee37de299af95007a1f00f2cdf6c1452f39e682
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Fri Apr 5 09:02:36 2024 -0300
+
+    Reinstate generic features-time64.h
+    
+    The a4ed0471d7 removed the generic version which is included by
+    features.h and used by Hurd.
+    
+    Checked by building i686-gnu and x86_64-gnu with build-many-glibc.py.
+    
+    (cherry picked from commit c27f8763cffbb7db9b3f1f5e09ef24d26cbb63f4)
+
+diff --git a/sysdeps/generic/features-time64.h b/sysdeps/generic/features-time64.h
+new file mode 100644
+index 0000000000000000..4d38b8ba766b34f5
+--- /dev/null
++++ b/sysdeps/generic/features-time64.h
+@@ -0,0 +1,19 @@
++/* Features part to handle 64-bit time_t support.  Generic version.
++   Copyright (C) 2021-2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++/* The generic configuration only support _TIME_BITS=32.  */

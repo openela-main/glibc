@@ -1,0 +1,33 @@
+commit 9e25c0f445606e809996329b8a21d3342529474d
+Author: Sunil K Pandey <sunil.k.pandey@intel.com>
+Date:   Tue May 20 10:07:27 2025 -0700
+
+    x86_64: Fix typo in ifunc-impl-list.c.
+    
+    Fix wcsncpy and wcpncpy typo in ifunc-impl-list.c.
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    (cherry picked from commit f2aeb6ff941dccc4c777b5621e77addea6cc076c)
+
+diff --git a/sysdeps/x86_64/multiarch/ifunc-impl-list.c b/sysdeps/x86_64/multiarch/ifunc-impl-list.c
+index c4a21d4b7ca8f01a..c34c94cb58394b56 100644
+--- a/sysdeps/x86_64/multiarch/ifunc-impl-list.c
++++ b/sysdeps/x86_64/multiarch/ifunc-impl-list.c
+@@ -928,7 +928,7 @@ __libc_ifunc_impl_list (const char *name, struct libc_ifunc_impl *array,
+ 				     (CPU_FEATURE_USABLE (AVX2)
+ 				      && CPU_FEATURE_USABLE (BMI2)),
+ 				     __wcsncpy_avx2)
+-	      X86_IFUNC_IMPL_ADD_V2 (array, i, wcpncpy,
++	      X86_IFUNC_IMPL_ADD_V2 (array, i, wcsncpy,
+ 				     1,
+ 				     __wcsncpy_generic))
+ 
+@@ -958,7 +958,7 @@ __libc_ifunc_impl_list (const char *name, struct libc_ifunc_impl *array,
+ 				     (CPU_FEATURE_USABLE (AVX2)
+ 				      && CPU_FEATURE_USABLE (BMI2)),
+ 				     __wcpncpy_avx2)
+-	      X86_IFUNC_IMPL_ADD_V2 (array, i, wcsncpy,
++	      X86_IFUNC_IMPL_ADD_V2 (array, i, wcpncpy,
+ 				     1,
+ 				     __wcpncpy_generic))
+ 

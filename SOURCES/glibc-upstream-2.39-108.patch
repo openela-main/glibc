@@ -1,0 +1,23 @@
+commit 37c2aa4eaa0adc4193bc0e1f520b677ad30c9e4d
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Aug 9 16:17:14 2024 +0200
+
+    Define __libc_initial for the static libc
+    
+    Reviewed-by: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+    (cherry picked from commit eb0e50e9a1cf80a2ba6f33f990a08ef37a3267fb)
+
+diff --git a/include/libc-internal.h b/include/libc-internal.h
+index 87ac591835637e4d..1ef43ffe673907a0 100644
+--- a/include/libc-internal.h
++++ b/include/libc-internal.h
+@@ -53,6 +53,9 @@ extern __typeof (__profile_frequency) __profile_frequency attribute_hidden;
+    is not for an audit module, not loaded via dlmopen, and not loaded
+    via static dlopen either).  */
+ extern _Bool __libc_initial attribute_hidden;
++#else
++/* The static libc is always the initial namespace.  */
++# define __libc_initial ((_Bool) 1)
+ #endif
+ 
+ #endif /* _LIBC_INTERNAL  */

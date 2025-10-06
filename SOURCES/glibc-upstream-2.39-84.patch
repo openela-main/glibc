@@ -1,0 +1,43 @@
+commit 143a7a06235cf091b63f58a739c8367ffe54a722
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Thu Jul 4 10:09:07 2024 -0300
+
+    elf: Make dl-rseq-symbols Linux only
+    
+    And avoid a Hurd build failures.
+    
+    Checked on x86_64-linux-gnu.
+    
+    (cherry picked from commit 9fc639f654dc004736836613be703e6bed0c36a8)
+
+diff --git a/elf/Makefile b/elf/Makefile
+index 0049ffa13c8d3e51..a50a988e7362cf3b 100644
+--- a/elf/Makefile
++++ b/elf/Makefile
+@@ -73,7 +73,6 @@ dl-routines = \
+   dl-origin \
+   dl-printf \
+   dl-reloc \
+-  dl-rseq-symbols \
+   dl-runtime \
+   dl-scope \
+   dl-setup_hash \
+diff --git a/sysdeps/unix/sysv/linux/Makefile b/sysdeps/unix/sysv/linux/Makefile
+index 415aa1f14dd20ba6..6ab9b901234dc72e 100644
+--- a/sysdeps/unix/sysv/linux/Makefile
++++ b/sysdeps/unix/sysv/linux/Makefile
+@@ -615,6 +615,10 @@ tests += \
+ endif
+ 
+ ifeq ($(subdir),elf)
++dl-routines += \
++  dl-rseq-symbols \
++  # dl-routines
++
+ sysdep-rtld-routines += \
+   dl-brk \
+   dl-getcwd \
+diff --git a/elf/dl-rseq-symbols.S b/sysdeps/unix/sysv/linux/dl-rseq-symbols.S
+similarity index 100%
+rename from elf/dl-rseq-symbols.S
+rename to sysdeps/unix/sysv/linux/dl-rseq-symbols.S

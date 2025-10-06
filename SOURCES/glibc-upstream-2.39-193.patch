@@ -1,0 +1,41 @@
+commit d33d10642fb24091e8fc8b9115f0a17d9f78491d
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Mar 13 06:07:07 2025 +0100
+
+    nptl: PTHREAD_COND_INITIALIZER compatibility with pre-2.41 versions (bug 32786)
+    
+    The new initializer and struct layout does not initialize the
+    __g_signals field in the old struct layout before the change in
+    commit c36fc50781995e6758cae2b6927839d0157f213c ("nptl: Remove
+    g_refs from condition variables").  Bring back fields at the end
+    of struct __pthread_cond_s, so that they are again zero-initialized.
+    
+    Reviewed-by: Sam James <sam@gentoo.org>
+    (cherry picked from commit dbc5a50d12eff4cb3f782129029d04b8a76f58e7)
+
+diff --git a/sysdeps/nptl/bits/thread-shared-types.h b/sysdeps/nptl/bits/thread-shared-types.h
+index a3d482f80f7d0d35..bccc2003ec6dea5c 100644
+--- a/sysdeps/nptl/bits/thread-shared-types.h
++++ b/sysdeps/nptl/bits/thread-shared-types.h
+@@ -99,6 +99,8 @@ struct __pthread_cond_s
+   unsigned int __g1_orig_size;
+   unsigned int __wrefs;
+   unsigned int __g_signals[2];
++  unsigned int __unused_initialized_1;
++  unsigned int __unused_initialized_2;
+ };
+ 
+ typedef unsigned int __tss_t;
+diff --git a/sysdeps/nptl/pthread.h b/sysdeps/nptl/pthread.h
+index 9af75d6eae090218..e0f24418fe4233f0 100644
+--- a/sysdeps/nptl/pthread.h
++++ b/sysdeps/nptl/pthread.h
+@@ -152,7 +152,7 @@ enum
+ 
+ 
+ /* Conditional variable handling.  */
+-#define PTHREAD_COND_INITIALIZER { { {0}, {0}, {0, 0}, 0, 0, {0, 0} } }
++#define PTHREAD_COND_INITIALIZER { { {0}, {0}, {0, 0}, 0, 0, {0, 0}, 0, 0 } }
+ 
+ 
+ /* Cleanup buffers */

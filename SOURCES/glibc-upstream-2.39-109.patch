@@ -1,0 +1,139 @@
+commit e73fd06b7f12d6ddaae4f91f9c5088a621a82ce4
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Mon Aug 19 15:48:03 2024 +0200
+
+    string: strerror, strsignal cannot use buffer after dlmopen (bug 32026)
+    
+    Secondary namespaces have a different malloc.  Allocating the
+    buffer in one namespace and freeing it another results in
+    heap corruption.  Fix this by using a static string (potentially
+    translated) in secondary namespaces.  It would also be possible
+    to use the malloc from the initial namespace to manage the
+    buffer, but these functions would still not be safe to use in
+    auditors etc. because a call to strerror could still free a
+    buffer while it is used by the application.  Another approach
+    could use proper initial-exec TLS, duplicated in secondary
+    namespaces, but that would need a callback interface for freeing
+    libc resources in namespaces on thread exit, which does not exist
+    today.
+    
+    Reviewed-by: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+    (cherry picked from commit 25a5eb4010df94b412c67db9e346029de316d06b)
+
+diff --git a/string/strerror_l.c b/string/strerror_l.c
+index 15cce261e6b406a7..70456e5bb45e5b52 100644
+--- a/string/strerror_l.c
++++ b/string/strerror_l.c
+@@ -20,7 +20,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <tls-internal.h>
+-
++#include <libc-internal.h>
+ 
+ static const char *
+ translate (const char *str, locale_t loc)
+@@ -31,6 +31,12 @@ translate (const char *str, locale_t loc)
+   return res;
+ }
+ 
++static char *
++unknown_error (locale_t loc)
++{
++  return (char *) translate ("Unknown error", loc);
++}
++
+ 
+ /* Return a string describing the errno code in ERRNUM.  */
+ char *
+@@ -40,18 +46,25 @@ __strerror_l (int errnum, locale_t loc)
+   char *err = (char *) __get_errlist (errnum);
+   if (__glibc_unlikely (err == NULL))
+     {
+-      struct tls_internal_t *tls_internal = __glibc_tls_internal ();
+-      free (tls_internal->strerror_l_buf);
+-      if (__asprintf (&tls_internal->strerror_l_buf, "%s%d",
+-		      translate ("Unknown error ", loc), errnum) > 0)
+-	err = tls_internal->strerror_l_buf;
+-      else
++      if (__libc_initial)
+ 	{
+-	  /* The memory was freed above.  */
+-	  tls_internal->strerror_l_buf = NULL;
+-	  /* Provide a fallback translation.  */
+-	  err = (char *) translate ("Unknown error", loc);
++	  struct tls_internal_t *tls_internal = __glibc_tls_internal ();
++	  free (tls_internal->strerror_l_buf);
++	  if (__asprintf (&tls_internal->strerror_l_buf, "%s%d",
++			  translate ("Unknown error ", loc), errnum) > 0)
++	    err = tls_internal->strerror_l_buf;
++	  else
++	    {
++	      /* The memory was freed above.  */
++	      tls_internal->strerror_l_buf = NULL;
++	      /* Provide a fallback translation.  */
++	      err = unknown_error (loc);
++	    }
+ 	}
++      else
++	/* Secondary namespaces use a different malloc, so cannot
++	   participate in the buffer management.  */
++	err = unknown_error (loc);
+     }
+   else
+     err = (char *) translate (err, loc);
+diff --git a/string/strsignal.c b/string/strsignal.c
+index 31146015647c1d4a..d9b03654683a6805 100644
+--- a/string/strsignal.c
++++ b/string/strsignal.c
+@@ -21,6 +21,7 @@
+ #include <string.h>
+ #include <libintl.h>
+ #include <tls-internal.h>
++#include <libc-internal.h>
+ 
+ /* Return a string describing the meaning of the signal number SIGNUM.  */
+ char *
+@@ -30,21 +31,28 @@ strsignal (int signum)
+   if (desc != NULL)
+     return _(desc);
+ 
+-  struct tls_internal_t *tls_internal = __glibc_tls_internal ();
+-  free (tls_internal->strsignal_buf);
++  if (__libc_initial)
++    {
++      struct tls_internal_t *tls_internal = __glibc_tls_internal ();
++      free (tls_internal->strsignal_buf);
+ 
+-  int r;
++      int r;
+ #ifdef SIGRTMIN
+-  if (signum >= SIGRTMIN && signum <= SIGRTMAX)
+-    r = __asprintf (&tls_internal->strsignal_buf, _("Real-time signal %d"),
+-		    signum - SIGRTMIN);
+-  else
++      if (signum >= SIGRTMIN && signum <= SIGRTMAX)
++	r = __asprintf (&tls_internal->strsignal_buf, _("Real-time signal %d"),
++			signum - SIGRTMIN);
++      else
+ #endif
+-    r = __asprintf (&tls_internal->strsignal_buf, _("Unknown signal %d"),
+-		    signum);
+-
+-  if (r == -1)
+-    tls_internal->strsignal_buf = NULL;
+-
+-  return tls_internal->strsignal_buf;
++	r = __asprintf (&tls_internal->strsignal_buf, _("Unknown signal %d"),
++			signum);
++
++      if (r >= 0)
++	return tls_internal->strsignal_buf;
++      else
++	tls_internal->strsignal_buf = NULL;
++    }
++  /* Fall through on asprintf error, and for !__libc_initial:
++     secondary namespaces use a different malloc and cannot
++     participate in the buffer management.  */
++  return _("Unknown signal");
+ }

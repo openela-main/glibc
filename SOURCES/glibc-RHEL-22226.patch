@@ -1,0 +1,121 @@
+commit 5361ad3910c257bc327567be76fde532ed238e42
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Apr 19 14:38:17 2024 +0200
+
+    login: Use unsigned 32-bit types for seconds-since-epoch
+    
+    These fields store timestamps when the system was running.  No Linux
+    systems existed before 1970, so these values are unused.  Switching
+    to unsigned types allows continued use of the existing struct layouts
+    beyond the year 2038.
+    
+    The intent is to give distributions more time to switch to improved
+    interfaces that also avoid locking/data corruption issues.
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+diff --git a/bits/utmp.h b/bits/utmp.h
+index f2d1c13d8cd205b2..27cb536800c46d67 100644
+--- a/bits/utmp.h
++++ b/bits/utmp.h
+@@ -36,7 +36,7 @@
+ struct lastlog
+   {
+ #if __WORDSIZE_TIME64_COMPAT32
+-    int32_t ll_time;
++    __uint32_t ll_time;
+ #else
+     __time_t ll_time;
+ #endif
+@@ -76,7 +76,7 @@ struct utmp
+   int32_t ut_session;		/* Session ID, used for windowing.  */
+   struct
+   {
+-    int32_t tv_sec;		/* Seconds.  */
++    __uint32_t tv_sec;		/* Seconds.  */
+     int32_t tv_usec;		/* Microseconds.  */
+   } ut_tv;			/* Time entry was made.  */
+ #else
+diff --git a/login/Makefile b/login/Makefile
+index f91190e3dcd1e6c6..84563230ef665f9c 100644
+--- a/login/Makefile
++++ b/login/Makefile
+@@ -44,9 +44,11 @@ subdir-dirs = programs
+ vpath %.c programs
+ 
+ tests := tst-utmp tst-utmpx tst-grantpt tst-ptsname tst-getlogin tst-updwtmpx \
+-  tst-pututxline-lockfail tst-pututxline-cache tst-utmp-size tst-utmp-size-64
++  tst-pututxline-lockfail tst-pututxline-cache tst-utmp-size tst-utmp-size-64 \
++  tst-utmp-unsigned tst-utmp-unsigned-64
+ 
+ CFLAGS-tst-utmp-size-64.c += -D_FILE_OFFSET_BITS=64 -D_TIME_BITS=64
++CFLAGS-tst-utmp-unsigned-64.c += -D_FILE_OFFSET_BITS=64 -D_TIME_BITS=64
+ 
+ # Empty compatibility library for old binaries.
+ extra-libs      := libutil
+diff --git a/login/tst-utmp-unsigned-64.c b/login/tst-utmp-unsigned-64.c
+new file mode 100644
+index 0000000000000000..940e7654f8dc5fd6
+--- /dev/null
++++ b/login/tst-utmp-unsigned-64.c
+@@ -0,0 +1 @@
++#include "tst-utmp-unsigned.c"
+diff --git a/login/tst-utmp-unsigned.c b/login/tst-utmp-unsigned.c
+new file mode 100644
+index 0000000000000000..27ad03a7d608e83d
+--- /dev/null
++++ b/login/tst-utmp-unsigned.c
+@@ -0,0 +1,40 @@
++/* Check that struct utmp, struct utmpx, struct lastlog use unsigned epoch.
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <utmp.h>
++#include <utmpx.h>
++#include <utmp-size.h>
++
++/* Undefined.  Used to check that the conditions below are optimized away.  */
++void link_failure_utmp (void);
++void link_failure_utmpx (void);
++void link_failure_lastlog (void);
++
++static int
++do_test (void)
++{
++  if ((struct utmp) { .ut_tv = { 0x80000000U, }, }.ut_tv.tv_sec <= 0)
++    link_failure_utmp ();
++  if ((struct utmpx) { .ut_tv = { 0x80000000U, }, }.ut_tv.tv_sec <= 0)
++    link_failure_utmpx ();
++  if ((struct lastlog) { .ll_time = 0x80000000U, }.ll_time <= 0)
++    link_failure_lastlog ();
++  return 0;
++}
++
++#include <support/test-driver.c>
+diff --git a/sysdeps/gnu/bits/utmpx.h b/sysdeps/gnu/bits/utmpx.h
+index 34b4afbc6ac25968..ed0df9bd8141d4e6 100644
+--- a/sysdeps/gnu/bits/utmpx.h
++++ b/sysdeps/gnu/bits/utmpx.h
+@@ -74,7 +74,7 @@ struct utmpx
+   __int32_t ut_session;		/* Session ID, used for windowing.  */
+   struct
+   {
+-    __int32_t tv_sec;		/* Seconds.  */
++    __uint32_t tv_sec;		/* Seconds.  */
+     __int32_t tv_usec;		/* Microseconds.  */
+   } ut_tv;			/* Time entry was made.  */
+ #else

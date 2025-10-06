@@ -1,0 +1,63 @@
+commit 68f3f1a1d08f7f3e0fb74391461699717efbb4bc
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Sat Feb 17 09:17:04 2024 +0100
+
+    Linux: Switch back to assembly syscall wrapper for prctl (bug 29770)
+    
+    Commit ff026950e280bc3e9487b41b460fb31bc5b57721 ("Add a C wrapper for
+    prctl [BZ #25896]") replaced the assembler wrapper with a C function.
+    However, on powerpc64le-linux-gnu, the C variadic function
+    implementation requires extra work in the caller to set up the
+    parameter save area.  Calling a function that needs a parameter save
+    area without one (because the prototype used indicates the function is
+    not variadic) corrupts the caller's stack.   The Linux manual pages
+    project documents prctl as a non-variadic function.  This has resulted
+    in various projects over the years using non-variadic prototypes,
+    including the sanitizer libraries in LLVm and GCC (GCC PR 113728).
+    
+    This commit switches back to the assembler implementation on most
+    targets and only keeps the C implementation for x86-64 x32.
+    
+    Also add the __prctl_time64 alias from commit
+    b39ffab860cd743a82c91946619f1b8158b0b65e ("Linux: Add time64 alias for
+    prctl") to sysdeps/unix/sysv/linux/syscalls.list; it was not yet
+    present in commit ff026950e280bc3e9487b41b460fb31bc5b57721.
+    
+    This restores the old ABI on powerpc64le-linux-gnu, thus fixing
+    bug 29770.
+    
+    Reviewed-By: Simon Chopin <simon.chopin@canonical.com>
+    (cherry picked from commit 6a04404521ac4119ae36827eeb288ea84eee7cf6)
+
+diff --git a/sysdeps/unix/sysv/linux/syscalls.list b/sysdeps/unix/sysv/linux/syscalls.list
+index 73e941ef894cd72c..9ac42c3436dd1520 100644
+--- a/sysdeps/unix/sysv/linux/syscalls.list
++++ b/sysdeps/unix/sysv/linux/syscalls.list
+@@ -46,6 +46,7 @@ open_tree	EXTRA	open_tree	i:isU	open_tree
+ pipe2		-	pipe2		i:fi	__pipe2		pipe2
+ pidfd_open	EXTRA	pidfd_open	i:iU	pidfd_open
+ pidfd_getfd	EXTRA	pidfd_getfd	i:iiU	pidfd_getfd
++prctl		EXTRA	prctl		i:iiiii	__prctl		prctl __prctl_time64
+ pivot_root	EXTRA	pivot_root	i:ss	pivot_root
+ pidfd_send_signal	EXTRA	pidfd_send_signal	i:iiPU	pidfd_send_signal
+ process_madvise EXTRA   process_madvise i:iPniU process_madvise
+diff --git a/sysdeps/unix/sysv/linux/prctl.c b/sysdeps/unix/sysv/linux/x86_64/x32/prctl.c
+similarity index 93%
+rename from sysdeps/unix/sysv/linux/prctl.c
+rename to sysdeps/unix/sysv/linux/x86_64/x32/prctl.c
+index 52d234ea0df4cc48..4bf1b479a07c6e8f 100644
+--- a/sysdeps/unix/sysv/linux/prctl.c
++++ b/sysdeps/unix/sysv/linux/x86_64/x32/prctl.c
+@@ -1,4 +1,4 @@
+-/* prctl - Linux specific syscall.
++/* prctl - Linux specific syscall.  x86-64 x32 version.
+    Copyright (C) 2020-2024 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+ 
+@@ -40,6 +40,3 @@ __prctl (int option, ...)
+ 
+ libc_hidden_def (__prctl)
+ weak_alias (__prctl, prctl)
+-#if __TIMESIZE != 64
+-weak_alias (__prctl, __prctl_time64)
+-#endif

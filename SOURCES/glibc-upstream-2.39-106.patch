@@ -1,0 +1,24 @@
+commit 81631a0dd1b76e6fe8e0ffcd9ee411676031b1bb
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Jul 19 15:57:46 2024 +0200
+
+    Adjust check-local-headers test for libaudit 4.0
+    
+    The new version introduces /usr/include/audit_logging.h and
+    /usr/include/audit-records.h.
+    
+    (cherry picked from commit 91eb62d63887a959e43aafb6fc022a87614dc7c9)
+
+diff --git a/scripts/check-local-headers.sh b/scripts/check-local-headers.sh
+index 5d3e61f8894b600e..ad23840333f7c7e5 100755
+--- a/scripts/check-local-headers.sh
++++ b/scripts/check-local-headers.sh
+@@ -33,7 +33,7 @@ exec ${AWK} -v includedir="$includedir" '
+ BEGIN {
+   status = 0
+   exclude = "^" includedir \
+-    "/(.*-.*-.*/|.*-.*/|)(asm[-/]|arch|linux/|selinux/|mach/|mach_debug/|device/|hurd/(((hurd|ioctl)_types|paths)\\.h|ioctls\\.defs|ihash\\.h|version\\.h)|gd|nss3/|nspr4?/|c\\+\\+/|sys/(capability|sdt(|-config))\\.h|libaudit\\.h)"
++    "/(.*-.*-.*/|.*-.*/|)(asm[-/]|arch|linux/|selinux/|mach/|mach_debug/|device/|hurd/(((hurd|ioctl)_types|paths)\\.h|ioctls\\.defs|ihash\\.h|version\\.h)|gd|nss3/|nspr4?/|c\\+\\+/|sys/(capability|sdt(|-config))\\.h|libaudit\\.h|audit(_logging|-records)\\.h)"
+ }
+ /^[^ ]/ && $1 ~ /.*:/ { obj = $1 }
+ {
