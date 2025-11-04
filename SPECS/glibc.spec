@@ -157,7 +157,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: 168%{?dist}.23
+Release: 168%{?dist}.24
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1184,6 +1184,7 @@ Patch876: glibc-RHEL-95547-3.patch
 Patch877: glibc-RHEL-104150.patch
 Patch878: glibc-RHEL-105328.patch
 Patch879: glibc-RHEL-106230.patch
+Patch880: glibc-RHEL-114261.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -3177,6 +3178,9 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Wed Oct 01 2025 Florian Weimer <fweimer@redhat.com> - 2.34-168.24
+- nss: Group merge does not react to ERANGE during merge (RHEL-114261)
+
 * Tue Jul 29 2025 Florian Weimer  <fweimer@redhat.com> - 2.34-168.23
 - Fix namespace pollution in inet_ntop with fortification (RHEL-106230)
 
