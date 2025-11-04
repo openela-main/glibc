@@ -1,0 +1,95 @@
+commit 5541edb1bd57414556c8dfe08493ae4b8694e4b4
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Mon Aug 18 09:06:48 2025 -0700
+
+    i386: Also add GLIBC_ABI_GNU2_TLS version [BZ #33129]
+    
+    Since the GNU2 TLS run-time bug:
+    
+    https://sourceware.org/bugzilla/show_bug.cgi?id=31372
+    
+    affects both i386 and x86-64, also add GLIBC_ABI_GNU2_TLS version to i386
+    to indicate the working GNU2 TLS run-time.  For x86-64, the additional
+    GNU2 TLS run-time bug fix is needed for
+    
+    https://sourceware.org/bugzilla/show_bug.cgi?id=31501
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Sam James <sam@gentoo.org>
+    (cherry picked from commit bd4628f3f18ac312408782eea450429c6f044860)
+
+
+Conflicts:
+	sysdeps/x86/Makefile
+	  (adjust for context differences)
+
+diff --git a/sysdeps/x86/Makefile b/sysdeps/x86/Makefile
+index 01b0192ddf5e23ca..73bfaaf393775dda 100644
+--- a/sysdeps/x86/Makefile
++++ b/sysdeps/x86/Makefile
+@@ -113,6 +113,15 @@ $(objpfx)tst-gnu2-tls2-x86-noxsavexsavec.out: \
+   $(objpfx)tst-gnu2-tls2mod0.so \
+   $(objpfx)tst-gnu2-tls2mod1.so \
+   $(objpfx)tst-gnu2-tls2mod2.so
++
++tests-special += $(objpfx)check-gnu2-tls.out
++
++$(objpfx)check-gnu2-tls.out: $(common-objpfx)libc.so
++	LC_ALL=C $(READELF) -V -W $< \
++		| sed -ne '/.gnu.version_d/, /.gnu.version_r/ p' \
++		| grep GLIBC_ABI_GNU2_TLS > $@; \
++	$(evaluate-test)
++generated += check-gnu2-tls.out
+ endif
+ 
+ ifeq ($(subdir),math)
+diff --git a/sysdeps/x86/Versions b/sysdeps/x86/Versions
+index 33dbd67b64c3ab5e..06f414bc148340bd 100644
+--- a/sysdeps/x86/Versions
++++ b/sysdeps/x86/Versions
+@@ -8,4 +8,9 @@ libc {
+   GLIBC_2.33 {
+     __x86_get_cpuid_feature_leaf;
+   }
++  GLIBC_ABI_GNU2_TLS {
++    # This symbol is used only for empty version map and will be removed
++    # by scripts/versions.awk.
++    __placeholder_only_for_empty_version_map;
++  }
+ }
+diff --git a/sysdeps/x86_64/Makefile b/sysdeps/x86_64/Makefile
+index 579bb33ada0e5f16..06d8c27473c22a0e 100644
+--- a/sysdeps/x86_64/Makefile
++++ b/sysdeps/x86_64/Makefile
+@@ -218,15 +218,6 @@ $(objpfx)check-dt-x86-64-plt.out: $(common-objpfx)libc.so
+ 		| grep GLIBC_ABI_DT_X86_64_PLT > $@; \
+ 	$(evaluate-test)
+ generated += check-dt-x86-64-plt.out
+-
+-tests-special += $(objpfx)check-gnu2-tls.out
+-
+-$(objpfx)check-gnu2-tls.out: $(common-objpfx)libc.so
+-	LC_ALL=C $(READELF) -V -W $< \
+-		| sed -ne '/.gnu.version_d/, /.gnu.version_r/ p' \
+-		| grep GLIBC_ABI_GNU2_TLS > $@; \
+-	$(evaluate-test)
+-generated += check-gnu2-tls.out
+ endif
+ 
+ test-internal-extras += tst-gnu2-tls2mod1
+diff --git a/sysdeps/x86_64/Versions b/sysdeps/x86_64/Versions
+index 0a759029e5a00cf1..6a989ad3b373cdf6 100644
+--- a/sysdeps/x86_64/Versions
++++ b/sysdeps/x86_64/Versions
+@@ -5,11 +5,6 @@ libc {
+   GLIBC_2.13 {
+     __fentry__;
+   }
+-  GLIBC_ABI_GNU2_TLS {
+-    # This symbol is used only for empty version map and will be removed
+-    # by scripts/versions.awk.
+-    __placeholder_only_for_empty_version_map;
+-  }
+   GLIBC_ABI_DT_X86_64_PLT {
+     # This symbol is used only for empty version map and will be removed
+     # by scripts/versions.awk.

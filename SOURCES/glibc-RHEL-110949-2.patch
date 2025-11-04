@@ -1,0 +1,39 @@
+commit a0dc87da2a689f3570a11a80ca8876bfb7ddcca6
+Author: Arjun Shankar <arjun@redhat.com>
+Date:   Thu Sep 4 20:30:41 2025 +0200
+
+    x86_64: Unconditionally run test elf/check-dt-x86-64-plt
+    
+    The intention of GLIBC_ABI_DT_X86_64_PLT is simply to mark the existence
+    of the fix in f8587a61892cbafd98ce599131bf4f103466f084
+    ("x86-64: Ignore r_addend for R_X86_64_GLOB_DAT/R_X86_64_JUMP_SLOT").
+    
+    Testing for GLIBC_ABI_DT_X86_64_PLT does not depend on the linker
+    supporting -z mark-plt.  Therefore remove this dependency on linker
+    support and test unconditionally.
+    
+    Fixes commit 399384e0c8193e31aea014220ccfa24300ae5938
+    ("x86-64: Add GLIBC_ABI_DT_X86_64_PLT [BZ #33212]")
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+
+diff --git a/sysdeps/x86_64/Makefile b/sysdeps/x86_64/Makefile
+index 06d8c27473c22a0e..cd243adb49ca4e1e 100644
+--- a/sysdeps/x86_64/Makefile
++++ b/sysdeps/x86_64/Makefile
+@@ -209,6 +209,7 @@ LDFLAGS-tst-plt-rewrite2 = -Wl,-z,now
+ LDFLAGS-tst-plt-rewritemod2.so = -Wl,-z,now,-z,undefs
+ tst-plt-rewrite2-ENV = GLIBC_TUNABLES=glibc.cpu.plt_rewrite=2
+ $(objpfx)tst-plt-rewrite2: $(objpfx)tst-plt-rewritemod2.so
++endif
+ 
+ tests-special += $(objpfx)check-dt-x86-64-plt.out
+ 
+@@ -218,7 +219,6 @@ $(objpfx)check-dt-x86-64-plt.out: $(common-objpfx)libc.so
+ 		| grep GLIBC_ABI_DT_X86_64_PLT > $@; \
+ 	$(evaluate-test)
+ generated += check-dt-x86-64-plt.out
+-endif
+ 
+ test-internal-extras += tst-gnu2-tls2mod1
+ 

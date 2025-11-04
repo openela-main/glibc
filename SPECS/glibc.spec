@@ -138,15 +138,7 @@ end}
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-
-# We'll use baserelease here for two reasons:
-# - It is known to rpmdev-bumpspec, so it will be properly handled for mass-
-#   rebuilds
-# - It allows using the Release number without the %%dist tag in the dependency
-#   generator to make the generated requires interchangeable between Rawhide
-#   and ELN (.elnYY < .fcXX).
-%global baserelease 46
-Release: %{baserelease}%{?dist}
+Release: 46%{?dist}.4
 
 # Licenses:
 #
@@ -580,6 +572,16 @@ Patch262: glibc-RHEL-104151.patch
 Patch263: glibc-RHEL-95246-1.patch
 Patch264: glibc-RHEL-95246-2.patch
 Patch265: glibc-RHEL-105324.patch
+Patch266: glibc-RHEL-104853-1.patch
+Patch267: glibc-RHEL-104853-2.patch
+Patch268: glibc-RHEL-104853-3.patch
+Patch269: glibc-RHEL-104853-4.patch
+Patch270: glibc-RHEL-110535-1.patch
+Patch271: glibc-RHEL-110949-1.patch
+Patch272: glibc-RHEL-110535-2.patch
+Patch273: glibc-RHEL-110535-3.patch
+Patch274: glibc-RHEL-110949-2.patch
+Patch275: glibc-RHEL-114263.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -597,6 +599,9 @@ Provides: rtld(GNU_HASH)
 
 # We need libgcc for cancellation support in POSIX threads.
 Requires: libgcc%{_isa}
+# Encourage the package manager to break the libgcc/glibc dependency
+# cycle by installing libgcc first.  (This is the historic installation order.)
+Requires(pre): libgcc%{_isa}
 
 Requires: glibc-common = %{version}-%{release}
 
@@ -2577,6 +2582,19 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Mon Sep 22 2025 Arjun Shankar <arjun@redhat.com> - 2.39-46.4
+- nss: Fix incorrect/empty results when merging groups (RHEL-114263)
+
+* Fri Sep 05 2025 Arjun Shankar <arjun@redhat.com> - 2.39-46.3
+- x86-64: Provide GLIBC_ABI_GNU2_TLS symbol version (RHEL-110535)
+- x86-64: Provide GLIBC_ABI_DT_X86_64_PLT symbol version (RHEL-110949)
+
+* Wed Sep 03 2025 Arjun Shankar <arjun@redhat.com> - 2.39-46.2
+- Handle load segment gaps in _dl_find_object (RHEL-104853)
+
+* Mon Aug 25 2025 Patsy Griffin <patsy@redhat.com> - 2.39-46.1
+- Use Requires(pre): libgcc%%{_isa} to break libgcc cycle (RHEL-110560)
+
 * Thu Jul 24 2025 Florian Weimer  <fweimer@redhat.com> - 2.39-46
 - CVE-2025-8058: Double free in regcomp (RHEL-105324)
 
