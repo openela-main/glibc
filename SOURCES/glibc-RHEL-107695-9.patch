@@ -1,0 +1,100 @@
+commit 02de16df481f15d5f6f2a8d98aa1bb2888aec13b
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Tue Oct 8 15:45:24 2024 -0300
+
+    Update syscall lists for Linux 6.11
+    
+    Linux 6.11 changes for syscall are:
+    
+      * fstat/newfstatat for loongarch (it should be safe to add since
+        255dc1e4ed8 that undefine them).
+      * clone3 for nios2, which only adds the entry point but defined
+        __ARCH_BROKEN_SYS_CLONE3 (the syscall will always return ENOSYS).
+      * uretprobe for x86_64 and x32.
+    
+    Update syscall-names.list and regenerate the arch-syscall.h headers
+    with build-many-glibcs.py update-syscalls.
+    
+    Tested with build-many-glibcs.py.
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+
+diff --git a/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h b/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
+index 8bb82448a7570d54..7e732256fd4c6da7 100644
+--- a/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
+@@ -59,6 +59,7 @@
+ #define __NR_fsmount 432
+ #define __NR_fsopen 430
+ #define __NR_fspick 433
++#define __NR_fstat 80
+ #define __NR_fstatfs 44
+ #define __NR_fsync 82
+ #define __NR_ftruncate 46
+@@ -166,6 +167,7 @@
+ #define __NR_munmap 215
+ #define __NR_name_to_handle_at 264
+ #define __NR_nanosleep 101
++#define __NR_newfstatat 79
+ #define __NR_nfsservctl 42
+ #define __NR_open_by_handle_at 265
+ #define __NR_open_tree 428
+diff --git a/sysdeps/unix/sysv/linux/nios2/arch-syscall.h b/sysdeps/unix/sysv/linux/nios2/arch-syscall.h
+index f94e212995549062..b1d0fb6f6ec99125 100644
+--- a/sysdeps/unix/sysv/linux/nios2/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/nios2/arch-syscall.h
+@@ -24,6 +24,7 @@
+ #define __NR_clock_settime 112
+ #define __NR_clock_settime64 404
+ #define __NR_clone 220
++#define __NR_clone3 435
+ #define __NR_close 57
+ #define __NR_close_range 436
+ #define __NR_connect 203
+diff --git a/sysdeps/unix/sysv/linux/syscall-names.list b/sysdeps/unix/sysv/linux/syscall-names.list
+index 7871f93b94d731d2..aa5b479e2a08e7bb 100644
+--- a/sysdeps/unix/sysv/linux/syscall-names.list
++++ b/sysdeps/unix/sysv/linux/syscall-names.list
+@@ -21,8 +21,8 @@
+ # This file can list all potential system calls.  The names are only
+ # used if the installed kernel headers also provide them.
+ 
+-# The list of system calls is current as of Linux 6.10.
+-kernel 6.10
++# The list of system calls is current as of Linux 6.11.
++kernel 6.11
+ 
+ FAST_atomic_update
+ FAST_cmpxchg
+@@ -653,6 +653,7 @@ uname
+ unlink
+ unlinkat
+ unshare
++uretprobe
+ uselib
+ userfaultfd
+ usr26
+diff --git a/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h b/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
+index 5d86e75dd556caad..dfc10d0c7e8a8f1e 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
+@@ -359,6 +359,7 @@
+ #define __NR_unlink 87
+ #define __NR_unlinkat 263
+ #define __NR_unshare 272
++#define __NR_uretprobe 335
+ #define __NR_uselib 134
+ #define __NR_userfaultfd 323
+ #define __NR_ustat 136
+diff --git a/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h b/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
+index 6c35068d8e8f4b05..9340daa967425c4a 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
+@@ -351,6 +351,7 @@
+ #define __NR_unlink 1073741911
+ #define __NR_unlinkat 1073742087
+ #define __NR_unshare 1073742096
++#define __NR_uretprobe 1073742159
+ #define __NR_userfaultfd 1073742147
+ #define __NR_ustat 1073741960
+ #define __NR_utime 1073741956

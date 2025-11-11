@@ -1,0 +1,36 @@
+commit 29ae632e76e5dcb89bdbb38402af47a5040fe1d4
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Thu Dec 19 17:08:38 2024 +0000
+
+    Add SCHED_EXT from Linux 6.12 to bits/sched.h
+    
+    Linux 6.12 adds the SCHED_EXT constant.  Add it to glibc's
+    bits/sched.h and update the kernel version in tst-sched-consts.py.
+    
+    Tested for x86_64.
+
+diff --git a/sysdeps/unix/sysv/linux/bits/sched.h b/sysdeps/unix/sysv/linux/bits/sched.h
+index 7c75303b80c18de2..e60cb05a60027a30 100644
+--- a/sysdeps/unix/sysv/linux/bits/sched.h
++++ b/sysdeps/unix/sysv/linux/bits/sched.h
+@@ -34,6 +34,7 @@
+ # define SCHED_ISO		4
+ # define SCHED_IDLE		5
+ # define SCHED_DEADLINE		6
++# define SCHED_EXT		7
+ 
+ /* Flags that can be used in policy values.  */
+ # define SCHED_RESET_ON_FORK	0x40000000
+diff --git a/sysdeps/unix/sysv/linux/tst-sched-consts.py b/sysdeps/unix/sysv/linux/tst-sched-consts.py
+index f06ac400bddc7339..6a5b837334ab45f8 100644
+--- a/sysdeps/unix/sysv/linux/tst-sched-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-sched-consts.py
+@@ -33,7 +33,7 @@ def main():
+                         help='C compiler (including options) to use')
+     args = parser.parse_args()
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 11)
++    linux_version_glibc = (6, 12)
+     sys.exit(glibcextract.compare_macro_consts(
+         '#define _GNU_SOURCE 1\n'
+         '#include <sched.h>\n',

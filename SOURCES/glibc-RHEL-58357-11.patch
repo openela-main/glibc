@@ -1,0 +1,33 @@
+commit f176bf2a06b458dea8186fb2ff3bb8ea24da6d67
+Author: DJ Delorie <dj@redhat.com>
+Date:   Wed May 7 19:23:06 2025 -0400
+
+    manual: fix typo for sched_[sg]etattr
+    
+    Originally added in 41a90f3f5f which says it's adding sched_getattr
+    and sched_setattr.
+    
+    Reviewed-by: Collin Funk <collin.funk1@gmail.com>
+
+diff --git a/manual/resource.texi b/manual/resource.texi
+index 40ab3572e04747c7..6729ada79402f0ad 100644
+--- a/manual/resource.texi
++++ b/manual/resource.texi
+@@ -1003,7 +1003,7 @@ For additional information, consult the manual page
+ @manpageurl{sched_setattr,2}.  @xref{Linux Kernel}.
+ @end deftp
+ 
+-@deftypefun int sched_setaddr (pid_t @var{tid}, struct sched_attr *@var{attr}, unsigned int flags)
++@deftypefun int sched_setattr (pid_t @var{tid}, struct sched_attr *@var{attr}, unsigned int flags)
+ @standards{Linux, sched.h}
+ @safety{@mtsafe{}@assafe{}@acsafe{}}
+ This functions applies the scheduling policy described by
+@@ -1046,7 +1046,7 @@ policy of the thread @var{tid}.
+ Other error codes depend on the scheduling policy.
+ @end deftypefun
+ 
+-@deftypefun int sched_getaddr (pid_t @var{tid}, struct sched_attr *@var{attr}, unsigned int size, unsigned int flags)
++@deftypefun int sched_getattr (pid_t @var{tid}, struct sched_attr *@var{attr}, unsigned int size, unsigned int flags)
+ @standards{Linux, sched.h}
+ @safety{@mtsafe{}@assafe{}@acsafe{}}
+ This function obtains the scheduling policy of the thread @var{tid}

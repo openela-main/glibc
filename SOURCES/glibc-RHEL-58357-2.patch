@@ -1,0 +1,32 @@
+commit 298bc488fdc047da37482f4003023cb9adef78f8
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Wed Sep 11 10:05:08 2024 +0200
+
+    manual: Extract the @manpageurl{func,sec} macro
+    
+    From the existing @manpagefunctionstub{func,sec} macro,
+    so that URLs can be included in the manual without the
+    stub text.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/manual/macros.texi b/manual/macros.texi
+index 579da3fb81e59da0..f48dd4ec2282634f 100644
+--- a/manual/macros.texi
++++ b/manual/macros.texi
+@@ -282,10 +282,13 @@ cwd\comments\
+ @macro standardsx {element, standard, header}
+ @end macro
+ 
++@macro manpageurl {func, sec}
++@url{https://man7.org/linux/man-pages/man\sec\/\func\.\sec\.html}
++@end macro
++
+ @macro manpagefunctionstub {func,sec}
+ This documentation is a stub.  For additional information on this
+-function, consult the manual page
+-@url{https://man7.org/linux/man-pages/man\sec\/\func\.\sec\.html}.
++function, consult the manual page @manpageurl{\func\,\sec\}.
+ @xref{Linux Kernel}.
+ @end macro
+ 

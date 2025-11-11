@@ -1,0 +1,41 @@
+commit 934d0bf426ffa58f88cebd219b08742ca21e3365
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Tue Oct 8 15:45:27 2024 -0300
+
+    Update kernel version to 6.11 in header constant tests
+    
+    This patch updates the kernel version in the tests tst-mount-consts.py,
+    and tst-sched-consts.py to 6.11.
+    
+    There are no new constants covered by these tests in 6.11.
+    
+    Tested with build-many-glibcs.py.
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+
+diff --git a/sysdeps/unix/sysv/linux/tst-mount-consts.py b/sysdeps/unix/sysv/linux/tst-mount-consts.py
+index 675f1790b64dd34e..b71d8a489daf0865 100755
+--- a/sysdeps/unix/sysv/linux/tst-mount-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mount-consts.py
+@@ -42,7 +42,7 @@ def main():
+     # Constants in glibc were updated to match Linux v6.10.  When glibc
+     # constants are updated this value should be updated to match the
+     # released kernel version from which the constants were taken.
+-    linux_version_glibc = (6, 10)
++    linux_version_glibc = (6, 11)
+     def check(cte, exclude=None):
+         return glibcextract.compare_macro_consts(
+                 '#include <sys/mount.h>\n',
+diff --git a/sysdeps/unix/sysv/linux/tst-sched-consts.py b/sysdeps/unix/sysv/linux/tst-sched-consts.py
+index 70071dcd974fe064..f06ac400bddc7339 100644
+--- a/sysdeps/unix/sysv/linux/tst-sched-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-sched-consts.py
+@@ -33,7 +33,7 @@ def main():
+                         help='C compiler (including options) to use')
+     args = parser.parse_args()
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 10)
++    linux_version_glibc = (6, 11)
+     sys.exit(glibcextract.compare_macro_consts(
+         '#define _GNU_SOURCE 1\n'
+         '#include <sched.h>\n',

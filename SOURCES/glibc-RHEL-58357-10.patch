@@ -1,0 +1,50 @@
+commit 517846c85dfc48aa231e28e95e8f90a6d8a8efde
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Wed Mar 12 11:29:10 2025 +0100
+
+    Makefile: Clean up pthread_atfork integration
+    
+    Do not add the pthread_atfork routine again in nptl/Makefile,
+    instead rely on sysdeps/pthread/Makefile for the integration
+    (as this is the directory that contains the source file).
+    
+    In sysdeps/pthread/Makefile, add to static-only-routines.
+    
+    Reviewed-by: Joseph Myers <josmyers@redhat.com>
+
+Conflicts:
+	nptl/Makefile (Fixup context due to previous patches)
+
+diff --git a/nptl/Makefile b/nptl/Makefile
+index e72b28dc92cd5852..c9d9079cdb8a5643 100644
+--- a/nptl/Makefile
++++ b/nptl/Makefile
+@@ -63,7 +63,6 @@ routines = \
+   old_pthread_cond_signal \
+   old_pthread_cond_timedwait \
+   old_pthread_cond_wait \
+-  pthread_atfork \
+   pthread_attr_copy \
+   pthread_attr_destroy \
+   pthread_attr_extension \
+@@ -211,7 +210,6 @@ routines = \
+   # routines
+ 
+ static-only-routines += \
+-  pthread_atfork \
+   pthread_gettid_np \
+   # static-only-routines
+ 
+diff --git a/sysdeps/pthread/Makefile b/sysdeps/pthread/Makefile
+index 04ea56559ef3a79b..a0f67c8e09327114 100644
+--- a/sysdeps/pthread/Makefile
++++ b/sysdeps/pthread/Makefile
+@@ -297,7 +297,7 @@ tests-time64 += \
+   tst-thrd-sleep-time64 \
+   # tests-time64
+ 
+-static-only-routines = pthread_atfork
++static-only-routines += pthread_atfork
+ 
+ # Files which must not be linked with libpthread.
+ tests-nolibpthread += \

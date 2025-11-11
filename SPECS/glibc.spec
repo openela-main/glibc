@@ -80,6 +80,8 @@
 # glibc_shell_* below.
 %undefine _auto_set_build_flags
 
+%define man_pages_version 6.06-3.el10
+
 ##############################################################################
 # Utility functions for pre/post scripts.  Stick them at the beginning of
 # any lua %pre, %post, %postun, etc. sections to have them expand into
@@ -138,7 +140,15 @@ end}
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: 46%{?dist}.4
+
+# We'll use baserelease here for two reasons:
+# - It is known to rpmdev-bumpspec, so it will be properly handled for mass-
+#   rebuilds
+# - It allows using the Release number without the %%dist tag in the dependency
+#   generator to make the generated requires interchangeable between Rawhide
+#   and ELN (.elnYY < .fcXX).
+%global baserelease 58
+Release: %{baserelease}%{?dist}
 
 # Licenses:
 #
@@ -203,6 +213,12 @@ Source10: wrap-find-debuginfo.sh
 Source11: parse-SUPPORTED.py
 # Include in the source RPM for reference.
 Source12: ChangeLog.old
+Source13: verify-ld-so-abi.sh
+Source14: ld-so-abi-aarch64.baseline
+Source15: ld-so-abi-ppc64le.baseline
+Source16: ld-so-abi-riscv64.baseline
+Source17: ld-so-abi-s390x.baseline
+Source18: ld-so-abi-x86_64.baseline
 
 # glibc_ldso: ABI-specific program interpreter name.  Used for debuginfo
 # extraction (wrap-find-debuginfo.sh) and smoke testing ($run_ldso below).
@@ -572,16 +588,164 @@ Patch262: glibc-RHEL-104151.patch
 Patch263: glibc-RHEL-95246-1.patch
 Patch264: glibc-RHEL-95246-2.patch
 Patch265: glibc-RHEL-105324.patch
-Patch266: glibc-RHEL-104853-1.patch
-Patch267: glibc-RHEL-104853-2.patch
-Patch268: glibc-RHEL-104853-3.patch
-Patch269: glibc-RHEL-104853-4.patch
-Patch270: glibc-RHEL-110535-1.patch
-Patch271: glibc-RHEL-110949-1.patch
-Patch272: glibc-RHEL-110535-2.patch
-Patch273: glibc-RHEL-110535-3.patch
-Patch274: glibc-RHEL-110949-2.patch
-Patch275: glibc-RHEL-114263.patch
+Patch266: glibc-RHEL-72564-1.patch
+Patch267: glibc-RHEL-72564-2.patch
+Patch268: glibc-RHEL-107540-1.patch
+Patch269: glibc-RHEL-107540-2.patch
+Patch270: glibc-RHEL-107540-3.patch
+Patch271: glibc-RHEL-106562-1.patch
+Patch272: glibc-RHEL-106562-2.patch
+Patch273: glibc-RHEL-106562-3.patch
+Patch274: glibc-RHEL-106562-4.patch
+Patch275: glibc-RHEL-106562-5.patch
+Patch276: glibc-RHEL-106562-6.patch
+Patch277: glibc-RHEL-106562-7.patch
+Patch278: glibc-RHEL-106562-8.patch
+Patch279: glibc-RHEL-106562-9.patch
+Patch280: glibc-RHEL-106562-10.patch
+Patch281: glibc-RHEL-106562-11.patch
+Patch282: glibc-RHEL-106562-12.patch
+Patch283: glibc-RHEL-106562-13.patch
+Patch284: glibc-RHEL-106562-14.patch
+Patch285: glibc-RHEL-106562-15.patch
+Patch286: glibc-RHEL-106562-16.patch
+Patch287: glibc-RHEL-106562-17.patch
+Patch288: glibc-RHEL-106562-18.patch
+Patch289: glibc-RHEL-106562-19.patch
+Patch290: glibc-RHEL-106562-20.patch
+Patch291: glibc-RHEL-106562-21.patch
+Patch292: glibc-RHEL-106562-22.patch
+Patch293: glibc-RHEL-106562-23.patch
+Patch294: glibc-RHEL-106562-24.patch
+Patch295: glibc-RHEL-107861-1.patch
+Patch296: glibc-RHEL-107861-2.patch
+Patch297: glibc-RHEL-58357-1.patch
+Patch298: glibc-RHEL-58357-2.patch
+Patch299: glibc-RHEL-58357-3.patch
+Patch300: glibc-RHEL-58357-4.patch
+Patch301: glibc-RHEL-58357-5.patch
+Patch302: glibc-RHEL-58357-6.patch
+Patch303: glibc-RHEL-58357-7.patch
+Patch304: glibc-RHEL-58357-8.patch
+Patch305: glibc-RHEL-58357-9.patch
+Patch306: glibc-RHEL-58357-10.patch
+Patch307: glibc-RHEL-58357-11.patch
+Patch308: glibc-RHEL-107695-1.patch
+Patch309: glibc-RHEL-107695-2.patch
+Patch310: glibc-RHEL-107695-3.patch
+Patch311: glibc-RHEL-107695-4.patch
+Patch312: glibc-RHEL-107695-5.patch
+Patch313: glibc-RHEL-107695-6.patch
+Patch314: glibc-RHEL-107695-7.patch
+Patch315: glibc-RHEL-107695-8.patch
+Patch316: glibc-RHEL-107695-9.patch
+Patch317: glibc-RHEL-107695-10.patch
+Patch318: glibc-RHEL-107695-11.patch
+Patch319: glibc-RHEL-107695-12.patch
+Patch320: glibc-RHEL-107695-13.patch
+Patch321: glibc-RHEL-107695-14.patch
+Patch322: glibc-RHEL-107695-15.patch
+Patch323: glibc-RHEL-107695-16.patch
+Patch324: glibc-RHEL-107695-17.patch
+Patch325: glibc-RHEL-107695-18.patch
+Patch326: glibc-RHEL-107695-19.patch
+Patch327: glibc-RHEL-108475-1.patch
+Patch328: glibc-RHEL-108475-2.patch
+Patch329: glibc-RHEL-108974-1.patch
+Patch330: glibc-RHEL-108974-2.patch
+Patch331: glibc-RHEL-108974-3.patch
+Patch332: glibc-RHEL-108974-4.patch
+Patch333: glibc-RHEL-108974-5.patch
+Patch334: glibc-RHEL-108974-6.patch
+Patch335: glibc-RHEL-108974-7.patch
+Patch336: glibc-RHEL-108974-8.patch
+Patch337: glibc-RHEL-108974-9.patch
+Patch338: glibc-RHEL-108974-10.patch
+Patch339: glibc-RHEL-108974-11.patch
+Patch340: glibc-RHEL-108974-12.patch
+Patch341: glibc-RHEL-108974-13.patch
+Patch342: glibc-RHEL-108974-14.patch
+Patch343: glibc-RHEL-108974-15.patch
+Patch344: glibc-RHEL-108974-16.patch
+Patch345: glibc-RHEL-108974-17.patch
+Patch346: glibc-RHEL-108974-18.patch
+Patch347: glibc-RHEL-108974-19.patch
+Patch348: glibc-RHEL-108974-20.patch
+Patch349: glibc-RHEL-108974-21.patch
+Patch350: glibc-RHEL-108974-22.patch
+Patch351: glibc-RHEL-108974-23.patch
+Patch352: glibc-RHEL-108974-24.patch
+Patch353: glibc-RHEL-108974-25.patch
+Patch354: glibc-RHEL-108974-26.patch
+Patch355: glibc-RHEL-108974-27.patch
+Patch356: glibc-RHEL-108974-28.patch
+Patch357: glibc-RHEL-108974-29.patch
+Patch358: glibc-RHEL-108974-30.patch
+Patch359: glibc-RHEL-108974-31.patch
+Patch360: glibc-RHEL-108974-32.patch
+Patch361: glibc-RHEL-108974-33.patch
+Patch362: glibc-RHEL-108974-34.patch
+Patch363: glibc-RHEL-108823-1.patch
+Patch364: glibc-RHEL-108823-2.patch
+Patch365: glibc-RHEL-108823-3.patch
+Patch366: glibc-RHEL-108823-4.patch
+Patch367: glibc-RHEL-108823-5.patch
+Patch368: glibc-RHEL-108823-6.patch
+Patch369: glibc-RHEL-108823-7.patch
+Patch370: glibc-RHEL-108823-8.patch
+Patch371: glibc-RHEL-108823-9.patch
+Patch372: glibc-RHEL-108823-10.patch
+Patch373: glibc-RHEL-108823-11.patch
+Patch374: glibc-RHEL-108823-12.patch
+Patch375: glibc-RHEL-108823-13.patch
+Patch376: glibc-RHEL-108823-14.patch
+# glibc-2.39-212-gb027d5b145 is glibc-RHEL-105324.patch.
+Patch377: glibc-upstream-2.39-213.patch
+Patch378: glibc-upstream-2.39-214.patch
+Patch379: glibc-upstream-2.39-215.patch
+Patch380: glibc-upstream-2.39-216.patch
+Patch381: glibc-upstream-2.39-217.patch
+Patch382: glibc-upstream-2.39-218.patch
+Patch383: glibc-upstream-2.39-219.patch
+Patch384: glibc-upstream-2.39-220.patch
+Patch385: glibc-upstream-2.39-221.patch
+Patch386: glibc-upstream-2.39-222.patch
+Patch387: glibc-upstream-2.39-223.patch
+Patch388: glibc-upstream-2.39-224.patch
+Patch389: glibc-upstream-2.39-225.patch
+# glibc-2.39-226-g42a8cb7560 is glibc-RHEL-108475-1.patch.
+# glibc-2.39-227-gf0e8d04eef is glibc-RHEL-108475-2.patch.
+Patch390: glibc-upstream-2.39-228.patch
+Patch391: glibc-upstream-2.39-229.patch
+Patch392: glibc-upstream-2.39-230.patch
+Patch393: glibc-upstream-2.39-231.patch
+Patch394: glibc-upstream-2.39-232.patch
+Patch395: glibc-upstream-2.39-233.patch
+Patch396: glibc-upstream-2.39-234.patch
+Patch397: glibc-upstream-2.39-235.patch
+Patch398: glibc-upstream-2.39-236.patch
+Patch399: glibc-upstream-2.39-237.patch
+Patch400: glibc-upstream-2.39-238.patch
+Patch401: glibc-upstream-2.39-239.patch
+Patch402: glibc-upstream-2.39-240.patch
+Patch403: glibc-upstream-2.39-241.patch
+Patch404: glibc-upstream-2.39-242.patch
+Patch405: glibc-upstream-2.39-243.patch
+Patch406: glibc-upstream-2.39-244.patch
+Patch407: glibc-upstream-2.39-245.patch
+Patch408: glibc-upstream-2.39-246.patch
+Patch409: glibc-upstream-2.39-247.patch
+Patch410: glibc-upstream-2.39-248.patch
+Patch411: glibc-upstream-2.39-249.patch
+Patch412: glibc-upstream-2.39-250.patch
+Patch413: glibc-upstream-2.39-251.patch
+Patch414: glibc-upstream-2.39-252.patch
+Patch415: glibc-upstream-2.39-253.patch
+# glibc-2.39-254-g3b6c8ea878 is glibc-RHEL-106562-16.patch.
+# glibc-2.39-255-g1f17635507 is glibc-RHEL-106562-17.patch.
+Patch416: glibc-upstream-2.39-256.patch
+Patch417: glibc-upstream-2.39-257.patch
+Patch418: glibc-upstream-2.39-258.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -642,6 +806,10 @@ BuildRequires: audit-libs-devel >= 1.1.3, sed >= 3.95, libcap-devel, gettext
 # And use instead (which should be reverted some time in the future):
 BuildRequires: procps-ng, util-linux, gawk
 BuildRequires: systemtap-sdt-devel
+
+%if %{with testsuite}
+BuildRequires: gdb
+%endif
 
 %if %{with valgrind}
 # Require valgrind for smoke testing the dynamic loader to make sure we
@@ -1428,6 +1596,12 @@ diff -u \
   --label "glibc localedata/SUPPORTED" localedata/SUPPORTED.glibc
 rm localedata/SUPPORTED.spec localedata/SUPPORTED.glibc
 
+# Prepare for ld.so ABI check
+cp %{SOURCE13} .
+chmod +x verify-ld-so-abi.sh
+
+cp %{_sourcedir}/*.baseline .
+
 ##############################################################################
 # Build glibc...
 ##############################################################################
@@ -1590,6 +1764,7 @@ build()
 %ifarch aarch64
 		--enable-memory-tagging \
 %endif
+		--with-man-pages=%{man_pages_version} \
 		--disable-crypt \
 	        --disable-build-nscd \
 	        --disable-nscd \
@@ -2208,6 +2383,11 @@ $run_ldso /usr/bin/valgrind --error-exitcode=1 \
 %endif
 %endif
 
+# Verify ld.so ABI.
+if test -f "ld-so-abi-%{_arch}.baseline" ; then
+    ./verify-ld-so-abi.sh %{_arch} %{glibc_sysroot}%{_prefix}%{glibc_ldso}
+fi
+
 %endif
 
 
@@ -2582,18 +2762,58 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
-* Mon Sep 22 2025 Arjun Shankar <arjun@redhat.com> - 2.39-46.4
-- nss: Fix incorrect/empty results when merging groups (RHEL-114263)
+* Thu Aug 21 2025 Florian Weimer  <fweimer@redhat.com> - 2.39-58
+- Use Requires(pre): libgcc%{_isa} to break libgcc cycle (RHEL-110559)
 
-* Fri Sep 05 2025 Arjun Shankar <arjun@redhat.com> - 2.39-46.3
-- x86-64: Provide GLIBC_ABI_GNU2_TLS symbol version (RHEL-110535)
-- x86-64: Provide GLIBC_ABI_DT_X86_64_PLT symbol version (RHEL-110949)
+* Thu Aug 21 2025 Arjun Shankar <arjun@redhat.com> - 2.39-57
+- Sync with upstream branch release/2.39/master (RHEL-109536)
+- Upstream commit: fffc2df8a3e2c8cda2991063d23086360268b777
+- Extend struct r_debug to support multiple namespaces (RHEL-101985)
+- Fix a potential crash in the dynamic loader when processing specific
+  symbol versions (RHEL-109683)
+- Signal la_objopen for ld.so with dlmopen (RHEL-109693)
+- Switch to main malloc after final ld.so self-relocation (RHEL-109703)
+- Prevent ld.so from asserting and crashing during audited library loads
+  (RHEL-109702)
+- x86-64: Provide GLIBC_ABI_DT_X86_64_PLT symbol version (RHEL-109621)
+- x86-64: Provide GLIBC_ABI_GNU2_TLS symbol version (RHEL-109625)
+- Ensure fallback initialization of ctype TLS data pointers to fix segfaults in
+  programs using dlmopen or auditors (RHEL-72018)
+- Handle load segment gaps in _dl_find_object (RHEL-104854)
+- AArch64: Improve codegen in SVE log1p
+- AArch64: Optimize inverse trig functions
+- AArch64: Avoid memset ifunc in cpu-features.c [BZ #33112]
 
-* Wed Sep 03 2025 Arjun Shankar <arjun@redhat.com> - 2.39-46.2
-- Handle load segment gaps in _dl_find_object (RHEL-104853)
+* Tue Aug 19 2025 Arjun Shankar <arjun@redhat.com> - 2.39-56
+- Add FUSE based tests for fchmod, lstat, and mkstemp (RHEL-108823)
 
-* Mon Aug 25 2025 Patsy Griffin <patsy@redhat.com> - 2.39-46.1
-- Use Requires(pre): libgcc%%{_isa} to break libgcc cycle (RHEL-110560)
+* Wed Aug 13 2025 Arjun Shankar <arjun@redhat.com> - 2.39-55
+- Various updates to the manual from upstream (RHEL-108974)
+
+* Mon Aug 11 2025 Frédéric Bérat <fberat@redhat.com> - 2.39-54
+- Fix memory leak after fdopen seek failure (RHEL-108475)
+
+* Wed Aug 06 2025 Frédéric Bérat <fberat@redhat.com> - 2.39-53
+- Updated glibc to support Linux 6.15 kernel system calls and constants.
+  (RHEL-107695)
+
+* Wed Aug 06 2025 Frédéric Bérat <fberat@redhat.com> - 2.39-52
+- Add `sched_setattr` and `sched_getattr` functions (RHEL-58357)
+
+* Wed Aug 06 2025 Frédéric Bérat <fberat@redhat.com> - 2.39-51
+- Enhanced glibc documentation for core descriptor APIs. (RHEL-107861)
+
+* Wed Aug 06 2025 Arjun Shankar <arjun@redhat.com> - 2.39-50
+- Improve test coverage (RHEL-106562)
+
+* Tue Aug 05 2025 Florian Weimer  <fweimer@redhat.com> - 2.39-49
+- x86_64, aarch64: More CPU output in ld.so --list-diagnostics (RHEL-107540)
+
+* Thu Jul 31 2025 Frédéric Bérat <fberat@redhat.com> - 2.39-48
+- Add support for new IBM Z17 hardware in glibc (RHEL-72564)
+
+* Tue Jul 29 2025 Frédéric Bérat <fberat@redhat.com> - 2.39-47
+- Add ld-so-abi-check
 
 * Thu Jul 24 2025 Florian Weimer  <fweimer@redhat.com> - 2.39-46
 - CVE-2025-8058: Double free in regcomp (RHEL-105324)

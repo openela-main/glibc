@@ -1,0 +1,57 @@
+commit 5fcee06dc7f368770c17f9a69b59fa68119a1cec
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Thu Dec 19 15:38:59 2024 +0000
+
+    Update kernel version to 6.12 in header constant tests
+    
+    There are no new constants covered by tst-mman-consts.py,
+    tst-mount-consts.py or tst-pidfd-consts.py in Linux 6.12 that need any
+    header changes, so update the kernel version in those tests.
+    (tst-sched-consts.py will need updating separately along with adding
+    SCHED_EXT.)
+    
+    Tested with build-many-glibcs.py.
+
+diff --git a/sysdeps/unix/sysv/linux/tst-mman-consts.py b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+index 2191bea36f8f69e0..584936efecbf7755 100644
+--- a/sysdeps/unix/sysv/linux/tst-mman-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+@@ -33,7 +33,7 @@ def main():
+                         help='C compiler (including options) to use')
+     args = parser.parse_args()
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 11)
++    linux_version_glibc = (6, 12)
+     sys.exit(glibcextract.compare_macro_consts(
+         '#define _GNU_SOURCE 1\n'
+         '#include <sys/mman.h>\n',
+diff --git a/sysdeps/unix/sysv/linux/tst-mount-consts.py b/sysdeps/unix/sysv/linux/tst-mount-consts.py
+index b71d8a489daf0865..e77579033b0fd8ec 100755
+--- a/sysdeps/unix/sysv/linux/tst-mount-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mount-consts.py
+@@ -39,10 +39,10 @@ def main():
+         sys.exit (77)
+ 
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    # Constants in glibc were updated to match Linux v6.10.  When glibc
++    # Constants in glibc were updated to match Linux v6.12.  When glibc
+     # constants are updated this value should be updated to match the
+     # released kernel version from which the constants were taken.
+-    linux_version_glibc = (6, 11)
++    linux_version_glibc = (6, 12)
+     def check(cte, exclude=None):
+         return glibcextract.compare_macro_consts(
+                 '#include <sys/mount.h>\n',
+diff --git a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+index 9d53102cbd73dc84..ef896394bdb12a25 100644
+--- a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+@@ -39,7 +39,7 @@ def main():
+         sys.exit (77)
+ 
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 11)
++    linux_version_glibc = (6, 12)
+     sys.exit(glibcextract.compare_macro_consts(
+                 '#include <sys/pidfd.h>\n',
+                 '#include <asm/fcntl.h>\n'

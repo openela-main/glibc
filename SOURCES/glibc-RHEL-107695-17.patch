@@ -1,0 +1,57 @@
+commit 2fb0009ff1994db2848fd2becd9e7eaaefd7b673
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Mon Mar 24 15:51:23 2025 +0000
+
+    Update kernel version to 6.13 in header constant tests
+    
+    There are no new constants covered by tst-mman-consts.py,
+    tst-mount-consts.py or tst-sched-consts.py in Linux 6.13 that need any
+    header changes, so update the kernel version in those tests.
+    (tst-pidfd-consts.py will need updating separately along with adding
+    new constants to glibc.)
+    
+    Tested with build-many-glibcs.py.
+
+diff --git a/sysdeps/unix/sysv/linux/tst-mman-consts.py b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+index 584936efecbf7755..ce07bc772e359ffd 100644
+--- a/sysdeps/unix/sysv/linux/tst-mman-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+@@ -33,7 +33,7 @@ def main():
+                         help='C compiler (including options) to use')
+     args = parser.parse_args()
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 12)
++    linux_version_glibc = (6, 13)
+     sys.exit(glibcextract.compare_macro_consts(
+         '#define _GNU_SOURCE 1\n'
+         '#include <sys/mman.h>\n',
+diff --git a/sysdeps/unix/sysv/linux/tst-mount-consts.py b/sysdeps/unix/sysv/linux/tst-mount-consts.py
+index e77579033b0fd8ec..91c99bb7a89715eb 100755
+--- a/sysdeps/unix/sysv/linux/tst-mount-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mount-consts.py
+@@ -39,10 +39,10 @@ def main():
+         sys.exit (77)
+ 
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    # Constants in glibc were updated to match Linux v6.12.  When glibc
++    # Constants in glibc were updated to match Linux v6.13.  When glibc
+     # constants are updated this value should be updated to match the
+     # released kernel version from which the constants were taken.
+-    linux_version_glibc = (6, 12)
++    linux_version_glibc = (6, 13)
+     def check(cte, exclude=None):
+         return glibcextract.compare_macro_consts(
+                 '#include <sys/mount.h>\n',
+diff --git a/sysdeps/unix/sysv/linux/tst-sched-consts.py b/sysdeps/unix/sysv/linux/tst-sched-consts.py
+index 6a5b837334ab45f8..90693f8156e338f1 100644
+--- a/sysdeps/unix/sysv/linux/tst-sched-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-sched-consts.py
+@@ -33,7 +33,7 @@ def main():
+                         help='C compiler (including options) to use')
+     args = parser.parse_args()
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 12)
++    linux_version_glibc = (6, 13)
+     sys.exit(glibcextract.compare_macro_consts(
+         '#define _GNU_SOURCE 1\n'
+         '#include <sched.h>\n',

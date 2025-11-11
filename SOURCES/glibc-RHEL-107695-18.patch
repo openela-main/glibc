@@ -1,0 +1,26 @@
+commit 7f163bd2106f96e2925e9bb3e0e545cfae7ba1af
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Tue Apr 1 12:44:26 2025 +0000
+
+    Update syscall lists for Linux 6.14
+    
+    Linux 6.14 has no new syscalls.  Update the version number in
+    syscall-names.list to reflect that it is still current for 6.14.
+    
+    Tested with build-many-glibcs.py.
+
+diff --git a/sysdeps/unix/sysv/linux/syscall-names.list b/sysdeps/unix/sysv/linux/syscall-names.list
+index a0c65be7a5c49160..28bd84404cf83692 100644
+--- a/sysdeps/unix/sysv/linux/syscall-names.list
++++ b/sysdeps/unix/sysv/linux/syscall-names.list
+@@ -21,8 +21,8 @@
+ # This file can list all potential system calls.  The names are only
+ # used if the installed kernel headers also provide them.
+ 
+-# The list of system calls is current as of Linux 6.13.
+-kernel 6.13
++# The list of system calls is current as of Linux 6.14.
++kernel 6.14
+ 
+ FAST_atomic_update
+ FAST_cmpxchg

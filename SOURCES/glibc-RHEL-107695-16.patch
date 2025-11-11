@@ -1,0 +1,959 @@
+commit eea6f1e079a301dfd5c7b7f4faf38b4d6e7ea059
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Wed Mar 12 12:51:28 2025 +0000
+
+    Update syscall lists for Linux 6.13
+    
+    Linux 6.13 adds four new syscalls.  Update syscall-names.list and
+    regenerate the arch-syscall.h headers with build-many-glibcs.py
+    update-syscalls.
+    
+    Tested with build-many-glibcs.py.
+
+diff --git a/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h b/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
+index 19b6316cb6ffae26..89aced0b453609e3 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
+@@ -95,6 +95,7 @@
+ #define __NR_gettimeofday 169
+ #define __NR_getuid 174
+ #define __NR_getxattr 8
++#define __NR_getxattrat 464
+ #define __NR_init_module 105
+ #define __NR_inotify_add_watch 27
+ #define __NR_inotify_init1 26
+@@ -124,6 +125,7 @@
+ #define __NR_listen 201
+ #define __NR_listmount 458
+ #define __NR_listxattr 11
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 12
+ #define __NR_lookup_dcookie 18
+ #define __NR_lremovexattr 15
+@@ -212,6 +214,7 @@
+ #define __NR_recvmsg 212
+ #define __NR_remap_file_pages 234
+ #define __NR_removexattr 14
++#define __NR_removexattrat 466
+ #define __NR_renameat 38
+ #define __NR_renameat2 276
+ #define __NR_request_key 218
+@@ -270,6 +273,7 @@
+ #define __NR_settimeofday 170
+ #define __NR_setuid 146
+ #define __NR_setxattr 5
++#define __NR_setxattrat 463
+ #define __NR_shmat 196
+ #define __NR_shmctl 195
+ #define __NR_shmdt 197
+diff --git a/sysdeps/unix/sysv/linux/alpha/arch-syscall.h b/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
+index 216a5575c69d0ff3..455da93b478ab037 100644
+--- a/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
+@@ -119,6 +119,7 @@
+ #define __NR_gettimeofday 359
+ #define __NR_getuid 24
+ #define __NR_getxattr 385
++#define __NR_getxattrat 574
+ #define __NR_getxgid 47
+ #define __NR_getxpid 20
+ #define __NR_getxuid 24
+@@ -153,6 +154,7 @@
+ #define __NR_listen 106
+ #define __NR_listmount 568
+ #define __NR_listxattr 388
++#define __NR_listxattrat 575
+ #define __NR_llistxattr 389
+ #define __NR_lookup_dcookie 406
+ #define __NR_lremovexattr 392
+@@ -364,6 +366,7 @@
+ #define __NR_recvmsg 113
+ #define __NR_remap_file_pages 410
+ #define __NR_removexattr 391
++#define __NR_removexattrat 576
+ #define __NR_rename 128
+ #define __NR_renameat 457
+ #define __NR_renameat2 510
+@@ -428,6 +431,7 @@
+ #define __NR_settimeofday 360
+ #define __NR_setuid 23
+ #define __NR_setxattr 382
++#define __NR_setxattrat 573
+ #define __NR_shmat 209
+ #define __NR_shmctl 210
+ #define __NR_shmdt 211
+diff --git a/sysdeps/unix/sysv/linux/arc/arch-syscall.h b/sysdeps/unix/sysv/linux/arc/arch-syscall.h
+index ea581b0a6dc0f2d4..01075e8cdfd7cd30 100644
+--- a/sysdeps/unix/sysv/linux/arc/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/arc/arch-syscall.h
+@@ -98,6 +98,7 @@
+ #define __NR_gettimeofday 169
+ #define __NR_getuid 174
+ #define __NR_getxattr 8
++#define __NR_getxattrat 464
+ #define __NR_init_module 105
+ #define __NR_inotify_add_watch 27
+ #define __NR_inotify_init1 26
+@@ -128,6 +129,7 @@
+ #define __NR_listen 201
+ #define __NR_listmount 458
+ #define __NR_listxattr 11
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 12
+ #define __NR_llseek 62
+ #define __NR_lookup_dcookie 18
+@@ -214,6 +216,7 @@
+ #define __NR_recvmsg 212
+ #define __NR_remap_file_pages 234
+ #define __NR_removexattr 14
++#define __NR_removexattrat 466
+ #define __NR_renameat 38
+ #define __NR_renameat2 276
+ #define __NR_request_key 218
+@@ -272,6 +275,7 @@
+ #define __NR_settimeofday 170
+ #define __NR_setuid 146
+ #define __NR_setxattr 5
++#define __NR_setxattrat 463
+ #define __NR_shmat 196
+ #define __NR_shmctl 195
+ #define __NR_shmdt 197
+diff --git a/sysdeps/unix/sysv/linux/arm/arch-syscall.h b/sysdeps/unix/sysv/linux/arm/arch-syscall.h
+index 2809f52f94e9ee16..97044727fc1e24bf 100644
+--- a/sysdeps/unix/sysv/linux/arm/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/arm/arch-syscall.h
+@@ -132,6 +132,7 @@
+ #define __NR_getuid 24
+ #define __NR_getuid32 199
+ #define __NR_getxattr 229
++#define __NR_getxattrat 464
+ #define __NR_init_module 128
+ #define __NR_inotify_add_watch 317
+ #define __NR_inotify_init 316
+@@ -166,6 +167,7 @@
+ #define __NR_listen 284
+ #define __NR_listmount 458
+ #define __NR_listxattr 232
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 233
+ #define __NR_lookup_dcookie 249
+ #define __NR_lremovexattr 236
+@@ -271,6 +273,7 @@
+ #define __NR_recvmsg 297
+ #define __NR_remap_file_pages 253
+ #define __NR_removexattr 235
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 329
+ #define __NR_renameat2 382
+@@ -346,6 +349,7 @@
+ #define __NR_setuid 23
+ #define __NR_setuid32 213
+ #define __NR_setxattr 226
++#define __NR_setxattrat 463
+ #define __NR_shmat 305
+ #define __NR_shmctl 308
+ #define __NR_shmdt 306
+diff --git a/sysdeps/unix/sysv/linux/csky/arch-syscall.h b/sysdeps/unix/sysv/linux/csky/arch-syscall.h
+index ede3551a00dc81c6..a719a55647383d4e 100644
+--- a/sysdeps/unix/sysv/linux/csky/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/csky/arch-syscall.h
+@@ -103,6 +103,7 @@
+ #define __NR_gettimeofday 169
+ #define __NR_getuid 174
+ #define __NR_getxattr 8
++#define __NR_getxattrat 464
+ #define __NR_init_module 105
+ #define __NR_inotify_add_watch 27
+ #define __NR_inotify_init1 26
+@@ -133,6 +134,7 @@
+ #define __NR_listen 201
+ #define __NR_listmount 458
+ #define __NR_listxattr 11
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 12
+ #define __NR_llseek 62
+ #define __NR_lookup_dcookie 18
+@@ -224,6 +226,7 @@
+ #define __NR_recvmsg 212
+ #define __NR_remap_file_pages 234
+ #define __NR_removexattr 14
++#define __NR_removexattrat 466
+ #define __NR_renameat2 276
+ #define __NR_request_key 218
+ #define __NR_restart_syscall 128
+@@ -285,6 +288,7 @@
+ #define __NR_settimeofday 170
+ #define __NR_setuid 146
+ #define __NR_setxattr 5
++#define __NR_setxattrat 463
+ #define __NR_shmat 196
+ #define __NR_shmctl 195
+ #define __NR_shmdt 197
+diff --git a/sysdeps/unix/sysv/linux/hppa/arch-syscall.h b/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
+index 08b153f2ccdf6f45..dc592c58364a1804 100644
+--- a/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
+@@ -124,6 +124,7 @@
+ #define __NR_gettimeofday 78
+ #define __NR_getuid 24
+ #define __NR_getxattr 241
++#define __NR_getxattrat 464
+ #define __NR_init_module 128
+ #define __NR_inotify_add_watch 270
+ #define __NR_inotify_init 269
+@@ -157,6 +158,7 @@
+ #define __NR_listen 32
+ #define __NR_listmount 458
+ #define __NR_listxattr 244
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 245
+ #define __NR_lookup_dcookie 223
+ #define __NR_lremovexattr 248
+@@ -259,6 +261,7 @@
+ #define __NR_recvmsg 184
+ #define __NR_remap_file_pages 227
+ #define __NR_removexattr 247
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 282
+ #define __NR_renameat2 337
+@@ -324,6 +327,7 @@
+ #define __NR_settimeofday 79
+ #define __NR_setuid 23
+ #define __NR_setxattr 238
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 68
+ #define __NR_shmat 192
+ #define __NR_shmctl 195
+diff --git a/sysdeps/unix/sysv/linux/i386/arch-syscall.h b/sysdeps/unix/sysv/linux/i386/arch-syscall.h
+index 500ca1ec70e2c5fc..c10897f7b032c9fb 100644
+--- a/sysdeps/unix/sysv/linux/i386/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/i386/arch-syscall.h
+@@ -140,6 +140,7 @@
+ #define __NR_getuid 24
+ #define __NR_getuid32 199
+ #define __NR_getxattr 229
++#define __NR_getxattrat 464
+ #define __NR_gtty 32
+ #define __NR_idle 112
+ #define __NR_init_module 128
+@@ -178,6 +179,7 @@
+ #define __NR_listen 363
+ #define __NR_listmount 458
+ #define __NR_listxattr 232
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 233
+ #define __NR_lock 53
+ #define __NR_lookup_dcookie 253
+@@ -294,6 +296,7 @@
+ #define __NR_recvmsg 372
+ #define __NR_remap_file_pages 257
+ #define __NR_removexattr 235
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 302
+ #define __NR_renameat2 353
+@@ -367,6 +370,7 @@
+ #define __NR_setuid 23
+ #define __NR_setuid32 213
+ #define __NR_setxattr 226
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 68
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+diff --git a/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h b/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
+index 7e732256fd4c6da7..a0d0d91a09fa57fb 100644
+--- a/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
+@@ -94,6 +94,7 @@
+ #define __NR_gettimeofday 169
+ #define __NR_getuid 174
+ #define __NR_getxattr 8
++#define __NR_getxattrat 464
+ #define __NR_init_module 105
+ #define __NR_inotify_add_watch 27
+ #define __NR_inotify_init1 26
+@@ -123,6 +124,7 @@
+ #define __NR_listen 201
+ #define __NR_listmount 458
+ #define __NR_listxattr 11
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 12
+ #define __NR_lookup_dcookie 18
+ #define __NR_lremovexattr 15
+@@ -210,6 +212,7 @@
+ #define __NR_recvmsg 212
+ #define __NR_remap_file_pages 234
+ #define __NR_removexattr 14
++#define __NR_removexattrat 466
+ #define __NR_renameat2 276
+ #define __NR_request_key 218
+ #define __NR_restart_syscall 128
+@@ -266,6 +269,7 @@
+ #define __NR_settimeofday 170
+ #define __NR_setuid 146
+ #define __NR_setxattr 5
++#define __NR_setxattrat 463
+ #define __NR_shmat 196
+ #define __NR_shmctl 195
+ #define __NR_shmdt 197
+diff --git a/sysdeps/unix/sysv/linux/m68k/arch-syscall.h b/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
+index 4ab34f6228594c9f..715809acaf112852 100644
+--- a/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
+@@ -140,6 +140,7 @@
+ #define __NR_getuid 24
+ #define __NR_getuid32 199
+ #define __NR_getxattr 226
++#define __NR_getxattrat 464
+ #define __NR_init_module 128
+ #define __NR_inotify_add_watch 285
+ #define __NR_inotify_init 284
+@@ -173,6 +174,7 @@
+ #define __NR_listen 360
+ #define __NR_listmount 458
+ #define __NR_listxattr 229
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 230
+ #define __NR_lookup_dcookie 248
+ #define __NR_lremovexattr 233
+@@ -281,6 +283,7 @@
+ #define __NR_recvmsg 369
+ #define __NR_remap_file_pages 252
+ #define __NR_removexattr 232
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 295
+ #define __NR_renameat2 351
+@@ -354,6 +357,7 @@
+ #define __NR_setuid 23
+ #define __NR_setuid32 213
+ #define __NR_setxattr 223
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 68
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+diff --git a/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h b/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
+index 79e225e50c6d30b4..24e218fc86b984cc 100644
+--- a/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
+@@ -140,6 +140,7 @@
+ #define __NR_getuid 24
+ #define __NR_getuid32 199
+ #define __NR_getxattr 229
++#define __NR_getxattrat 464
+ #define __NR_gtty 32
+ #define __NR_idle 112
+ #define __NR_init_module 128
+@@ -178,6 +179,7 @@
+ #define __NR_listen 348
+ #define __NR_listmount 458
+ #define __NR_listxattr 232
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 233
+ #define __NR_lock 53
+ #define __NR_lookup_dcookie 253
+@@ -294,6 +296,7 @@
+ #define __NR_recvmsg 361
+ #define __NR_remap_file_pages 257
+ #define __NR_removexattr 235
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 302
+ #define __NR_renameat2 383
+@@ -370,6 +373,7 @@
+ #define __NR_setuid 23
+ #define __NR_setuid32 213
+ #define __NR_setxattr 226
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 68
+ #define __NR_shmat 335
+ #define __NR_shmctl 336
+diff --git a/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
+index dadd7f3130a55625..a7615cb7a0c66df6 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
+@@ -131,6 +131,7 @@
+ #define __NR_gettimeofday 4078
+ #define __NR_getuid 4024
+ #define __NR_getxattr 4227
++#define __NR_getxattrat 4464
+ #define __NR_gtty 4032
+ #define __NR_idle 4112
+ #define __NR_init_module 4128
+@@ -168,6 +169,7 @@
+ #define __NR_listen 4174
+ #define __NR_listmount 4458
+ #define __NR_listxattr 4230
++#define __NR_listxattrat 4465
+ #define __NR_llistxattr 4231
+ #define __NR_lock 4053
+ #define __NR_lookup_dcookie 4247
+@@ -279,6 +281,7 @@
+ #define __NR_recvmsg 4177
+ #define __NR_remap_file_pages 4251
+ #define __NR_removexattr 4233
++#define __NR_removexattrat 4466
+ #define __NR_rename 4038
+ #define __NR_renameat 4295
+ #define __NR_renameat2 4351
+@@ -343,6 +346,7 @@
+ #define __NR_settimeofday 4079
+ #define __NR_setuid 4023
+ #define __NR_setxattr 4224
++#define __NR_setxattrat 4463
+ #define __NR_sgetmask 4068
+ #define __NR_shmat 4397
+ #define __NR_shmctl 4396
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
+index db6b2d4609d87d3e..4d863c2dd29c3f3e 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
+@@ -124,6 +124,7 @@
+ #define __NR_gettimeofday 6094
+ #define __NR_getuid 6100
+ #define __NR_getxattr 6183
++#define __NR_getxattrat 6464
+ #define __NR_init_module 6168
+ #define __NR_inotify_add_watch 6248
+ #define __NR_inotify_init 6247
+@@ -156,6 +157,7 @@
+ #define __NR_listen 6049
+ #define __NR_listmount 6458
+ #define __NR_listxattr 6186
++#define __NR_listxattrat 6465
+ #define __NR_llistxattr 6187
+ #define __NR_lookup_dcookie 6206
+ #define __NR_lremovexattr 6190
+@@ -258,6 +260,7 @@
+ #define __NR_recvmsg 6046
+ #define __NR_remap_file_pages 6210
+ #define __NR_removexattr 6189
++#define __NR_removexattrat 6466
+ #define __NR_rename 6080
+ #define __NR_renameat 6258
+ #define __NR_renameat2 6315
+@@ -323,6 +326,7 @@
+ #define __NR_settimeofday 6159
+ #define __NR_setuid 6103
+ #define __NR_setxattr 6180
++#define __NR_setxattrat 6463
+ #define __NR_shmat 6029
+ #define __NR_shmctl 6030
+ #define __NR_shmdt 6065
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
+index b4129a4dbdf71aec..9b6683e4c1ca9312 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
+@@ -116,6 +116,7 @@
+ #define __NR_gettimeofday 5094
+ #define __NR_getuid 5100
+ #define __NR_getxattr 5183
++#define __NR_getxattrat 5464
+ #define __NR_init_module 5168
+ #define __NR_inotify_add_watch 5244
+ #define __NR_inotify_init 5243
+@@ -147,6 +148,7 @@
+ #define __NR_listen 5049
+ #define __NR_listmount 5458
+ #define __NR_listxattr 5186
++#define __NR_listxattrat 5465
+ #define __NR_llistxattr 5187
+ #define __NR_lookup_dcookie 5206
+ #define __NR_lremovexattr 5190
+@@ -244,6 +246,7 @@
+ #define __NR_recvmsg 5046
+ #define __NR_remap_file_pages 5210
+ #define __NR_removexattr 5189
++#define __NR_removexattrat 5466
+ #define __NR_rename 5080
+ #define __NR_renameat 5254
+ #define __NR_renameat2 5311
+@@ -305,6 +308,7 @@
+ #define __NR_settimeofday 5159
+ #define __NR_setuid 5103
+ #define __NR_setxattr 5180
++#define __NR_setxattrat 5463
+ #define __NR_shmat 5029
+ #define __NR_shmctl 5030
+ #define __NR_shmdt 5065
+diff --git a/sysdeps/unix/sysv/linux/or1k/arch-syscall.h b/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
+index 2d21fa208576f795..a071c76aaf82d9b6 100644
+--- a/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
+@@ -102,6 +102,7 @@
+ #define __NR_gettimeofday 169
+ #define __NR_getuid 174
+ #define __NR_getxattr 8
++#define __NR_getxattrat 464
+ #define __NR_init_module 105
+ #define __NR_inotify_add_watch 27
+ #define __NR_inotify_init1 26
+@@ -132,6 +133,7 @@
+ #define __NR_listen 201
+ #define __NR_listmount 458
+ #define __NR_listxattr 11
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 12
+ #define __NR_llseek 62
+ #define __NR_lookup_dcookie 18
+@@ -224,6 +226,7 @@
+ #define __NR_recvmsg 212
+ #define __NR_remap_file_pages 234
+ #define __NR_removexattr 14
++#define __NR_removexattrat 466
+ #define __NR_renameat 38
+ #define __NR_renameat2 276
+ #define __NR_request_key 218
+@@ -285,6 +288,7 @@
+ #define __NR_settimeofday 170
+ #define __NR_setuid 146
+ #define __NR_setxattr 5
++#define __NR_setxattrat 463
+ #define __NR_shmat 196
+ #define __NR_shmctl 195
+ #define __NR_shmdt 197
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h b/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
+index 206d9fd65697d152..b3481e4c242257e0 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
+@@ -130,6 +130,7 @@
+ #define __NR_gettimeofday 78
+ #define __NR_getuid 24
+ #define __NR_getxattr 212
++#define __NR_getxattrat 464
+ #define __NR_gtty 32
+ #define __NR_idle 112
+ #define __NR_init_module 128
+@@ -168,6 +169,7 @@
+ #define __NR_listen 329
+ #define __NR_listmount 458
+ #define __NR_listxattr 215
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 216
+ #define __NR_lock 53
+ #define __NR_lookup_dcookie 235
+@@ -288,6 +290,7 @@
+ #define __NR_recvmsg 342
+ #define __NR_remap_file_pages 239
+ #define __NR_removexattr 218
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 293
+ #define __NR_renameat2 357
+@@ -353,6 +356,7 @@
+ #define __NR_settimeofday 79
+ #define __NR_setuid 23
+ #define __NR_setxattr 209
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 68
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h b/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
+index 19f72a7f694a5322..45108e8f6f5c7b6c 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
+@@ -119,6 +119,7 @@
+ #define __NR_gettimeofday 78
+ #define __NR_getuid 24
+ #define __NR_getxattr 212
++#define __NR_getxattrat 464
+ #define __NR_gtty 32
+ #define __NR_idle 112
+ #define __NR_init_module 128
+@@ -156,6 +157,7 @@
+ #define __NR_listen 329
+ #define __NR_listmount 458
+ #define __NR_listxattr 215
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 216
+ #define __NR_lock 53
+ #define __NR_lookup_dcookie 235
+@@ -270,6 +272,7 @@
+ #define __NR_recvmsg 342
+ #define __NR_remap_file_pages 239
+ #define __NR_removexattr 218
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 293
+ #define __NR_renameat2 357
+@@ -332,6 +335,7 @@
+ #define __NR_settimeofday 79
+ #define __NR_setuid 23
+ #define __NR_setxattr 209
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 68
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+diff --git a/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h b/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
+index eb9e57b02898cb79..53338790a7a9837c 100644
+--- a/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
+@@ -91,6 +91,7 @@
+ #define __NR_gettid 178
+ #define __NR_getuid 174
+ #define __NR_getxattr 8
++#define __NR_getxattrat 464
+ #define __NR_init_module 105
+ #define __NR_inotify_add_watch 27
+ #define __NR_inotify_init1 26
+@@ -119,6 +120,7 @@
+ #define __NR_listen 201
+ #define __NR_listmount 458
+ #define __NR_listxattr 11
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 12
+ #define __NR_llseek 62
+ #define __NR_lookup_dcookie 18
+@@ -205,6 +207,7 @@
+ #define __NR_recvmsg 212
+ #define __NR_remap_file_pages 234
+ #define __NR_removexattr 14
++#define __NR_removexattrat 466
+ #define __NR_renameat2 276
+ #define __NR_request_key 218
+ #define __NR_restart_syscall 128
+@@ -262,6 +265,7 @@
+ #define __NR_setsockopt 208
+ #define __NR_setuid 146
+ #define __NR_setxattr 5
++#define __NR_setxattrat 463
+ #define __NR_shmat 196
+ #define __NR_shmctl 195
+ #define __NR_shmdt 197
+diff --git a/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h b/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
+index 1eac18e5822d8b3e..eed1dffc321200d8 100644
+--- a/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
+@@ -95,6 +95,7 @@
+ #define __NR_gettimeofday 169
+ #define __NR_getuid 174
+ #define __NR_getxattr 8
++#define __NR_getxattrat 464
+ #define __NR_init_module 105
+ #define __NR_inotify_add_watch 27
+ #define __NR_inotify_init1 26
+@@ -124,6 +125,7 @@
+ #define __NR_listen 201
+ #define __NR_listmount 458
+ #define __NR_listxattr 11
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 12
+ #define __NR_lookup_dcookie 18
+ #define __NR_lremovexattr 15
+@@ -212,6 +214,7 @@
+ #define __NR_recvmsg 212
+ #define __NR_remap_file_pages 234
+ #define __NR_removexattr 14
++#define __NR_removexattrat 466
+ #define __NR_renameat2 276
+ #define __NR_request_key 218
+ #define __NR_restart_syscall 128
+@@ -271,6 +274,7 @@
+ #define __NR_settimeofday 170
+ #define __NR_setuid 146
+ #define __NR_setxattr 5
++#define __NR_setxattrat 463
+ #define __NR_shmat 196
+ #define __NR_shmctl 195
+ #define __NR_shmdt 197
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h b/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
+index 464eca58b28ef5e0..0bf8f9582cef0fab 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
+@@ -136,6 +136,7 @@
+ #define __NR_getuid 24
+ #define __NR_getuid32 199
+ #define __NR_getxattr 227
++#define __NR_getxattrat 464
+ #define __NR_idle 112
+ #define __NR_init_module 128
+ #define __NR_inotify_add_watch 285
+@@ -173,6 +174,7 @@
+ #define __NR_listen 363
+ #define __NR_listmount 458
+ #define __NR_listxattr 230
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 231
+ #define __NR_lookup_dcookie 110
+ #define __NR_lremovexattr 234
+@@ -279,6 +281,7 @@
+ #define __NR_recvmsg 372
+ #define __NR_remap_file_pages 267
+ #define __NR_removexattr 233
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 295
+ #define __NR_renameat2 347
+@@ -355,6 +358,7 @@
+ #define __NR_setuid 23
+ #define __NR_setuid32 213
+ #define __NR_setxattr 224
++#define __NR_setxattrat 463
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+ #define __NR_shmdt 398
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h b/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
+index 57842702fd389edd..061f8db0cab0d0e9 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
+@@ -114,6 +114,7 @@
+ #define __NR_gettimeofday 78
+ #define __NR_getuid 199
+ #define __NR_getxattr 227
++#define __NR_getxattrat 464
+ #define __NR_idle 112
+ #define __NR_init_module 128
+ #define __NR_inotify_add_watch 285
+@@ -148,6 +149,7 @@
+ #define __NR_listen 363
+ #define __NR_listmount 458
+ #define __NR_listxattr 230
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 231
+ #define __NR_lookup_dcookie 110
+ #define __NR_lremovexattr 234
+@@ -248,6 +250,7 @@
+ #define __NR_recvmsg 372
+ #define __NR_remap_file_pages 267
+ #define __NR_removexattr 233
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 295
+ #define __NR_renameat2 347
+@@ -313,6 +316,7 @@
+ #define __NR_settimeofday 79
+ #define __NR_setuid 213
+ #define __NR_setxattr 224
++#define __NR_setxattrat 463
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+ #define __NR_shmdt 398
+diff --git a/sysdeps/unix/sysv/linux/sh/arch-syscall.h b/sysdeps/unix/sysv/linux/sh/arch-syscall.h
+index 165ba017c7411aef..52cc320a9378e324 100644
+--- a/sysdeps/unix/sysv/linux/sh/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sh/arch-syscall.h
+@@ -133,6 +133,7 @@
+ #define __NR_getuid 24
+ #define __NR_getuid32 199
+ #define __NR_getxattr 229
++#define __NR_getxattrat 464
+ #define __NR_init_module 128
+ #define __NR_inotify_add_watch 291
+ #define __NR_inotify_init 290
+@@ -166,6 +167,7 @@
+ #define __NR_listen 343
+ #define __NR_listmount 458
+ #define __NR_listxattr 232
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 233
+ #define __NR_lookup_dcookie 253
+ #define __NR_lremovexattr 236
+@@ -274,6 +276,7 @@
+ #define __NR_recvmsg 356
+ #define __NR_remap_file_pages 257
+ #define __NR_removexattr 235
++#define __NR_removexattrat 466
+ #define __NR_rename 38
+ #define __NR_renameat 302
+ #define __NR_renameat2 371
+@@ -346,6 +349,7 @@
+ #define __NR_setuid 23
+ #define __NR_setuid32 213
+ #define __NR_setxattr 226
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 68
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h b/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
+index 3bad6f102ffaafb2..ee870bc7b890e0b6 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
+@@ -136,6 +136,7 @@
+ #define __NR_getuid 24
+ #define __NR_getuid32 44
+ #define __NR_getxattr 172
++#define __NR_getxattrat 464
+ #define __NR_init_module 190
+ #define __NR_inotify_add_watch 152
+ #define __NR_inotify_init 151
+@@ -171,6 +172,7 @@
+ #define __NR_listen 354
+ #define __NR_listmount 458
+ #define __NR_listxattr 178
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 179
+ #define __NR_lookup_dcookie 208
+ #define __NR_lremovexattr 182
+@@ -279,6 +281,7 @@
+ #define __NR_recvmsg 113
+ #define __NR_remap_file_pages 192
+ #define __NR_removexattr 181
++#define __NR_removexattrat 466
+ #define __NR_rename 128
+ #define __NR_renameat 291
+ #define __NR_renameat2 345
+@@ -351,6 +354,7 @@
+ #define __NR_setuid 23
+ #define __NR_setuid32 87
+ #define __NR_setxattr 169
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 199
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h b/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
+index 98e143792026d0e8..3acbebefa95fbbc6 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
+@@ -121,6 +121,7 @@
+ #define __NR_gettimeofday 116
+ #define __NR_getuid 24
+ #define __NR_getxattr 172
++#define __NR_getxattrat 464
+ #define __NR_init_module 190
+ #define __NR_inotify_add_watch 152
+ #define __NR_inotify_init 151
+@@ -154,6 +155,7 @@
+ #define __NR_listen 354
+ #define __NR_listmount 458
+ #define __NR_listxattr 178
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 179
+ #define __NR_lookup_dcookie 208
+ #define __NR_lremovexattr 182
+@@ -257,6 +259,7 @@
+ #define __NR_recvmsg 113
+ #define __NR_remap_file_pages 192
+ #define __NR_removexattr 181
++#define __NR_removexattrat 466
+ #define __NR_rename 128
+ #define __NR_renameat 291
+ #define __NR_renameat2 345
+@@ -320,6 +323,7 @@
+ #define __NR_settimeofday 122
+ #define __NR_setuid 23
+ #define __NR_setxattr 169
++#define __NR_setxattrat 463
+ #define __NR_sgetmask 199
+ #define __NR_shmat 397
+ #define __NR_shmctl 396
+diff --git a/sysdeps/unix/sysv/linux/syscall-names.list b/sysdeps/unix/sysv/linux/syscall-names.list
+index d31938a002629784..a0c65be7a5c49160 100644
+--- a/sysdeps/unix/sysv/linux/syscall-names.list
++++ b/sysdeps/unix/sysv/linux/syscall-names.list
+@@ -21,8 +21,8 @@
+ # This file can list all potential system calls.  The names are only
+ # used if the installed kernel headers also provide them.
+ 
+-# The list of system calls is current as of Linux 6.12.
+-kernel 6.12
++# The list of system calls is current as of Linux 6.13.
++kernel 6.13
+ 
+ FAST_atomic_update
+ FAST_cmpxchg
+@@ -198,6 +198,7 @@ getuid
+ getuid32
+ getunwind
+ getxattr
++getxattrat
+ getxgid
+ getxpid
+ getxuid
+@@ -241,6 +242,7 @@ linkat
+ listen
+ listmount
+ listxattr
++listxattrat
+ llistxattr
+ llseek
+ lock
+@@ -482,6 +484,7 @@ recvmmsg_time64
+ recvmsg
+ remap_file_pages
+ removexattr
++removexattrat
+ rename
+ renameat
+ renameat2
+@@ -572,6 +575,7 @@ settimeofday
+ setuid
+ setuid32
+ setxattr
++setxattrat
+ sgetmask
+ shmat
+ shmctl
+diff --git a/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h b/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
+index dfc10d0c7e8a8f1e..17b84c70f58ac276 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
+@@ -117,6 +117,7 @@
+ #define __NR_gettimeofday 96
+ #define __NR_getuid 102
+ #define __NR_getxattr 191
++#define __NR_getxattrat 464
+ #define __NR_init_module 175
+ #define __NR_inotify_add_watch 254
+ #define __NR_inotify_init 253
+@@ -151,6 +152,7 @@
+ #define __NR_listen 50
+ #define __NR_listmount 458
+ #define __NR_listxattr 194
++#define __NR_listxattrat 465
+ #define __NR_llistxattr 195
+ #define __NR_lookup_dcookie 212
+ #define __NR_lremovexattr 198
+@@ -250,6 +252,7 @@
+ #define __NR_recvmsg 47
+ #define __NR_remap_file_pages 216
+ #define __NR_removexattr 197
++#define __NR_removexattrat 466
+ #define __NR_rename 82
+ #define __NR_renameat 264
+ #define __NR_renameat2 316
+@@ -313,6 +316,7 @@
+ #define __NR_settimeofday 164
+ #define __NR_setuid 105
+ #define __NR_setxattr 188
++#define __NR_setxattrat 463
+ #define __NR_shmat 30
+ #define __NR_shmctl 31
+ #define __NR_shmdt 67
+diff --git a/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h b/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
+index 9340daa967425c4a..1dcd6ab0e6b229ed 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
+@@ -111,6 +111,7 @@
+ #define __NR_gettimeofday 1073741920
+ #define __NR_getuid 1073741926
+ #define __NR_getxattr 1073742015
++#define __NR_getxattrat 1073742288
+ #define __NR_init_module 1073741999
+ #define __NR_inotify_add_watch 1073742078
+ #define __NR_inotify_init 1073742077
+@@ -145,6 +146,7 @@
+ #define __NR_listen 1073741874
+ #define __NR_listmount 1073742282
+ #define __NR_listxattr 1073742018
++#define __NR_listxattrat 1073742289
+ #define __NR_llistxattr 1073742019
+ #define __NR_lookup_dcookie 1073742036
+ #define __NR_lremovexattr 1073742022
+@@ -242,6 +244,7 @@
+ #define __NR_recvmsg 1073742343
+ #define __NR_remap_file_pages 1073742040
+ #define __NR_removexattr 1073742021
++#define __NR_removexattrat 1073742290
+ #define __NR_rename 1073741906
+ #define __NR_renameat 1073742088
+ #define __NR_renameat2 1073742140
+@@ -305,6 +308,7 @@
+ #define __NR_settimeofday 1073741988
+ #define __NR_setuid 1073741929
+ #define __NR_setxattr 1073742012
++#define __NR_setxattrat 1073742287
+ #define __NR_shmat 1073741854
+ #define __NR_shmctl 1073741855
+ #define __NR_shmdt 1073741891

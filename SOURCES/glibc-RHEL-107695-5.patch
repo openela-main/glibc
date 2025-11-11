@@ -1,0 +1,44 @@
+commit 84d2762922f74f5059d6179f503972c418153b91
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Thu May 23 14:04:48 2024 +0000
+
+    Update kernel version to 6.9 in header constant tests
+    
+    This patch updates the kernel version in the tests tst-mman-consts.py
+    and tst-mount-consts.py to 6.9.  (There are no new constants covered
+    by these tests in 6.9 that need any other header changes;
+    tst-pidfd-consts.py was updated separately along with adding new
+    constants relevant to that test.)
+    
+    Tested with build-many-glibcs.py.
+
+diff --git a/sysdeps/unix/sysv/linux/tst-mman-consts.py b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+index 56c0cf3e228ad1ae..4a8f4e8919aa6b3d 100644
+--- a/sysdeps/unix/sysv/linux/tst-mman-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+@@ -33,7 +33,7 @@ def main():
+                         help='C compiler (including options) to use')
+     args = parser.parse_args()
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 8)
++    linux_version_glibc = (6, 9)
+     sys.exit(glibcextract.compare_macro_consts(
+         '#define _GNU_SOURCE 1\n'
+         '#include <sys/mman.h>\n',
+diff --git a/sysdeps/unix/sysv/linux/tst-mount-consts.py b/sysdeps/unix/sysv/linux/tst-mount-consts.py
+index 8613db96d7e3bf33..c4a67221c1c5bc84 100755
+--- a/sysdeps/unix/sysv/linux/tst-mount-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mount-consts.py
+@@ -39,10 +39,10 @@ def main():
+         sys.exit (77)
+ 
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    # Constants in glibc were updated to match Linux v6.8.  When glibc
++    # Constants in glibc were updated to match Linux v6.9.  When glibc
+     # constants are updated this value should be updated to match the
+     # released kernel version from which the constants were taken.
+-    linux_version_glibc = (6, 8)
++    linux_version_glibc = (6, 9)
+     def check(cte, exclude=None):
+         return glibcextract.compare_macro_consts(
+                 '#include <sys/mount.h>\n',

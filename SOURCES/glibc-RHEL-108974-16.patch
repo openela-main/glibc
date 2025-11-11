@@ -1,0 +1,94 @@
+commit 37a0933e1bf97346b45463bde0c4631be8abaa07
+Author: DJ Delorie <dj@redhat.com>
+Date:   Tue Dec 10 16:57:21 2024 -0500
+
+    manual: make @manpageurl more specific to each output
+    
+    Tweak the @manpageurl macro to customize the output for
+    each of html, info, and pdf output.  HTML and PDF (at
+    least, these days) support clicking on the link title,
+    whereas info does not.  Add text to the intro section
+    explaining which man pages are normative and which
+    aren't.
+
+diff --git a/manual/intro.texi b/manual/intro.texi
+index 879c1b38d9b73a46..d95648468db6f224 100644
+--- a/manual/intro.texi
++++ b/manual/intro.texi
+@@ -966,13 +966,25 @@ functionality is available on commercial systems.
+ 
+ @Theglibc{} includes by reference the Linux man-pages
+ @value{man_pages_version} documentation to document the listed
+-syscalls for the Linux kernel. For reference purposes only the latest
++syscalls for the Linux kernel. For reference purposes only, the latest
+ @uref{https://www.kernel.org/doc/man-pages/,Linux man-pages Project}
+ documentation can be accessed from the
+ @uref{https://www.kernel.org,Linux kernel} website.  Where the syscall
+ has more specific documentation in this manual that more specific
+ documentation is considered authoritative.
+ 
++Throughout this manual, when we refer to a man page, for example:
++@quotation
++@manpageurl{sendmsg,2}
++@end quotation
++@noindent
++we are referring primarily to the specific version noted above (the
++``normative'' version), typically accessed by running (for example)
++@code{man 2 sendmsg} on a system with that version installed.  For
++convenience, we will also link to the online latest copy of the man
++pages, but keep in mind that version will almost always be newer than,
++and thus different than, the normative version noted above.
++
+ Additional details on the Linux system call interface can be found in
+ @xref{System Calls}.
+ 
+diff --git a/manual/macros.texi b/manual/macros.texi
+index f48dd4ec2282634f..2003ce2678054ae4 100644
+--- a/manual/macros.texi
++++ b/manual/macros.texi
+@@ -282,14 +282,22 @@ cwd\comments\
+ @macro standardsx {element, standard, header}
+ @end macro
+ 
++@ifhtml
+ @macro manpageurl {func, sec}
+-@url{https://man7.org/linux/man-pages/man\sec\/\func\.\sec\.html}
++@url{https://man7.org/linux/man-pages/man\sec\/\func\.\sec\.html,,\func\(\sec\)}
++@xref{Linux Kernel}
+ @end macro
++@end ifhtml
++@ifnothtml
++@macro manpageurl {func, sec}
++\func\(\sec\) (Latest, online: @url{https://man7.org/linux/man-pages/man\sec\/\func\.\sec\.html})
++@xref{Linux Kernel}
++@end macro
++@end ifnothtml
+ 
+ @macro manpagefunctionstub {func,sec}
+ This documentation is a stub.  For additional information on this
+ function, consult the manual page @manpageurl{\func\,\sec\}.
+-@xref{Linux Kernel}.
+ @end macro
+ 
+ @end ifclear
+diff --git a/manual/resource.texi b/manual/resource.texi
+index 6729ada79402f0ad..23952a6b8b9f4f58 100644
+--- a/manual/resource.texi
++++ b/manual/resource.texi
+@@ -966,7 +966,6 @@ scheduling policies.
+ 
+ For additional information about scheduling policies, consult consult
+ the manual pages @manpageurl{sched,7} and @manpageurl{sched_setattr,2}.
+-@xref{Linux Kernel}.
+ 
+ @strong{Note:} Calling the @code{sched_setattr} function is incompatible
+ with support for @code{PTHREAD_PRIO_PROTECT} mutexes.
+@@ -1000,7 +999,7 @@ Scheduling flags associated with the scheduling policy.
+ 
+ In addition to the generic fields, policy-specific fields are available.
+ For additional information, consult the manual page
+-@manpageurl{sched_setattr,2}.  @xref{Linux Kernel}.
++@manpageurl{sched_setattr,2}.
+ @end deftp
+ 
+ @deftypefun int sched_setattr (pid_t @var{tid}, struct sched_attr *@var{attr}, unsigned int flags)

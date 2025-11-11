@@ -1,0 +1,544 @@
+commit d1c1f78e9eb9ff5e8eeae21ec9a879b7d0095c2e
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Fri Jan 3 19:13:36 2025 +0000
+
+    math: Remove no-mathvec flag
+    
+    More routines are to follow, some of which hit many failures in the
+    current testsuite due to wrong sign of zero (mathvec routines are not
+    required to get this right). Instead of disabling a large number of
+    tests, change the failure condition such that, for vector routines,
+    tests pass as long as computed == expected == 0.0, regardless of sign.
+    
+    Affected tests (vector tests for expm1, log1p, sin, tan and tanh) all
+    still pass.
+    
+    (cherry picked from commit 939e770e0196ebd763cacc602421b76d62df0798)
+
+diff --git a/math/auto-libm-test-in b/math/auto-libm-test-in
+index d728f9777015d3b9..5a690023e9a675cb 100644
+--- a/math/auto-libm-test-in
++++ b/math/auto-libm-test-in
+@@ -5354,7 +5354,7 @@ exp2 -0x4.8ce878p-4
+ exp2 0xf.93d18bf7be8d272p-4
+ 
+ expm1 0
+-expm1 -0 no-mathvec
++expm1 -0
+ expm1 1
+ expm1 0.75
+ expm1 2
+@@ -5419,7 +5419,7 @@ expm1 -0x1p-100
+ expm1 0x1p-600
+ expm1 -0x1p-600
+ expm1 0x1p-10000
+-expm1 -0x1p-10000 no-mathvec
++expm1 -0x1p-10000
+ expm1 0xe.4152ac57cd1ea7ap-60
+ expm1 0x6.660247486aed8p-4
+ expm1 0x6.289a78p-4
+@@ -6577,7 +6577,7 @@ log10 0xf.bf1b2p-4
+ log10 0x1.6b5f7ap+96
+ 
+ log1p 0
+-log1p -0 no-mathvec
++log1p -0
+ log1p e-1
+ log1p -0.25
+ log1p -0.875
+@@ -7318,7 +7318,7 @@ pow 0x1.7ac7cp+5 23
+ pow -0x1.7ac7cp+5 23
+ 
+ sin 0
+-sin -0 no-mathvec
++sin -0
+ sin pi/6
+ sin -pi/6
+ sin pi/2
+@@ -7655,7 +7655,7 @@ sqrt min
+ sqrt min_subnorm
+ 
+ tan 0
+-tan -0 no-mathvec
++tan -0
+ tan pi/4
+ tan pi/2
+ tan -pi/2
+diff --git a/math/auto-libm-test-out-expm1 b/math/auto-libm-test-out-expm1
+index 91da41b7f604a5a1..8483455801221aac 100644
+--- a/math/auto-libm-test-out-expm1
++++ b/math/auto-libm-test-out-expm1
+@@ -23,31 +23,31 @@ expm1 0
+ = expm1 tonearest ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = expm1 towardzero ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = expm1 upward ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+-expm1 -0 no-mathvec
+-= expm1 downward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++expm1 -0
++= expm1 downward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
+ expm1 1
+ = expm1 downward binary32 0x1p+0 : 0x1.b7e15p+0 : inexact-ok
+ = expm1 tonearest binary32 0x1p+0 : 0x1.b7e152p+0 : inexact-ok
+@@ -1880,87 +1880,87 @@ expm1 0x1p-10000
+ = expm1 tonearest binary128 0x1p-10000 : 0x1p-10000 : inexact-ok
+ = expm1 towardzero binary128 0x1p-10000 : 0x1p-10000 : inexact-ok
+ = expm1 upward binary128 0x1p-10000 : 0x1.0000000000000000000000000001p-10000 : inexact-ok
+-expm1 -0x1p-10000 no-mathvec
+-= expm1 downward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 tonearest ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 towardzero ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 upward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= expm1 downward binary32 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 tonearest binary32 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 towardzero binary32 -0x8p-152 : -0x0p+0 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 upward binary32 -0x8p-152 : -0x0p+0 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 downward binary64 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 tonearest binary64 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 towardzero binary64 -0x8p-152 : -0x7.ffffffffffffcp-152 : no-mathvec inexact-ok
+-= expm1 upward binary64 -0x8p-152 : -0x7.ffffffffffffcp-152 : no-mathvec inexact-ok
+-= expm1 downward intel96 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 tonearest intel96 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 towardzero intel96 -0x8p-152 : -0x7.fffffffffffffff8p-152 : no-mathvec inexact-ok
+-= expm1 upward intel96 -0x8p-152 : -0x7.fffffffffffffff8p-152 : no-mathvec inexact-ok
+-= expm1 downward m68k96 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 tonearest m68k96 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 towardzero m68k96 -0x8p-152 : -0x7.fffffffffffffff8p-152 : no-mathvec inexact-ok
+-= expm1 upward m68k96 -0x8p-152 : -0x7.fffffffffffffff8p-152 : no-mathvec inexact-ok
+-= expm1 downward binary128 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 tonearest binary128 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 towardzero binary128 -0x8p-152 : -0x7.fffffffffffffffffffffffffffcp-152 : no-mathvec inexact-ok
+-= expm1 upward binary128 -0x8p-152 : -0x7.fffffffffffffffffffffffffffcp-152 : no-mathvec inexact-ok
+-= expm1 downward ibm128 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 tonearest ibm128 -0x8p-152 : -0x8p-152 : no-mathvec inexact-ok
+-= expm1 towardzero ibm128 -0x8p-152 : -0x7.fffffffffffffffffffffffffep-152 : no-mathvec inexact-ok
+-= expm1 upward ibm128 -0x8p-152 : -0x7.fffffffffffffffffffffffffep-152 : no-mathvec inexact-ok
+-= expm1 downward binary64 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 tonearest binary64 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 towardzero binary64 -0x4p-1076 : -0x0p+0 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 upward binary64 -0x4p-1076 : -0x0p+0 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 downward intel96 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok
+-= expm1 tonearest intel96 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok
+-= expm1 towardzero intel96 -0x4p-1076 : -0x3.fffffffffffffffcp-1076 : no-mathvec inexact-ok
+-= expm1 upward intel96 -0x4p-1076 : -0x3.fffffffffffffffcp-1076 : no-mathvec inexact-ok
+-= expm1 downward m68k96 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok
+-= expm1 tonearest m68k96 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok
+-= expm1 towardzero m68k96 -0x4p-1076 : -0x3.fffffffffffffffcp-1076 : no-mathvec inexact-ok
+-= expm1 upward m68k96 -0x4p-1076 : -0x3.fffffffffffffffcp-1076 : no-mathvec inexact-ok
+-= expm1 downward binary128 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok
+-= expm1 tonearest binary128 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok
+-= expm1 towardzero binary128 -0x4p-1076 : -0x3.fffffffffffffffffffffffffffep-1076 : no-mathvec inexact-ok
+-= expm1 upward binary128 -0x4p-1076 : -0x3.fffffffffffffffffffffffffffep-1076 : no-mathvec inexact-ok
+-= expm1 downward ibm128 -0x4p-1076 : -0x4p-1076 : no-mathvec xfail:ibm128-libgcc inexact-ok underflow errno-erange-ok
+-= expm1 tonearest ibm128 -0x4p-1076 : -0x4p-1076 : no-mathvec inexact-ok underflow errno-erange-ok
+-= expm1 towardzero ibm128 -0x4p-1076 : -0x0p+0 : no-mathvec xfail:ibm128-libgcc inexact-ok underflow errno-erange-ok
+-= expm1 upward ibm128 -0x4p-1076 : -0x0p+0 : no-mathvec xfail:ibm128-libgcc inexact-ok underflow errno-erange-ok
+-= expm1 downward intel96 -0x1p-10000 : -0x1p-10000 : no-mathvec inexact-ok
+-= expm1 tonearest intel96 -0x1p-10000 : -0x1p-10000 : no-mathvec inexact-ok
+-= expm1 towardzero intel96 -0x1p-10000 : -0xf.fffffffffffffffp-10004 : no-mathvec inexact-ok
+-= expm1 upward intel96 -0x1p-10000 : -0xf.fffffffffffffffp-10004 : no-mathvec inexact-ok
+-= expm1 downward m68k96 -0x1p-10000 : -0x1p-10000 : no-mathvec inexact-ok
+-= expm1 tonearest m68k96 -0x1p-10000 : -0x1p-10000 : no-mathvec inexact-ok
+-= expm1 towardzero m68k96 -0x1p-10000 : -0xf.fffffffffffffffp-10004 : no-mathvec inexact-ok
+-= expm1 upward m68k96 -0x1p-10000 : -0xf.fffffffffffffffp-10004 : no-mathvec inexact-ok
+-= expm1 downward binary128 -0x1p-10000 : -0x1p-10000 : no-mathvec inexact-ok
+-= expm1 tonearest binary128 -0x1p-10000 : -0x1p-10000 : no-mathvec inexact-ok
+-= expm1 towardzero binary128 -0x1p-10000 : -0xf.fffffffffffffffffffffffffff8p-10004 : no-mathvec inexact-ok
+-= expm1 upward binary128 -0x1p-10000 : -0xf.fffffffffffffffffffffffffff8p-10004 : no-mathvec inexact-ok
++expm1 -0x1p-10000
++= expm1 downward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 tonearest ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 towardzero ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 upward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= expm1 downward binary32 -0x8p-152 : -0x8p-152 : inexact-ok underflow errno-erange-ok
++= expm1 tonearest binary32 -0x8p-152 : -0x8p-152 : inexact-ok underflow errno-erange-ok
++= expm1 towardzero binary32 -0x8p-152 : -0x0p+0 : inexact-ok underflow errno-erange-ok
++= expm1 upward binary32 -0x8p-152 : -0x0p+0 : inexact-ok underflow errno-erange-ok
++= expm1 downward binary64 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 tonearest binary64 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 towardzero binary64 -0x8p-152 : -0x7.ffffffffffffcp-152 : inexact-ok
++= expm1 upward binary64 -0x8p-152 : -0x7.ffffffffffffcp-152 : inexact-ok
++= expm1 downward intel96 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 tonearest intel96 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 towardzero intel96 -0x8p-152 : -0x7.fffffffffffffff8p-152 : inexact-ok
++= expm1 upward intel96 -0x8p-152 : -0x7.fffffffffffffff8p-152 : inexact-ok
++= expm1 downward m68k96 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 tonearest m68k96 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 towardzero m68k96 -0x8p-152 : -0x7.fffffffffffffff8p-152 : inexact-ok
++= expm1 upward m68k96 -0x8p-152 : -0x7.fffffffffffffff8p-152 : inexact-ok
++= expm1 downward binary128 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 tonearest binary128 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 towardzero binary128 -0x8p-152 : -0x7.fffffffffffffffffffffffffffcp-152 : inexact-ok
++= expm1 upward binary128 -0x8p-152 : -0x7.fffffffffffffffffffffffffffcp-152 : inexact-ok
++= expm1 downward ibm128 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 tonearest ibm128 -0x8p-152 : -0x8p-152 : inexact-ok
++= expm1 towardzero ibm128 -0x8p-152 : -0x7.fffffffffffffffffffffffffep-152 : inexact-ok
++= expm1 upward ibm128 -0x8p-152 : -0x7.fffffffffffffffffffffffffep-152 : inexact-ok
++= expm1 downward binary64 -0x4p-1076 : -0x4p-1076 : inexact-ok underflow errno-erange-ok
++= expm1 tonearest binary64 -0x4p-1076 : -0x4p-1076 : inexact-ok underflow errno-erange-ok
++= expm1 towardzero binary64 -0x4p-1076 : -0x0p+0 : inexact-ok underflow errno-erange-ok
++= expm1 upward binary64 -0x4p-1076 : -0x0p+0 : inexact-ok underflow errno-erange-ok
++= expm1 downward intel96 -0x4p-1076 : -0x4p-1076 : inexact-ok
++= expm1 tonearest intel96 -0x4p-1076 : -0x4p-1076 : inexact-ok
++= expm1 towardzero intel96 -0x4p-1076 : -0x3.fffffffffffffffcp-1076 : inexact-ok
++= expm1 upward intel96 -0x4p-1076 : -0x3.fffffffffffffffcp-1076 : inexact-ok
++= expm1 downward m68k96 -0x4p-1076 : -0x4p-1076 : inexact-ok
++= expm1 tonearest m68k96 -0x4p-1076 : -0x4p-1076 : inexact-ok
++= expm1 towardzero m68k96 -0x4p-1076 : -0x3.fffffffffffffffcp-1076 : inexact-ok
++= expm1 upward m68k96 -0x4p-1076 : -0x3.fffffffffffffffcp-1076 : inexact-ok
++= expm1 downward binary128 -0x4p-1076 : -0x4p-1076 : inexact-ok
++= expm1 tonearest binary128 -0x4p-1076 : -0x4p-1076 : inexact-ok
++= expm1 towardzero binary128 -0x4p-1076 : -0x3.fffffffffffffffffffffffffffep-1076 : inexact-ok
++= expm1 upward binary128 -0x4p-1076 : -0x3.fffffffffffffffffffffffffffep-1076 : inexact-ok
++= expm1 downward ibm128 -0x4p-1076 : -0x4p-1076 : xfail:ibm128-libgcc inexact-ok underflow errno-erange-ok
++= expm1 tonearest ibm128 -0x4p-1076 : -0x4p-1076 : inexact-ok underflow errno-erange-ok
++= expm1 towardzero ibm128 -0x4p-1076 : -0x0p+0 : xfail:ibm128-libgcc inexact-ok underflow errno-erange-ok
++= expm1 upward ibm128 -0x4p-1076 : -0x0p+0 : xfail:ibm128-libgcc inexact-ok underflow errno-erange-ok
++= expm1 downward intel96 -0x1p-10000 : -0x1p-10000 : inexact-ok
++= expm1 tonearest intel96 -0x1p-10000 : -0x1p-10000 : inexact-ok
++= expm1 towardzero intel96 -0x1p-10000 : -0xf.fffffffffffffffp-10004 : inexact-ok
++= expm1 upward intel96 -0x1p-10000 : -0xf.fffffffffffffffp-10004 : inexact-ok
++= expm1 downward m68k96 -0x1p-10000 : -0x1p-10000 : inexact-ok
++= expm1 tonearest m68k96 -0x1p-10000 : -0x1p-10000 : inexact-ok
++= expm1 towardzero m68k96 -0x1p-10000 : -0xf.fffffffffffffffp-10004 : inexact-ok
++= expm1 upward m68k96 -0x1p-10000 : -0xf.fffffffffffffffp-10004 : inexact-ok
++= expm1 downward binary128 -0x1p-10000 : -0x1p-10000 : inexact-ok
++= expm1 tonearest binary128 -0x1p-10000 : -0x1p-10000 : inexact-ok
++= expm1 towardzero binary128 -0x1p-10000 : -0xf.fffffffffffffffffffffffffff8p-10004 : inexact-ok
++= expm1 upward binary128 -0x1p-10000 : -0xf.fffffffffffffffffffffffffff8p-10004 : inexact-ok
+ expm1 0xe.4152ac57cd1ea7ap-60
+ = expm1 downward binary32 0xe.4152bp-60 : 0xe.4152bp-60 : inexact-ok
+ = expm1 tonearest binary32 0xe.4152bp-60 : 0xe.4152bp-60 : inexact-ok
+diff --git a/math/auto-libm-test-out-log1p b/math/auto-libm-test-out-log1p
+index f83241f51ad9db8b..f7d3b35e6d4465c4 100644
+--- a/math/auto-libm-test-out-log1p
++++ b/math/auto-libm-test-out-log1p
+@@ -23,31 +23,31 @@ log1p 0
+ = log1p tonearest ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = log1p towardzero ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = log1p upward ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+-log1p -0 no-mathvec
+-= log1p downward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p tonearest binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p towardzero binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p upward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p downward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p tonearest binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p towardzero binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p upward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p downward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p tonearest intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p towardzero intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p upward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p downward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p tonearest m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p towardzero m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p upward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p downward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p tonearest binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p towardzero binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p upward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p downward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p tonearest ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p towardzero ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= log1p upward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++log1p -0
++= log1p downward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p tonearest binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p towardzero binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p upward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p downward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p tonearest binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p towardzero binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p upward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p downward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p tonearest intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p towardzero intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p upward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p downward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p tonearest m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p towardzero m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p upward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p downward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p tonearest binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p towardzero binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p upward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p downward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p tonearest ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p towardzero ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= log1p upward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
+ log1p e-1
+ = log1p downward binary32 0x1.b7e152p+0 : 0x1p+0 : inexact-ok
+ = log1p tonearest binary32 0x1.b7e152p+0 : 0x1p+0 : inexact-ok
+diff --git a/math/auto-libm-test-out-sin b/math/auto-libm-test-out-sin
+index e1f684528316dde5..f1d21b179c955eb7 100644
+--- a/math/auto-libm-test-out-sin
++++ b/math/auto-libm-test-out-sin
+@@ -23,31 +23,31 @@ sin 0
+ = sin tonearest ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = sin towardzero ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = sin upward ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+-sin -0 no-mathvec
+-= sin downward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin tonearest binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin towardzero binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin upward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin downward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin tonearest binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin towardzero binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin upward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin downward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin tonearest intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin towardzero intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin upward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin downward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin tonearest m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin towardzero m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin upward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin downward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin tonearest binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin towardzero binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin upward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin downward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin tonearest ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin towardzero ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= sin upward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++sin -0
++= sin downward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin tonearest binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin towardzero binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin upward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin downward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin tonearest binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin towardzero binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin upward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin downward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin tonearest intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin towardzero intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin upward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin downward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin tonearest m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin towardzero m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin upward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin downward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin tonearest binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin towardzero binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin upward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin downward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin tonearest ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin towardzero ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= sin upward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
+ sin pi/6
+ = sin downward binary32 0x8.60a92p-4 : 0x8p-4 : inexact-ok
+ = sin tonearest binary32 0x8.60a92p-4 : 0x8p-4 : inexact-ok
+diff --git a/math/auto-libm-test-out-tan b/math/auto-libm-test-out-tan
+index f46fdc7ec62075f2..7d00d03e1da81b18 100644
+--- a/math/auto-libm-test-out-tan
++++ b/math/auto-libm-test-out-tan
+@@ -23,31 +23,31 @@ tan 0
+ = tan tonearest ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = tan towardzero ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = tan upward ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+-tan -0 no-mathvec
+-= tan downward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan tonearest binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan towardzero binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan upward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan downward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan tonearest binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan towardzero binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan upward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan downward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan tonearest intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan towardzero intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan upward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan downward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan tonearest m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan towardzero m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan upward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan downward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan tonearest binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan towardzero binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan upward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan downward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan tonearest ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan towardzero ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+-= tan upward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++tan -0
++= tan downward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan tonearest binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan towardzero binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan upward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan downward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan tonearest binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan towardzero binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan upward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan downward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan tonearest intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan towardzero intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan upward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan downward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan tonearest m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan towardzero m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan upward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan downward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan tonearest binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan towardzero binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan upward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan downward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan tonearest ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan towardzero ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++= tan upward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
+ tan pi/4
+ = tan downward binary32 0xc.90fdbp-4 : 0x1p+0 : inexact-ok
+ = tan tonearest binary32 0xc.90fdbp-4 : 0x1p+0 : inexact-ok
+diff --git a/math/gen-auto-libm-tests.c b/math/gen-auto-libm-tests.c
+index c35242b356821eed..48227248e4aebc90 100644
+--- a/math/gen-auto-libm-tests.c
++++ b/math/gen-auto-libm-tests.c
+@@ -96,8 +96,7 @@
+    zero and infinite results should be ignored; "xfail" indicates the
+    test is disabled as expected to produce incorrect results,
+    "xfail-rounding" indicates the test is disabled only in rounding
+-   modes other than round-to-nearest; "no-mathvec" indicates the test
+-   is disabled in vector math libraries.  Otherwise, test flags are of
++   modes other than round-to-nearest.  Otherwise, test flags are of
+    the form "spurious-<exception>" and "missing-<exception>", for any
+    exception ("overflow", "underflow", "inexact", "invalid",
+    "divbyzero"), "spurious-errno" and "missing-errno", to indicate
+@@ -353,7 +352,6 @@ typedef enum
+     flag_missing_overflow,
+     flag_missing_underflow,
+     flag_missing_errno,
+-    flag_no_mathvec,
+     num_input_flag_types,
+     flag_first_flag = 0,
+     flag_spurious_first = flag_spurious_divbyzero,
+@@ -379,7 +377,6 @@ static const char *const input_flags[num_input_flag_types] =
+     "missing-overflow",
+     "missing-underflow",
+     "missing-errno",
+-    "no-mathvec",
+   };
+ 
+ /* An input flag, possibly conditional.  */
+@@ -2052,7 +2049,6 @@ output_for_one_input_case (FILE *fp, const char *filename, test_function *tf,
+ 		  {
+ 		  case flag_ignore_zero_inf_sign:
+ 		  case flag_xfail:
+-		  case flag_no_mathvec:
+ 		    if (fprintf (fp, " %s%s",
+ 				 input_flags[it->flags[i].type],
+ 				 (it->flags[i].cond
+diff --git a/math/gen-libm-test.py b/math/gen-libm-test.py
+index 397dbd325930841f..6e8bb564379e2117 100755
+--- a/math/gen-libm-test.py
++++ b/math/gen-libm-test.py
+@@ -93,8 +93,7 @@ BEAUTIFY_MAP = {'minus_zero': '-0',
+ 
+ # Flags in auto-libm-test-out that map directly to C flags.
+ FLAGS_SIMPLE = {'ignore-zero-inf-sign': 'IGNORE_ZERO_INF_SIGN',
+-                'xfail': 'XFAIL_TEST',
+-                'no-mathvec': 'NO_TEST_MATHVEC'}
++                'xfail': 'XFAIL_TEST'}
+ 
+ # Exceptions in auto-libm-test-out, and their corresponding C flags
+ # for being required, OK or required to be absent.
+diff --git a/math/libm-test-support.c b/math/libm-test-support.c
+index 0796f9d4956e3818..3fecd87064666f94 100644
+--- a/math/libm-test-support.c
++++ b/math/libm-test-support.c
+@@ -776,7 +776,7 @@ check_float_internal (const char *test_name, FLOAT computed, FLOAT expected,
+       ulps = ULPDIFF (computed, expected);
+       set_max_error (ulps, curr_max_error);
+       print_diff = 1;
+-      if ((exceptions & IGNORE_ZERO_INF_SIGN) == 0
++      if (((exceptions & IGNORE_ZERO_INF_SIGN) == 0) && !flag_test_mathvec
+ 	  && computed == 0.0 && expected == 0.0
+ 	  && signbit(computed) != signbit (expected))
+ 	ok = 0;

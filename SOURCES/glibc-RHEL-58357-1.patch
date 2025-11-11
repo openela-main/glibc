@@ -1,0 +1,30 @@
+commit 7d6e30b4b4e83429cc77222d4fe4d5e8843d8e2b
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Sep 6 14:07:00 2024 +0200
+
+    stdlib: Do not use GLIBC_PRIVATE ABI for errno in libc_nonshared.a
+    
+    Using TLS directly introduces a GLIBC_PRIVATE ABI dependency
+    into libc_nonshared.a, and thus indirectly into applications.
+    Adding the !defined LIBC_NONSHARED condition deactivates direct
+    TLS access, and libc_nonshared.a code switches to using
+    __errno_location, like application code.
+    
+    Currently, this has no effect because there is no code in
+    libc_nonshared.a that accesses errno.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/include/errno.h b/include/errno.h
+index c361a785c24b928f..f0ccaa74dd8bebed 100644
+--- a/include/errno.h
++++ b/include/errno.h
+@@ -20,7 +20,7 @@
+ #  define errno rtld_errno
+ extern int rtld_errno attribute_hidden;
+ 
+-# elif IS_IN_LIB && !IS_IN (rtld)
++# elif IS_IN_LIB && !IS_IN (rtld) && !defined LIBC_NONSHARED
+ 
+ #  undef  errno
+ #  if IS_IN (libc)

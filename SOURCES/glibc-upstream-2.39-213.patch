@@ -1,0 +1,27 @@
+commit b6ea8902a72fb746ae5cd71ddf1172c5ead89972
+Author: Wilco Dijkstra <wilco.dijkstra@arm.com>
+Date:   Fri Jun 27 14:10:55 2025 +0000
+
+    AArch64: Avoid memset ifunc in cpu-features.c [BZ #33112]
+    
+    During early startup memcpy or memset must not be called since many targets
+    use ifuncs for them which won't be initialized yet.  Security hardening may
+    use -ftrivial-auto-var-init=zero which inserts calls to memset.  Redirect
+    memset to memset_generic by including dl-symbol-redir-ifunc.h in cpu-features.c.
+    This fixes BZ #33112.
+    
+    Reviewed-by: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+    (cherry picked from commit 681a24ae4d0cb8ed92de98b4da660308840b09ba)
+
+diff --git a/sysdeps/unix/sysv/linux/aarch64/cpu-features.c b/sysdeps/unix/sysv/linux/aarch64/cpu-features.c
+index c0b047bc0dbeae42..0ad55a0c7f66618f 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/cpu-features.c
++++ b/sysdeps/unix/sysv/linux/aarch64/cpu-features.c
+@@ -23,6 +23,7 @@
+ #include <sys/prctl.h>
+ #include <sys/utsname.h>
+ #include <dl-tunables-parse.h>
++#include <dl-symbol-redir-ifunc.h>
+ 
+ #define DCZID_DZP_MASK (1 << 4)
+ #define DCZID_BS_MASK (0xf)

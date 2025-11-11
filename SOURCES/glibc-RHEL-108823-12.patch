@@ -1,0 +1,26 @@
+commit 366cce74d2aa2e5753d8787d415b745fd57fda04
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Sat Sep 21 19:29:13 2024 +0200
+
+    support: Add valgrind instructions to <support/fuse.h>
+    
+    Replacing an outdated comment (namespace setup is now handled by
+    support_fuse_init).
+
+diff --git a/support/fuse.h b/support/fuse.h
+index 4c365fbc0c7408b9..1c862bedbe487ce6 100644
+--- a/support/fuse.h
++++ b/support/fuse.h
+@@ -16,8 +16,10 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
+-/* Before using this functionality, use support_enter_mount_namespace
+-   to ensure that mounts do not impact the overall system.  */
++/* To run FUSE tests under valgrind, pass the
++   --sim-hints=fuse-compatible option to valgrind.  This option tells
++   valgrind that additional system calls effectively call back into
++   the current program.  */
+ 
+ #ifndef SUPPORT_FUSE_H
+ #define SUPPORT_FUSE_H

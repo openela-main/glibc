@@ -1,0 +1,41 @@
+commit 34e52acd55d69964d14fb3188c5538442b8b32be
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Aug 22 16:14:17 2024 +0200
+
+    support: Report errno constants in TEST_COMPARE failures
+    
+    If the expression is errno, decode it as an errno constant
+    using strerrorname_np.
+    
+    Reviewed-by: Arjun Shankar <arjun@redhat.com>
+
+diff --git a/support/support_test_compare_failure.c b/support/support_test_compare_failure.c
+index ae73d200cda81ea9..dba79e413feffec5 100644
+--- a/support/support_test_compare_failure.c
++++ b/support/support_test_compare_failure.c
+@@ -17,7 +17,9 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include <errno.h>
++#include <limits.h>
+ #include <stdio.h>
++#include <string.h>
+ #include <support/check.h>
+ 
+ static void
+@@ -31,7 +33,14 @@ report (const char *which, const char *expr, long long value, int positive,
+     printf ("%lld", value);
+   unsigned long long mask
+     = (~0ULL) >> (8 * (sizeof (unsigned long long) - size));
+-  printf (" (0x%llx); from: %s\n", (unsigned long long) value & mask, expr);
++  const char *errno_constant = NULL;
++  if (strcmp (expr, "errno") == 0
++      && positive && (unsigned long long int) value <= INT_MAX)
++    errno_constant = strerrorname_np (value);
++  printf (" (0x%llx", (unsigned long long) value & mask);
++  if (errno_constant != NULL)
++    printf (", %s", errno_constant);
++  printf ("); from: %s\n", expr);
+ }
+ 
+ void

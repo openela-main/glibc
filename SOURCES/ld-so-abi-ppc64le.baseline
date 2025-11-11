@@ -1,0 +1,542 @@
+--- _rtld_global_ro ---
+/* offset      |    size */  type = struct rtld_global_ro {
+/*      0      |       4 */    int _dl_debug_mask;
+/* XXX  4-byte hole      */
+/*      8      |       8 */    const char *_dl_platform;
+/*     16      |       8 */    size_t _dl_platformlen;
+/*     24      |       8 */    size_t _dl_pagesize;
+/*     32      |       8 */    size_t _dl_minsigstacksize;
+/*     40      |       4 */    int _dl_inhibit_cache;
+/* XXX  4-byte hole      */
+/*     48      |      16 */    struct r_scope_elem {
+/*     48      |       8 */        struct link_map **r_list;
+/*     56      |       4 */        unsigned int r_nlist;
+/* XXX  4-byte padding   */
+
+                                   /* total size (bytes):   16 */
+                               } _dl_initial_searchlist;
+/*     64      |       4 */    int _dl_clktck;
+/*     68      |       4 */    int _dl_verbose;
+/*     72      |       4 */    int _dl_debug_fd;
+/*     76      |       4 */    int _dl_lazy;
+/*     80      |       4 */    int _dl_bind_not;
+/*     84      |       4 */    int _dl_dynamic_weak;
+/*     88      |       4 */    fpu_control_t _dl_fpu_control;
+/* XXX  4-byte hole      */
+/*     96      |       8 */    uint64_t _dl_hwcap;
+/*    104      |       8 */    Elf64_auxv_t *_dl_auxv;
+/*    112      |      40 */    struct cpu_features {
+/*    112      |       1 */        _Bool use_cached_memopt;
+/* XXX  7-byte hole      */
+/*    120      |       8 */        unsigned long hwcap;
+/*    128      |       8 */        unsigned long hwcap2;
+/*    136      |       8 */        unsigned long hwcap3;
+/*    144      |       8 */        unsigned long hwcap4;
+
+                                   /* total size (bytes):   40 */
+                               } _dl_powerpc_cpu_features;
+/*    152      |    1920 */    const char _dl_powerpc_cap_flags[128][15];
+/*   2072      |       4 */    int _dl_cache_line_size;
+/* XXX  4-byte hole      */
+/*   2080      |       8 */    const char *_dl_inhibit_rpath;
+/*   2088      |       8 */    const char *_dl_origin_path;
+/*   2096      |       8 */    size_t _dl_tls_static_size;
+/*   2104      |       8 */    size_t _dl_tls_static_align;
+/*   2112      |       8 */    size_t _dl_tls_static_surplus;
+/*   2120      |       8 */    const char *_dl_profile;
+/*   2128      |       8 */    const char *_dl_profile_output;
+/*   2136      |       8 */    struct r_search_path_elem *_dl_init_all_dirs;
+/*   2144      |       8 */    const Elf64_Ehdr *_dl_sysinfo_dso;
+/*   2152      |       8 */    struct link_map *_dl_sysinfo_map;
+/*   2160      |       8 */    int (*_dl_vdso_clock_gettime64)(clockid_t, struct timespec *);
+/*   2168      |       8 */    int (*_dl_vdso_gettimeofday)(struct timeval *, void *);
+/*   2176      |       8 */    time_t (*_dl_vdso_time)(time_t *);
+/*   2184      |       8 */    int (*_dl_vdso_getcpu)(unsigned int *, unsigned int *, void *);
+/*   2192      |       8 */    int (*_dl_vdso_clock_getres_time64)(clockid_t, struct timespec *);
+/*   2200      |       8 */    ssize_t (*_dl_vdso_getrandom)(void *, size_t, unsigned int, void *, size_t);
+/*   2208      |       8 */    uint64_t (*_dl_vdso_get_tbfreq)(void);
+/*   2216      |       8 */    uint64_t _dl_hwcap2;
+/*   2224      |       8 */    uint64_t _dl_hwcap3;
+/*   2232      |       8 */    uint64_t _dl_hwcap4;
+/*   2240      |       4 */    enum dso_sort_algorithm _dl_dso_sort_algo;
+/* XXX  4-byte hole      */
+/*   2248      |       8 */    void (*_dl_debug_printf)(const char *, ...);
+/*   2256      |       8 */    void (*_dl_mcount)(Elf64_Addr, Elf64_Addr);
+/*   2264      |       8 */    lookup_t (*_dl_lookup_symbol_x)(const char *, struct link_map *, const Elf64_Sym **, struct r_scope_elem **, const struct r_found_version *, int, int, struct link_map *);
+/*   2272      |       8 */    void *(*_dl_open)(const char *, int, const void *, Lmid_t, int, char **, char **);
+/*   2280      |       8 */    void (*_dl_close)(void *);
+/*   2288      |       8 */    int (*_dl_catch_error)(const char **, const char **, _Bool *, void (*)(void *), void *);
+/*   2296      |       8 */    void (*_dl_error_free)(void *);
+/*   2304      |       8 */    void *(*_dl_tls_get_addr_soft)(struct link_map *);
+/*   2312      |       8 */    void (*_dl_libc_freeres)(void);
+/*   2320      |       8 */    int (*_dl_find_object)(void *, struct dl_find_object *);
+/*   2328      |       8 */    const struct dlfcn_hook *_dl_dlfcn_hook;
+/*   2336      |       8 */    struct audit_ifaces *_dl_audit;
+/*   2344      |       4 */    unsigned int _dl_naudit;
+/* XXX  4-byte padding   */
+
+                               /* total size (bytes): 2352 */
+                             }
+--- _rtld_global ---
+/* offset      |    size */  type = struct rtld_global {
+/*      0      |    2560 */    struct link_namespaces _dl_ns[16];
+/*   2560      |       8 */    size_t _dl_nns;
+/*   2568      |      40 */    __rtld_lock_recursive_t _dl_load_lock;
+/*   2608      |      40 */    __rtld_lock_recursive_t _dl_load_write_lock;
+/*   2648      |      40 */    __rtld_lock_recursive_t _dl_load_tls_lock;
+/*   2688      |       8 */    unsigned long long _dl_load_adds;
+/*   2696      |       8 */    struct link_map *_dl_initfirst;
+/*   2704      |       8 */    struct link_map *_dl_profile_map;
+/*   2712      |       8 */    unsigned long _dl_num_relocations;
+/*   2720      |       8 */    unsigned long _dl_num_cache_relocations;
+/*   2728      |       8 */    struct r_search_path_elem *_dl_all_dirs;
+/*   2736      |    1176 */    struct link_map {
+/*   2736      |       8 */        Elf64_Addr l_addr;
+/*   2744      |       8 */        char *l_name;
+/*   2752      |       8 */        Elf64_Dyn *l_ld;
+/*   2760      |       8 */        struct link_map *l_next;
+/*   2768      |       8 */        struct link_map *l_prev;
+/*   2776      |       8 */        struct link_map *l_real;
+/*   2784      |       8 */        Lmid_t l_ns;
+/*   2792      |       8 */        struct libname_list *l_libname;
+/*   2800      |     672 */        Elf64_Dyn *l_info[84];
+/*   3472      |       8 */        const Elf64_Phdr *l_phdr;
+/*   3480      |       8 */        Elf64_Addr l_entry;
+/*   3488      |       2 */        Elf64_Half l_phnum;
+/*   3490      |       2 */        Elf64_Half l_ldnum;
+/* XXX  4-byte hole      */
+/*   3496      |      16 */        struct r_scope_elem {
+/*   3496      |       8 */            struct link_map **r_list;
+/*   3504      |       4 */            unsigned int r_nlist;
+/* XXX  4-byte padding   */
+
+                                       /* total size (bytes):   16 */
+                                   } l_searchlist;
+/*   3512      |      16 */        struct r_scope_elem {
+/*   3512      |       8 */            struct link_map **r_list;
+/*   3520      |       4 */            unsigned int r_nlist;
+/* XXX  4-byte padding   */
+
+                                       /* total size (bytes):   16 */
+                                   } l_symbolic_searchlist;
+/*   3528      |       8 */        struct link_map *l_loader;
+/*   3536      |       8 */        struct r_found_version *l_versions;
+/*   3544      |       4 */        unsigned int l_nversions;
+/*   3548      |       4 */        Elf_Symndx l_nbuckets;
+/*   3552      |       4 */        Elf32_Word l_gnu_bitmask_idxbits;
+/*   3556      |       4 */        Elf32_Word l_gnu_shift;
+/*   3560      |       8 */        const Elf64_Addr *l_gnu_bitmask;
+/*   3568      |       8 */        union {
+/*                     8 */            const Elf32_Word *l_gnu_buckets;
+/*                     8 */            const Elf_Symndx *l_chain;
+
+                                       /* total size (bytes):    8 */
+                                   };
+/*   3576      |       8 */        union {
+/*                     8 */            const Elf32_Word *l_gnu_chain_zero;
+/*                     8 */            const Elf_Symndx *l_buckets;
+
+                                       /* total size (bytes):    8 */
+                                   };
+/*   3584      |       4 */        unsigned int l_direct_opencount;
+/*   3588: 0   |       4 */        enum {lt_executable, lt_library, lt_loaded} l_type : 2;
+/*   3588: 2   |       4 */        unsigned int l_dt_relr_ref : 1;
+/*   3588: 3   |       4 */        unsigned int l_relocated : 1;
+/*   3588: 4   |       4 */        unsigned int l_init_called : 1;
+/*   3588: 5   |       4 */        unsigned int l_global : 1;
+/*   3588: 6   |       4 */        unsigned int l_reserved : 2;
+/*   3589: 0   |       4 */        unsigned int l_main_map : 1;
+/*   3589: 1   |       4 */        unsigned int l_visited : 1;
+/*   3589: 2   |       4 */        unsigned int l_map_used : 1;
+/*   3589: 3   |       4 */        unsigned int l_map_done : 1;
+/*   3589: 4   |       4 */        unsigned int l_phdr_allocated : 1;
+/*   3589: 5   |       4 */        unsigned int l_soname_added : 1;
+/*   3589: 6   |       4 */        unsigned int l_faked : 1;
+/*   3589: 7   |       4 */        unsigned int l_need_tls_init : 1;
+/*   3590: 0   |       4 */        unsigned int l_auditing : 1;
+/*   3590: 1   |       4 */        unsigned int l_audit_any_plt : 1;
+/*   3590: 2   |       4 */        unsigned int l_removed : 1;
+/*   3590: 3   |       4 */        unsigned int l_contiguous : 1;
+/*   3590: 4   |       4 */        unsigned int l_free_initfini : 1;
+/*   3590: 5   |       4 */        unsigned int l_ld_readonly : 1;
+/*   3590: 6   |       4 */        unsigned int l_find_object_processed : 1;
+/*   3590: 7   |       4 */        unsigned int l_tls_in_slotinfo : 1;
+/*   3591      |       1 */        _Bool l_nodelete_active;
+/*   3592      |       1 */        _Bool l_nodelete_pending;
+/* XXX  3-byte hole      */
+/*   3596      |       4 */        unsigned int l_1_needed;
+/*   3600      |      16 */        struct r_search_path_struct {
+/*   3600      |       8 */            struct r_search_path_elem **dirs;
+/*   3608      |       4 */            int malloced;
+/* XXX  4-byte padding   */
+
+                                       /* total size (bytes):   16 */
+                                   } l_rpath_dirs;
+/*   3616      |       8 */        struct reloc_result *l_reloc_result;
+/*   3624      |       8 */        Elf64_Versym *l_versyms;
+/*   3632      |       8 */        const char *l_origin;
+/*   3640      |       8 */        Elf64_Addr l_map_start;
+/*   3648      |       8 */        Elf64_Addr l_map_end;
+/*   3656      |      32 */        struct r_scope_elem *l_scope_mem[4];
+/*   3688      |       8 */        size_t l_scope_max;
+/*   3696      |       8 */        struct r_scope_elem **l_scope;
+/*   3704      |      16 */        struct r_scope_elem *l_local_scope[2];
+/*   3720      |      16 */        struct r_file_id {
+/*   3720      |       8 */            dev_t dev;
+/*   3728      |       8 */            ino64_t ino;
+
+                                       /* total size (bytes):   16 */
+                                   } l_file_id;
+/*   3736      |      16 */        struct r_search_path_struct {
+/*   3736      |       8 */            struct r_search_path_elem **dirs;
+/*   3744      |       4 */            int malloced;
+/* XXX  4-byte padding   */
+
+                                       /* total size (bytes):   16 */
+                                   } l_runpath_dirs;
+/*   3752      |       8 */        struct link_map **l_initfini;
+/*   3760      |       8 */        struct link_map_reldeps *l_reldeps;
+/*   3768      |       4 */        unsigned int l_reldepsmax;
+/*   3772      |       4 */        unsigned int l_used;
+/*   3776      |       4 */        Elf64_Word l_feature_1;
+/*   3780      |       4 */        Elf64_Word l_flags_1;
+/*   3784      |       4 */        Elf64_Word l_flags;
+/*   3788      |       4 */        int l_idx;
+/*   3792      |       0 */        struct link_map_machine {
+                                       <no data fields>
+
+                                       /* total size (bytes):    0 */
+                                   } l_mach;
+/*   3792      |      32 */        struct {
+/*   3792      |       8 */            const Elf64_Sym *sym;
+/*   3800      |       4 */            int type_class;
+/* XXX  4-byte hole      */
+/*   3808      |       8 */            struct link_map *value;
+/*   3816      |       8 */            const Elf64_Sym *ret;
+
+                                       /* total size (bytes):   32 */
+                                   } l_lookup_cache;
+/*   3824      |       8 */        void *l_tls_initimage;
+/*   3832      |       8 */        size_t l_tls_initimage_size;
+/*   3840      |       8 */        size_t l_tls_blocksize;
+/*   3848      |       8 */        size_t l_tls_align;
+/*   3856      |       8 */        size_t l_tls_firstbyte_offset;
+/*   3864      |       8 */        ptrdiff_t l_tls_offset;
+/*   3872      |       8 */        size_t l_tls_modid;
+/*   3880      |       8 */        size_t l_tls_dtor_count;
+/*   3888      |       8 */        Elf64_Addr l_relro_addr;
+/*   3896      |       8 */        size_t l_relro_size;
+/*   3904      |       8 */        unsigned long long l_serial;
+
+                                   /* total size (bytes): 1176 */
+                               } _dl_rtld_map;
+/*   3912      |     256 */    struct auditstate _dl_rtld_auditstate[16];
+/*   4168      |       4 */    Elf64_Word _dl_stack_flags;
+/*   4172      |       1 */    _Bool _dl_tls_dtv_gaps;
+/* XXX  3-byte hole      */
+/*   4176      |       8 */    size_t _dl_tls_max_dtv_idx;
+/*   4184      |       8 */    struct dtv_slotinfo_list *_dl_tls_dtv_slotinfo_list;
+/*   4192      |       8 */    size_t _dl_tls_static_nelem;
+/*   4200      |       8 */    size_t _dl_tls_static_used;
+/*   4208      |       8 */    size_t _dl_tls_static_optional;
+/*   4216      |       8 */    void *_dl_initial_dtv;
+/*   4224      |       8 */    size_t _dl_tls_generation;
+/*   4232      |       8 */    struct dl_scope_free_list *_dl_scope_free_list;
+/*   4240      |      16 */    list_t _dl_stack_used;
+/*   4256      |      16 */    list_t _dl_stack_user;
+/*   4272      |      16 */    list_t _dl_stack_cache;
+/*   4288      |       8 */    size_t _dl_stack_cache_actsize;
+/*   4296      |       8 */    uintptr_t _dl_in_flight_stack;
+/*   4304      |       4 */    int _dl_stack_cache_lock;
+/* XXX  4-byte padding   */
+
+                               /* total size (bytes): 4312 */
+                             }
+--- struct link_map ---
+/* offset      |    size */  type = struct link_map {
+/*      0      |       8 */    Elf64_Addr l_addr;
+/*      8      |       8 */    char *l_name;
+/*     16      |       8 */    Elf64_Dyn *l_ld;
+/*     24      |       8 */    struct link_map *l_next;
+/*     32      |       8 */    struct link_map *l_prev;
+/*     40      |       8 */    struct link_map *l_real;
+/*     48      |       8 */    Lmid_t l_ns;
+/*     56      |       8 */    struct libname_list *l_libname;
+/*     64      |     672 */    Elf64_Dyn *l_info[84];
+/*    736      |       8 */    const Elf64_Phdr *l_phdr;
+/*    744      |       8 */    Elf64_Addr l_entry;
+/*    752      |       2 */    Elf64_Half l_phnum;
+/*    754      |       2 */    Elf64_Half l_ldnum;
+/* XXX  4-byte hole      */
+/*    760      |      16 */    struct r_scope_elem {
+/*    760      |       8 */        struct link_map **r_list;
+/*    768      |       4 */        unsigned int r_nlist;
+/* XXX  4-byte padding   */
+
+                                   /* total size (bytes):   16 */
+                               } l_searchlist;
+/*    776      |      16 */    struct r_scope_elem {
+/*    776      |       8 */        struct link_map **r_list;
+/*    784      |       4 */        unsigned int r_nlist;
+/* XXX  4-byte padding   */
+
+                                   /* total size (bytes):   16 */
+                               } l_symbolic_searchlist;
+/*    792      |       8 */    struct link_map *l_loader;
+/*    800      |       8 */    struct r_found_version *l_versions;
+/*    808      |       4 */    unsigned int l_nversions;
+/*    812      |       4 */    Elf_Symndx l_nbuckets;
+/*    816      |       4 */    Elf32_Word l_gnu_bitmask_idxbits;
+/*    820      |       4 */    Elf32_Word l_gnu_shift;
+/*    824      |       8 */    const Elf64_Addr *l_gnu_bitmask;
+/*    832      |       8 */    union {
+/*                     8 */        const Elf32_Word *l_gnu_buckets;
+/*                     8 */        const Elf_Symndx *l_chain;
+
+                                   /* total size (bytes):    8 */
+                               };
+/*    840      |       8 */    union {
+/*                     8 */        const Elf32_Word *l_gnu_chain_zero;
+/*                     8 */        const Elf_Symndx *l_buckets;
+
+                                   /* total size (bytes):    8 */
+                               };
+/*    848      |       4 */    unsigned int l_direct_opencount;
+/*    852: 0   |       4 */    enum {lt_executable, lt_library, lt_loaded} l_type : 2;
+/*    852: 2   |       4 */    unsigned int l_dt_relr_ref : 1;
+/*    852: 3   |       4 */    unsigned int l_relocated : 1;
+/*    852: 4   |       4 */    unsigned int l_init_called : 1;
+/*    852: 5   |       4 */    unsigned int l_global : 1;
+/*    852: 6   |       4 */    unsigned int l_reserved : 2;
+/*    853: 0   |       4 */    unsigned int l_main_map : 1;
+/*    853: 1   |       4 */    unsigned int l_visited : 1;
+/*    853: 2   |       4 */    unsigned int l_map_used : 1;
+/*    853: 3   |       4 */    unsigned int l_map_done : 1;
+/*    853: 4   |       4 */    unsigned int l_phdr_allocated : 1;
+/*    853: 5   |       4 */    unsigned int l_soname_added : 1;
+/*    853: 6   |       4 */    unsigned int l_faked : 1;
+/*    853: 7   |       4 */    unsigned int l_need_tls_init : 1;
+/*    854: 0   |       4 */    unsigned int l_auditing : 1;
+/*    854: 1   |       4 */    unsigned int l_audit_any_plt : 1;
+/*    854: 2   |       4 */    unsigned int l_removed : 1;
+/*    854: 3   |       4 */    unsigned int l_contiguous : 1;
+/*    854: 4   |       4 */    unsigned int l_free_initfini : 1;
+/*    854: 5   |       4 */    unsigned int l_ld_readonly : 1;
+/*    854: 6   |       4 */    unsigned int l_find_object_processed : 1;
+/*    854: 7   |       4 */    unsigned int l_tls_in_slotinfo : 1;
+/*    855      |       1 */    _Bool l_nodelete_active;
+/*    856      |       1 */    _Bool l_nodelete_pending;
+/* XXX  3-byte hole      */
+/*    860      |       4 */    unsigned int l_1_needed;
+/*    864      |      16 */    struct r_search_path_struct {
+/*    864      |       8 */        struct r_search_path_elem **dirs;
+/*    872      |       4 */        int malloced;
+/* XXX  4-byte padding   */
+
+                                   /* total size (bytes):   16 */
+                               } l_rpath_dirs;
+/*    880      |       8 */    struct reloc_result *l_reloc_result;
+/*    888      |       8 */    Elf64_Versym *l_versyms;
+/*    896      |       8 */    const char *l_origin;
+/*    904      |       8 */    Elf64_Addr l_map_start;
+/*    912      |       8 */    Elf64_Addr l_map_end;
+/*    920      |      32 */    struct r_scope_elem *l_scope_mem[4];
+/*    952      |       8 */    size_t l_scope_max;
+/*    960      |       8 */    struct r_scope_elem **l_scope;
+/*    968      |      16 */    struct r_scope_elem *l_local_scope[2];
+/*    984      |      16 */    struct r_file_id {
+/*    984      |       8 */        dev_t dev;
+/*    992      |       8 */        ino64_t ino;
+
+                                   /* total size (bytes):   16 */
+                               } l_file_id;
+/*   1000      |      16 */    struct r_search_path_struct {
+/*   1000      |       8 */        struct r_search_path_elem **dirs;
+/*   1008      |       4 */        int malloced;
+/* XXX  4-byte padding   */
+
+                                   /* total size (bytes):   16 */
+                               } l_runpath_dirs;
+/*   1016      |       8 */    struct link_map **l_initfini;
+/*   1024      |       8 */    struct link_map_reldeps *l_reldeps;
+/*   1032      |       4 */    unsigned int l_reldepsmax;
+/*   1036      |       4 */    unsigned int l_used;
+/*   1040      |       4 */    Elf64_Word l_feature_1;
+/*   1044      |       4 */    Elf64_Word l_flags_1;
+/*   1048      |       4 */    Elf64_Word l_flags;
+/*   1052      |       4 */    int l_idx;
+/*   1056      |       0 */    struct link_map_machine {
+                                   <no data fields>
+
+                                   /* total size (bytes):    0 */
+                               } l_mach;
+/*   1056      |      32 */    struct {
+/*   1056      |       8 */        const Elf64_Sym *sym;
+/*   1064      |       4 */        int type_class;
+/* XXX  4-byte hole      */
+/*   1072      |       8 */        struct link_map *value;
+/*   1080      |       8 */        const Elf64_Sym *ret;
+
+                                   /* total size (bytes):   32 */
+                               } l_lookup_cache;
+/*   1088      |       8 */    void *l_tls_initimage;
+/*   1096      |       8 */    size_t l_tls_initimage_size;
+/*   1104      |       8 */    size_t l_tls_blocksize;
+/*   1112      |       8 */    size_t l_tls_align;
+/*   1120      |       8 */    size_t l_tls_firstbyte_offset;
+/*   1128      |       8 */    ptrdiff_t l_tls_offset;
+/*   1136      |       8 */    size_t l_tls_modid;
+/*   1144      |       8 */    size_t l_tls_dtor_count;
+/*   1152      |       8 */    Elf64_Addr l_relro_addr;
+/*   1160      |       8 */    size_t l_relro_size;
+/*   1168      |       8 */    unsigned long long l_serial;
+
+                               /* total size (bytes): 1176 */
+                             }
+--- struct pthread ---
+/* offset      |    size */  type = struct pthread {
+/*      0      |     192 */    union {
+/*                     8 */        struct {
+/*      0      |       4 */            int multiple_threads;
+/*      4      |       4 */            int gscope_flag;
+
+                                       /* total size (bytes):    8 */
+                                   } header;
+/*                   192 */        void *__padding[24];
+
+                                   /* total size (bytes):  192 */
+                               };
+/*    192      |      16 */    list_t list;
+/*    208      |       4 */    pid_t tid;
+/* XXX  4-byte hole      */
+/*    216      |       8 */    void *robust_prev;
+/*    224      |      24 */    struct robust_list_head {
+/*    224      |       8 */        void *list;
+/*    232      |       8 */        long futex_offset;
+/*    240      |       8 */        void *list_op_pending;
+
+                                   /* total size (bytes):   24 */
+                               } robust_head;
+/*    248      |       8 */    struct _pthread_cleanup_buffer *cleanup;
+/*    256      |       8 */    struct pthread_unwind_buf *cleanup_jmp_buf;
+/*    264      |       4 */    int cancelhandling;
+/*    268      |       4 */    int flags;
+/*    272      |     512 */    struct pthread_key_data specific_1stblock[32];
+/*    784      |     256 */    struct pthread_key_data *specific[32];
+/*   1040      |       1 */    _Bool specific_used;
+/*   1041      |       1 */    _Bool report_events;
+/*   1042      |       1 */    _Bool user_stack;
+/*   1043      |       1 */    _Bool stopped_start;
+/*   1044      |       4 */    int setup_failed;
+/*   1048      |       4 */    int lock;
+/*   1052      |       4 */    unsigned int setxid_futex;
+/*   1056      |       8 */    struct pthread *joinid;
+/*   1064      |       8 */    void *result;
+/*   1072      |       4 */    struct sched_param {
+/*   1072      |       4 */        int sched_priority;
+
+                                   /* total size (bytes):    4 */
+                               } schedparam;
+/*   1076      |       4 */    int schedpolicy;
+/*   1080      |       8 */    void *(*start_routine)(void *);
+/*   1088      |       8 */    void *arg;
+/*   1096      |      24 */    td_eventbuf_t eventbuf;
+/*   1120      |       8 */    struct pthread *nextevent;
+/* XXX  8-byte hole      */
+/*   1136      |      32 */    struct _Unwind_Exception {
+/*   1136      |      32 */        union {
+/*                    32 */            struct {
+/*   1136      |       8 */                _Unwind_Exception_Class exception_class;
+/*   1144      |       8 */                _Unwind_Exception_Cleanup_Fn exception_cleanup;
+/*   1152      |       8 */                _Unwind_Word private_1;
+/*   1160      |       8 */                _Unwind_Word private_2;
+
+                                           /* total size (bytes):   32 */
+                                       };
+/*                    16 */            _Unwind_Word unwind_exception_align[2];
+
+                                       /* total size (bytes):   32 */
+                                   };
+
+                                   /* total size (bytes):   32 */
+                               } exc;
+/*   1168      |       8 */    void *stackblock;
+/*   1176      |       8 */    size_t stackblock_size;
+/*   1184      |       8 */    size_t guardsize;
+/*   1192      |       8 */    size_t reported_guardsize;
+/*   1200      |       8 */    struct priority_protection_data *tpp;
+/*   1208      |     568 */    struct __res_state {
+/*   1208      |       4 */        int retrans;
+/*   1212      |       4 */        int retry;
+/*   1216      |       8 */        unsigned long options;
+/*   1224      |       4 */        int nscount;
+/*   1228      |      48 */        struct sockaddr_in nsaddr_list[3];
+/*   1276      |       2 */        unsigned short id;
+/* XXX  2-byte hole      */
+/*   1280      |      56 */        char *dnsrch[7];
+/*   1336      |     256 */        char defdname[256];
+/*   1592      |       8 */        unsigned long pfcode;
+/*   1600: 0   |       4 */        unsigned int ndots : 4;
+/*   1600: 4   |       4 */        unsigned int nsort : 4;
+/*   1601: 0   |       4 */        unsigned int ipv6_unavail : 1;
+/*   1601: 1   |       4 */        unsigned int unused : 23;
+/*   1604      |      80 */        struct {
+/*      0      |       4 */            struct in_addr addr;
+/*      4      |       4 */            uint32_t mask;
+                                   } sort_list[10];
+/* XXX  4-byte hole      */
+/*   1688      |       8 */        void *__glibc_unused_qhook;
+/*   1696      |       8 */        void *__glibc_unused_rhook;
+/*   1704      |       4 */        int res_h_errno;
+/*   1708      |       4 */        int _vcsock;
+/*   1712      |       4 */        unsigned int _flags;
+/* XXX  4-byte hole      */
+/*   1720      |      56 */        union {
+/*                    52 */            char pad[52];
+/*                    56 */            struct {
+/*   1720      |       2 */                uint16_t nscount;
+/*   1722      |       6 */                uint16_t nsmap[3];
+/*   1728      |      12 */                int nssocks[3];
+/*   1740      |       2 */                uint16_t nscount6;
+/*   1742      |       2 */                uint16_t nsinit;
+/*   1744      |      24 */                struct sockaddr_in6 *nsaddrs[3];
+/*   1768      |       8 */                unsigned long long __glibc_extension_index;
+
+                                           /* total size (bytes):   56 */
+                                       } _ext;
+
+                                       /* total size (bytes):   56 */
+                                   } _u;
+
+                                   /* total size (bytes):  568 */
+                               } res;
+/*   1776      |       8 */    internal_sigset_t sigmask;
+/*   1784      |       8 */    struct rtld_catch *rtld_catch;
+/*   1792      |       1 */    _Bool c11;
+/*   1793      |       1 */    _Bool exiting;
+/* XXX  2-byte hole      */
+/*   1796      |       4 */    int exit_lock;
+/*   1800      |      16 */    struct tls_internal_t {
+/*   1800      |       8 */        char *strsignal_buf;
+/*   1808      |       8 */        char *strerror_l_buf;
+
+                                   /* total size (bytes):   16 */
+                               } tls_state;
+/*   1816      |       8 */    void *getrandom_buf;
+/*   1824      |      32 */    union {
+/*                    24 */        struct {
+/*   1824      |       4 */            uint32_t cpu_id_start;
+/*   1828      |       4 */            uint32_t cpu_id;
+/*   1832      |       8 */            uint64_t rseq_cs;
+/*   1840      |       4 */            uint32_t flags;
+/* XXX  4-byte padding   */
+
+                                       /* total size (bytes):   24 */
+                                   };
+/*                    32 */        char pad[32];
+
+                                   /* total size (bytes):   32 */
+                               } rseq_area;
+
+                               /* total size (bytes): 1856 */
+                             }

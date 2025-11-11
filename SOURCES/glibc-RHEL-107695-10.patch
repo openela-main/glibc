@@ -1,0 +1,59 @@
+commit 86f06282ccb1b11de7a07fc10f7b77991b7d121a
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Tue Oct 8 15:45:25 2024 -0300
+
+    Update PIDFD_* constants for Linux 6.11
+    
+    Linux 6.11 adds some more PIDFD_* constants for 'pidfs: allow retrieval
+    of namespace file descriptors'
+    (5b08bd408534bfb3a7cf5778da5b27d4e4fffe12).
+    
+    Tested with build-many-glibcs.py.
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+
+diff --git a/sysdeps/unix/sysv/linux/sys/pidfd.h b/sysdeps/unix/sysv/linux/sys/pidfd.h
+index 9f88d297e884c348..85d976939b6f01fa 100644
+--- a/sysdeps/unix/sysv/linux/sys/pidfd.h
++++ b/sysdeps/unix/sysv/linux/sys/pidfd.h
+@@ -20,6 +20,7 @@
+ 
+ #include <fcntl.h>
+ #include <bits/types/siginfo_t.h>
++#include <sys/ioctl.h>
+ 
+ #define PIDFD_NONBLOCK O_NONBLOCK
+ #define PIDFD_THREAD O_EXCL
+@@ -28,6 +29,19 @@
+ #define PIDFD_SIGNAL_THREAD_GROUP (1UL << 1)
+ #define PIDFD_SIGNAL_PROCESS_GROUP (1UL << 2)
+ 
++#define PIDFS_IOCTL_MAGIC 0xFF
++
++#define PIDFD_GET_CGROUP_NAMESPACE            _IO(PIDFS_IOCTL_MAGIC, 1)
++#define PIDFD_GET_IPC_NAMESPACE               _IO(PIDFS_IOCTL_MAGIC, 2)
++#define PIDFD_GET_MNT_NAMESPACE               _IO(PIDFS_IOCTL_MAGIC, 3)
++#define PIDFD_GET_NET_NAMESPACE               _IO(PIDFS_IOCTL_MAGIC, 4)
++#define PIDFD_GET_PID_NAMESPACE               _IO(PIDFS_IOCTL_MAGIC, 5)
++#define PIDFD_GET_PID_FOR_CHILDREN_NAMESPACE  _IO(PIDFS_IOCTL_MAGIC, 6)
++#define PIDFD_GET_TIME_NAMESPACE              _IO(PIDFS_IOCTL_MAGIC, 7)
++#define PIDFD_GET_TIME_FOR_CHILDREN_NAMESPACE _IO(PIDFS_IOCTL_MAGIC, 8)
++#define PIDFD_GET_USER_NAMESPACE              _IO(PIDFS_IOCTL_MAGIC, 9)
++#define PIDFD_GET_UTS_NAMESPACE               _IO(PIDFS_IOCTL_MAGIC, 10)
++
+ /* Returns a file descriptor that refers to the process PID.  The
+    close-on-exec is set on the file descriptor.  */
+ extern int pidfd_open (__pid_t __pid, unsigned int __flags) __THROW;
+diff --git a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+index 9824fd214d477fd0..9d53102cbd73dc84 100644
+--- a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+@@ -39,7 +39,7 @@ def main():
+         sys.exit (77)
+ 
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 10)
++    linux_version_glibc = (6, 11)
+     sys.exit(glibcextract.compare_macro_consts(
+                 '#include <sys/pidfd.h>\n',
+                 '#include <asm/fcntl.h>\n'

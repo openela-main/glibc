@@ -1,0 +1,23 @@
+commit 4c2509882fd9768a067ce8cb7cb40394e1cf3862
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Mon Aug 18 13:52:02 2025 +0200
+
+    elf: Preserve _rtld_global layout for the release branch
+    
+    Backporting commit 97017da5ef946c6d38c252f56c8cb7c205b732fa
+    ("elf: Introduce _dl_debug_change_state") removed the
+    _ns_debug member.  Keep it to preseve struct layout.
+
+diff --git a/sysdeps/generic/ldsodefs.h b/sysdeps/generic/ldsodefs.h
+index 043abd369700ad58..b4c6e6d2ca7a1fec 100644
+--- a/sysdeps/generic/ldsodefs.h
++++ b/sysdeps/generic/ldsodefs.h
+@@ -350,6 +350,8 @@ struct rtld_global
+       size_t n_elements;
+       void (*free) (void *);
+     } _ns_unique_sym_table;
++    /* Keep track of changes to each namespace' list.  */
++    struct r_debug_extended _ns_debug_unused;
+   } _dl_ns[DL_NNS];
+   /* One higher than index of last used namespace.  */
+   EXTERN size_t _dl_nns;

@@ -1,0 +1,39 @@
+commit 6f999af332c91035350390ef8af96388b8f4fd2c
+Author: Arjun Shankar <arjun@redhat.com>
+Date:   Mon Aug 18 15:33:13 2025 +0200
+
+    support: Handle FUSE_GETXATTR during FUSE FS mount
+    
+    When testing with some kernel versions, support FUSE infrastructure
+    encounters a FUSE_GETXATTR request, leading to FUSE tests hanging until
+    timed out.  Therefore, pass FUSE_GETXATTR requests from
+    support_fuse_handle_mountpoint to support_fuse_handle_directory, and
+    adjust support_fuse_handle_directory to return ENOSYS so that tests can
+    proceed.
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+
+diff --git a/support/support_fuse.c b/support/support_fuse.c
+index f6c063b549e2c26c..5af2f7d8ab93a5ea 100644
+--- a/support/support_fuse.c
++++ b/support/support_fuse.c
+@@ -212,6 +212,9 @@ support_fuse_handle_directory (struct support_fuse *f)
+         support_fuse_reply_prepared (f);
+       }
+       return true;
++    case FUSE_GETXATTR:
++      support_fuse_reply_error (f, ENOSYS);
++      return true;
+     default:
+       return false;
+     }
+@@ -222,7 +225,8 @@ support_fuse_handle_mountpoint (struct support_fuse *f)
+ {
+   TEST_VERIFY (f->inh != NULL);
+   /* 1 is the root node.  */
+-  if (f->inh->opcode == FUSE_GETATTR && f->inh->nodeid == 1)
++  if ((f->inh->opcode == FUSE_GETATTR || f->inh->opcode == FUSE_GETXATTR)
++      && f->inh->nodeid == 1)
+     return support_fuse_handle_directory (f);
+   return false;
+ }

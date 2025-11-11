@@ -1,0 +1,379 @@
+commit eb0776d4e149ff0ccf9841a8073dbde658c59858
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Tue Jul 16 17:08:46 2024 +0000
+
+    Update syscall lists for Linux 6.10
+    
+    Linux 6.10 changes for syscall are:
+    
+      * mseal for all architectures.
+      * map_shadow_stack for x32.
+      * Replace sync_file_range with sync_file_range2 for csky (which
+        fixes a broken sync_file_range usage).
+    
+    Update syscall-names.list and regenerate the arch-syscall.h headers
+    with build-many-glibcs.py update-syscalls.
+    
+    Tested with build-many-glibcs.py.
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+
+diff --git a/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h b/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
+index 7ee8a2167aaae172..19b6316cb6ffae26 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
+@@ -158,6 +158,7 @@
+ #define __NR_mq_timedsend 182
+ #define __NR_mq_unlink 181
+ #define __NR_mremap 216
++#define __NR_mseal 462
+ #define __NR_msgctl 187
+ #define __NR_msgget 186
+ #define __NR_msgrcv 188
+diff --git a/sysdeps/unix/sysv/linux/alpha/arch-syscall.h b/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
+index 0f4ea7670be610be..216a5575c69d0ff3 100644
+--- a/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
+@@ -24,6 +24,7 @@
+ #define __NR_clock_nanosleep 422
+ #define __NR_clock_settime 419
+ #define __NR_clone 312
++#define __NR_clone3 545
+ #define __NR_close 6
+ #define __NR_close_range 546
+ #define __NR_connect 98
+@@ -189,6 +190,7 @@
+ #define __NR_mq_timedsend 434
+ #define __NR_mq_unlink 433
+ #define __NR_mremap 341
++#define __NR_mseal 572
+ #define __NR_msgctl 200
+ #define __NR_msgget 201
+ #define __NR_msgrcv 202
+diff --git a/sysdeps/unix/sysv/linux/arc/arch-syscall.h b/sysdeps/unix/sysv/linux/arc/arch-syscall.h
+index 90359482a814b3f8..ea581b0a6dc0f2d4 100644
+--- a/sysdeps/unix/sysv/linux/arc/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/arc/arch-syscall.h
+@@ -161,6 +161,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 181
+ #define __NR_mremap 216
++#define __NR_mseal 462
+ #define __NR_msgctl 187
+ #define __NR_msgget 186
+ #define __NR_msgrcv 188
+diff --git a/sysdeps/unix/sysv/linux/arm/arch-syscall.h b/sysdeps/unix/sysv/linux/arm/arch-syscall.h
+index 4930167a03c97df2..2809f52f94e9ee16 100644
+--- a/sysdeps/unix/sysv/linux/arm/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/arm/arch-syscall.h
+@@ -205,6 +205,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 275
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 304
+ #define __NR_msgget 303
+ #define __NR_msgrcv 302
+diff --git a/sysdeps/unix/sysv/linux/csky/arch-syscall.h b/sysdeps/unix/sysv/linux/csky/arch-syscall.h
+index 3f16a29f5753e7a8..ede3551a00dc81c6 100644
+--- a/sysdeps/unix/sysv/linux/csky/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/csky/arch-syscall.h
+@@ -168,6 +168,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 181
+ #define __NR_mremap 216
++#define __NR_mseal 462
+ #define __NR_msgctl 187
+ #define __NR_msgget 186
+ #define __NR_msgrcv 188
+@@ -301,7 +302,7 @@
+ #define __NR_swapon 224
+ #define __NR_symlinkat 36
+ #define __NR_sync 81
+-#define __NR_sync_file_range 84
++#define __NR_sync_file_range2 84
+ #define __NR_syncfs 267
+ #define __NR_sysinfo 179
+ #define __NR_syslog 116
+diff --git a/sysdeps/unix/sysv/linux/hppa/arch-syscall.h b/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
+index a1b2c819d6522018..08b153f2ccdf6f45 100644
+--- a/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
+@@ -197,6 +197,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 230
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 191
+ #define __NR_msgget 190
+ #define __NR_msgrcv 189
+diff --git a/sysdeps/unix/sysv/linux/i386/arch-syscall.h b/sysdeps/unix/sysv/linux/i386/arch-syscall.h
+index cc775432d663a745..500ca1ec70e2c5fc 100644
+--- a/sysdeps/unix/sysv/linux/i386/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/i386/arch-syscall.h
+@@ -222,6 +222,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 278
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+diff --git a/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h b/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
+index 56bb08718ad32c04..8bb82448a7570d54 100644
+--- a/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
+@@ -155,6 +155,7 @@
+ #define __NR_mq_timedsend 182
+ #define __NR_mq_unlink 181
+ #define __NR_mremap 216
++#define __NR_mseal 462
+ #define __NR_msgctl 187
+ #define __NR_msgget 186
+ #define __NR_msgrcv 188
+diff --git a/sysdeps/unix/sysv/linux/m68k/arch-syscall.h b/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
+index 79f277dd5b8eda7b..4ab34f6228594c9f 100644
+--- a/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
+@@ -213,6 +213,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 272
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+diff --git a/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h b/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
+index 779d5d5d7029d8ff..79e225e50c6d30b4 100644
+--- a/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
+@@ -221,6 +221,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 278
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 331
+ #define __NR_msgget 332
+ #define __NR_msgrcv 333
+diff --git a/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
+index 86ffd5ce84556c20..dadd7f3130a55625 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
+@@ -211,6 +211,7 @@
+ #define __NR_mq_timedsend_time64 4418
+ #define __NR_mq_unlink 4272
+ #define __NR_mremap 4167
++#define __NR_mseal 4462
+ #define __NR_msgctl 4402
+ #define __NR_msgget 4399
+ #define __NR_msgrcv 4401
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
+index 5d37a686e511a499..db6b2d4609d87d3e 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
+@@ -194,6 +194,7 @@
+ #define __NR_mq_timedsend_time64 6418
+ #define __NR_mq_unlink 6235
+ #define __NR_mremap 6024
++#define __NR_mseal 6462
+ #define __NR_msgctl 6069
+ #define __NR_msgget 6066
+ #define __NR_msgrcv 6068
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
+index 9b1e846e7646d791..b4129a4dbdf71aec 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
+@@ -183,6 +183,7 @@
+ #define __NR_mq_timedsend 5232
+ #define __NR_mq_unlink 5231
+ #define __NR_mremap 5024
++#define __NR_mseal 5462
+ #define __NR_msgctl 5069
+ #define __NR_msgget 5066
+ #define __NR_msgrcv 5068
+diff --git a/sysdeps/unix/sysv/linux/nios2/arch-syscall.h b/sysdeps/unix/sysv/linux/nios2/arch-syscall.h
+index abbc9ab6b083be80..f94e212995549062 100644
+--- a/sysdeps/unix/sysv/linux/nios2/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/nios2/arch-syscall.h
+@@ -167,6 +167,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 181
+ #define __NR_mremap 216
++#define __NR_mseal 462
+ #define __NR_msgctl 187
+ #define __NR_msgget 186
+ #define __NR_msgrcv 188
+diff --git a/sysdeps/unix/sysv/linux/or1k/arch-syscall.h b/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
+index 7223a93673d9c6f7..2d21fa208576f795 100644
+--- a/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
+@@ -167,6 +167,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 181
+ #define __NR_mremap 216
++#define __NR_mseal 462
+ #define __NR_msgctl 187
+ #define __NR_msgget 186
+ #define __NR_msgrcv 188
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h b/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
+index af0d2b121ebc7dc7..206d9fd65697d152 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
+@@ -211,6 +211,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 263
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h b/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
+index a4c70aa7fe719cb9..19f72a7f694a5322 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
+@@ -195,6 +195,7 @@
+ #define __NR_mq_timedsend 264
+ #define __NR_mq_unlink 263
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+diff --git a/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h b/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
+index 7315d164d64c89fa..eb9e57b02898cb79 100644
+--- a/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
+@@ -153,6 +153,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 181
+ #define __NR_mremap 216
++#define __NR_mseal 462
+ #define __NR_msgctl 187
+ #define __NR_msgget 186
+ #define __NR_msgrcv 188
+diff --git a/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h b/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
+index 31a1130db9404e60..1eac18e5822d8b3e 100644
+--- a/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
+@@ -158,6 +158,7 @@
+ #define __NR_mq_timedsend 182
+ #define __NR_mq_unlink 181
+ #define __NR_mremap 216
++#define __NR_mseal 462
+ #define __NR_msgctl 187
+ #define __NR_msgget 186
+ #define __NR_msgrcv 188
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h b/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
+index cf8569304d9e6a16..464eca58b28ef5e0 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
+@@ -214,6 +214,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 272
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h b/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
+index f3536ed03f4b7d85..57842702fd389edd 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
+@@ -185,6 +185,7 @@
+ #define __NR_mq_timedsend 273
+ #define __NR_mq_unlink 272
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+diff --git a/sysdeps/unix/sysv/linux/sh/arch-syscall.h b/sysdeps/unix/sysv/linux/sh/arch-syscall.h
+index 0c88bf10c77bef3a..165ba017c7411aef 100644
+--- a/sysdeps/unix/sysv/linux/sh/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sh/arch-syscall.h
+@@ -206,6 +206,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 278
+ #define __NR_mremap 163
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+@@ -378,6 +379,7 @@
+ #define __NR_symlinkat 304
+ #define __NR_sync 36
+ #define __NR_sync_file_range 314
++#define __NR_sync_file_range2 388
+ #define __NR_syncfs 362
+ #define __NR_sysfs 135
+ #define __NR_sysinfo 116
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h b/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
+index 19fa614624dc2b85..3bad6f102ffaafb2 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
+@@ -211,6 +211,7 @@
+ #define __NR_mq_timedsend_time64 418
+ #define __NR_mq_unlink 274
+ #define __NR_mremap 250
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h b/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
+index 18516f20cbf25d77..98e143792026d0e8 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
+@@ -192,6 +192,7 @@
+ #define __NR_mq_timedsend 275
+ #define __NR_mq_unlink 274
+ #define __NR_mremap 250
++#define __NR_mseal 462
+ #define __NR_msgctl 402
+ #define __NR_msgget 399
+ #define __NR_msgrcv 401
+diff --git a/sysdeps/unix/sysv/linux/syscall-names.list b/sysdeps/unix/sysv/linux/syscall-names.list
+index 672d39eaad4491f1..7871f93b94d731d2 100644
+--- a/sysdeps/unix/sysv/linux/syscall-names.list
++++ b/sysdeps/unix/sysv/linux/syscall-names.list
+@@ -21,8 +21,8 @@
+ # This file can list all potential system calls.  The names are only
+ # used if the installed kernel headers also provide them.
+ 
+-# The list of system calls is current as of Linux 6.9.
+-kernel 6.9
++# The list of system calls is current as of Linux 6.10.
++kernel 6.10
+ 
+ FAST_atomic_update
+ FAST_cmpxchg
+@@ -287,6 +287,7 @@ mq_timedsend
+ mq_timedsend_time64
+ mq_unlink
+ mremap
++mseal
+ msgctl
+ msgget
+ msgrcv
+diff --git a/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h b/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
+index b1222160135310ec..5d86e75dd556caad 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
+@@ -189,6 +189,7 @@
+ #define __NR_mq_timedsend 242
+ #define __NR_mq_unlink 241
+ #define __NR_mremap 25
++#define __NR_mseal 462
+ #define __NR_msgctl 71
+ #define __NR_msgget 68
+ #define __NR_msgrcv 70
+diff --git a/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h b/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
+index df3e22236dd3bb0e..6c35068d8e8f4b05 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
+@@ -183,6 +183,7 @@
+ #define __NR_mq_timedsend 1073742066
+ #define __NR_mq_unlink 1073742065
+ #define __NR_mremap 1073741849
++#define __NR_mseal 1073742286
+ #define __NR_msgctl 1073741895
+ #define __NR_msgget 1073741892
+ #define __NR_msgrcv 1073741894

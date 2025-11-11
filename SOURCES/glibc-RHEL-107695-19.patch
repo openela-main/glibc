@@ -1,0 +1,337 @@
+commit eaf88c10250b917ba64c9d5567457c4b82558ed1
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Thu May 29 19:21:46 2025 +0000
+
+    Update syscall lists for Linux 6.15
+    
+    Linux 6.15 adds the new syscall open_tree_attr.  Update
+    syscall-names.list and regenerate the arch-syscall.h headers with
+    build-many-glibcs.py update-syscalls.
+    
+    Tested with build-many-glibcs.py.
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+
+diff --git a/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h b/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
+index 89aced0b453609e3..ba4a461e90ea1709 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/aarch64/arch-syscall.h
+@@ -175,6 +175,7 @@
+ #define __NR_nfsservctl 42
+ #define __NR_open_by_handle_at 265
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 56
+ #define __NR_openat2 437
+ #define __NR_perf_event_open 241
+diff --git a/sysdeps/unix/sysv/linux/alpha/arch-syscall.h b/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
+index 455da93b478ab037..840d6fed9eb0c3de 100644
+--- a/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/alpha/arch-syscall.h
+@@ -209,6 +209,7 @@
+ #define __NR_open 45
+ #define __NR_open_by_handle_at 498
+ #define __NR_open_tree 538
++#define __NR_open_tree_attr 577
+ #define __NR_openat 450
+ #define __NR_openat2 547
+ #define __NR_osf_adjtime 140
+diff --git a/sysdeps/unix/sysv/linux/arc/arch-syscall.h b/sysdeps/unix/sysv/linux/arc/arch-syscall.h
+index 01075e8cdfd7cd30..2534f0fa5c50704c 100644
+--- a/sysdeps/unix/sysv/linux/arc/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/arc/arch-syscall.h
+@@ -177,6 +177,7 @@
+ #define __NR_nfsservctl 42
+ #define __NR_open_by_handle_at 265
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 56
+ #define __NR_openat2 437
+ #define __NR_perf_event_open 241
+diff --git a/sysdeps/unix/sysv/linux/arm/arch-syscall.h b/sysdeps/unix/sysv/linux/arm/arch-syscall.h
+index 97044727fc1e24bf..8e585a4f9ee07607 100644
+--- a/sysdeps/unix/sysv/linux/arm/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/arm/arch-syscall.h
+@@ -223,6 +223,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 371
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 322
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/csky/arch-syscall.h b/sysdeps/unix/sysv/linux/csky/arch-syscall.h
+index a719a55647383d4e..73fdba14025a0836 100644
+--- a/sysdeps/unix/sysv/linux/csky/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/csky/arch-syscall.h
+@@ -184,6 +184,7 @@
+ #define __NR_nfsservctl 42
+ #define __NR_open_by_handle_at 265
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 56
+ #define __NR_openat2 437
+ #define __NR_perf_event_open 241
+diff --git a/sysdeps/unix/sysv/linux/hppa/arch-syscall.h b/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
+index dc592c58364a1804..d8ffab9b951bc261 100644
+--- a/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/hppa/arch-syscall.h
+@@ -214,6 +214,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 326
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 275
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/i386/arch-syscall.h b/sysdeps/unix/sysv/linux/i386/arch-syscall.h
+index c10897f7b032c9fb..196dfec840521678 100644
+--- a/sysdeps/unix/sysv/linux/i386/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/i386/arch-syscall.h
+@@ -245,6 +245,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 342
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 295
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h b/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
+index a0d0d91a09fa57fb..9a0dc6e429a5bd4f 100644
+--- a/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/loongarch/arch-syscall.h
+@@ -173,6 +173,7 @@
+ #define __NR_nfsservctl 42
+ #define __NR_open_by_handle_at 265
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 56
+ #define __NR_openat2 437
+ #define __NR_perf_event_open 241
+diff --git a/sysdeps/unix/sysv/linux/m68k/arch-syscall.h b/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
+index 715809acaf112852..a95cb41f56db8deb 100644
+--- a/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/m68k/arch-syscall.h
+@@ -234,6 +234,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 341
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 288
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h b/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
+index 24e218fc86b984cc..fe08f5cc9e898463 100644
+--- a/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/microblaze/arch-syscall.h
+@@ -244,6 +244,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 372
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 295
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
+index a7615cb7a0c66df6..7d76d6579d2e5a09 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips32/arch-syscall.h
+@@ -229,6 +229,7 @@
+ #define __NR_open 4005
+ #define __NR_open_by_handle_at 4340
+ #define __NR_open_tree 4428
++#define __NR_open_tree_attr 4467
+ #define __NR_openat 4288
+ #define __NR_openat2 4437
+ #define __NR_pause 4029
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
+index 4d863c2dd29c3f3e..bca3ea69b3e9db42 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n32/arch-syscall.h
+@@ -212,6 +212,7 @@
+ #define __NR_open 6002
+ #define __NR_open_by_handle_at 6304
+ #define __NR_open_tree 6428
++#define __NR_open_tree_attr 6467
+ #define __NR_openat 6251
+ #define __NR_openat2 6437
+ #define __NR_pause 6033
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h b/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
+index 9b6683e4c1ca9312..5bcd92982a7da06b 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n64/arch-syscall.h
+@@ -201,6 +201,7 @@
+ #define __NR_open 5002
+ #define __NR_open_by_handle_at 5299
+ #define __NR_open_tree 5428
++#define __NR_open_tree_attr 5467
+ #define __NR_openat 5247
+ #define __NR_openat2 5437
+ #define __NR_pause 5033
+diff --git a/sysdeps/unix/sysv/linux/or1k/arch-syscall.h b/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
+index a071c76aaf82d9b6..c2a1d51552b3e1d8 100644
+--- a/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/or1k/arch-syscall.h
+@@ -183,6 +183,7 @@
+ #define __NR_nfsservctl 42
+ #define __NR_open_by_handle_at 265
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 56
+ #define __NR_openat2 437
+ #define __NR_or1k_atomic 244
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h b/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
+index b3481e4c242257e0..c371df8e40d54b31 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc32/arch-syscall.h
+@@ -235,6 +235,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 346
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 286
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h b/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
+index 45108e8f6f5c7b6c..df8844d3cacfc3f1 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc64/arch-syscall.h
+@@ -220,6 +220,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 346
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 286
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h b/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
+index 53338790a7a9837c..1bae763c9e2bae37 100644
+--- a/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/riscv/rv32/arch-syscall.h
+@@ -168,6 +168,7 @@
+ #define __NR_nfsservctl 42
+ #define __NR_open_by_handle_at 265
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 56
+ #define __NR_openat2 437
+ #define __NR_perf_event_open 241
+diff --git a/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h b/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
+index eed1dffc321200d8..1a1ebf8e2f6da6fd 100644
+--- a/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/riscv/rv64/arch-syscall.h
+@@ -175,6 +175,7 @@
+ #define __NR_nfsservctl 42
+ #define __NR_open_by_handle_at 265
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 56
+ #define __NR_openat2 437
+ #define __NR_perf_event_open 241
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h b/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
+index 0bf8f9582cef0fab..f77f39f1cce2e6fe 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/s390/s390-32/arch-syscall.h
+@@ -232,6 +232,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 336
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 288
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h b/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
+index 061f8db0cab0d0e9..65d6644e33ccb468 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/s390/s390-64/arch-syscall.h
+@@ -204,6 +204,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 336
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 288
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/sh/arch-syscall.h b/sysdeps/unix/sysv/linux/sh/arch-syscall.h
+index 52cc320a9378e324..5948ab099a5f79d2 100644
+--- a/sysdeps/unix/sysv/linux/sh/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sh/arch-syscall.h
+@@ -228,6 +228,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 360
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 295
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h b/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
+index ee870bc7b890e0b6..85828a8c1750a6ec 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sparc/sparc32/arch-syscall.h
+@@ -230,6 +230,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 333
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 284
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h b/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
+index 3acbebefa95fbbc6..d83ecd15dca15268 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/sparc/sparc64/arch-syscall.h
+@@ -211,6 +211,7 @@
+ #define __NR_open 5
+ #define __NR_open_by_handle_at 333
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 284
+ #define __NR_openat2 437
+ #define __NR_pause 29
+diff --git a/sysdeps/unix/sysv/linux/syscall-names.list b/sysdeps/unix/sysv/linux/syscall-names.list
+index 28bd84404cf83692..316f06695a6b378c 100644
+--- a/sysdeps/unix/sysv/linux/syscall-names.list
++++ b/sysdeps/unix/sysv/linux/syscall-names.list
+@@ -21,8 +21,8 @@
+ # This file can list all potential system calls.  The names are only
+ # used if the installed kernel headers also provide them.
+ 
+-# The list of system calls is current as of Linux 6.14.
+-kernel 6.14
++# The list of system calls is current as of Linux 6.15.
++kernel 6.15
+ 
+ FAST_atomic_update
+ FAST_cmpxchg
+@@ -316,6 +316,7 @@ olduname
+ open
+ open_by_handle_at
+ open_tree
++open_tree_attr
+ openat
+ openat2
+ or1k_atomic
+diff --git a/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h b/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
+index 17b84c70f58ac276..06fbae5334dbbd49 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/x86_64/64/arch-syscall.h
+@@ -207,6 +207,7 @@
+ #define __NR_open 2
+ #define __NR_open_by_handle_at 304
+ #define __NR_open_tree 428
++#define __NR_open_tree_attr 467
+ #define __NR_openat 257
+ #define __NR_openat2 437
+ #define __NR_pause 34
+diff --git a/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h b/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
+index 1dcd6ab0e6b229ed..135ef3d7f28f50f3 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
++++ b/sysdeps/unix/sysv/linux/x86_64/x32/arch-syscall.h
+@@ -200,6 +200,7 @@
+ #define __NR_open 1073741826
+ #define __NR_open_by_handle_at 1073742128
+ #define __NR_open_tree 1073742252
++#define __NR_open_tree_attr 1073742291
+ #define __NR_openat 1073742081
+ #define __NR_openat2 1073742261
+ #define __NR_pause 1073741858

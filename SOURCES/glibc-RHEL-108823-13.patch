@@ -1,0 +1,17 @@
+commit 3ef26b708725b528a1c69ab3eb523036c50b89d6
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Tue Sep 24 13:05:48 2024 +0200
+
+    misc: Link tst-mkstemp-fuse-parallel with $(shared-thread-library)
+    
+    The barrier functions require this on Hurd.
+
+diff --git a/misc/Makefile b/misc/Makefile
+index a684fb1076fc2354..6aa74d332b40ca94 100644
+--- a/misc/Makefile
++++ b/misc/Makefile
+@@ -369,3 +369,4 @@ $(objpfx)tst-select: $(librt)
+ $(objpfx)tst-select-time64: $(librt)
+ $(objpfx)tst-pselect: $(librt)
+ $(objpfx)tst-pselect-time64: $(librt)
++$(objpfx)tst-mkstemp-fuse-parallel: $(shared-thread-library)

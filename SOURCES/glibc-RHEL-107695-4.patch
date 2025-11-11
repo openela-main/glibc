@@ -1,0 +1,60 @@
+commit e9a37242f9cca80496aa934158b7e366b8b419fa
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Thu May 23 12:22:40 2024 +0000
+
+    Update PIDFD_* constants for Linux 6.9
+    
+    Linux 6.9 adds some more PIDFD_* constants.  Add them to glibc's
+    sys/pidfd.h, including updating comments that said FLAGS was reserved
+    and must be 0, along with updating tst-pidfd-consts.py.
+    
+    Tested with build-many-glibcs.py.
+
+diff --git a/sysdeps/unix/sysv/linux/sys/pidfd.h b/sysdeps/unix/sysv/linux/sys/pidfd.h
+index 10783220625f7a1d..9f88d297e884c348 100644
+--- a/sysdeps/unix/sysv/linux/sys/pidfd.h
++++ b/sysdeps/unix/sysv/linux/sys/pidfd.h
+@@ -22,12 +22,14 @@
+ #include <bits/types/siginfo_t.h>
+ 
+ #define PIDFD_NONBLOCK O_NONBLOCK
++#define PIDFD_THREAD O_EXCL
+ 
+-/* Returns a file descriptor that refers to the process PID.  The
+-   close-on-exec is set on the file descriptor.
++#define PIDFD_SIGNAL_THREAD (1UL << 0)
++#define PIDFD_SIGNAL_THREAD_GROUP (1UL << 1)
++#define PIDFD_SIGNAL_PROCESS_GROUP (1UL << 2)
+ 
+-   The FLAGS argument is reserved for future use, it must be specified
+-   as 0.  */
++/* Returns a file descriptor that refers to the process PID.  The
++   close-on-exec is set on the file descriptor.  */
+ extern int pidfd_open (__pid_t __pid, unsigned int __flags) __THROW;
+ 
+ /* Duplicates an existing file descriptor TARGETFD in the process referred
+@@ -39,10 +41,7 @@ extern int pidfd_getfd (int __pidfd, int __targetfd,
+ 			unsigned int __flags) __THROW;
+ 
+ /* Sends the signal SIG to the target process referred by the PIDFD.  If
+-   INFO points to a siginfo_t buffer, it will be populated.
+-
+-   The FLAGS argument is reserved for future use, it must be specified
+-   as 0.  */
++   INFO points to a siginfo_t buffer, it will be populated.  */
+ extern int pidfd_send_signal (int __pidfd, int __sig, siginfo_t *__info,
+ 			      unsigned int __flags) __THROW;
+ 
+diff --git a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+index 96875ac2666575df..6f05291949d00c62 100644
+--- a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+@@ -39,7 +39,7 @@ def main():
+         sys.exit (77)
+ 
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 8)
++    linux_version_glibc = (6, 9)
+     sys.exit(glibcextract.compare_macro_consts(
+                 '#include <sys/pidfd.h>\n',
+                 '#include <asm/fcntl.h>\n'

@@ -1,0 +1,120 @@
+commit 176671f6042912200ea9733bb6cc8212e06bc85e
+Author: Carlos Llamas <cmllamas@google.com>
+Date:   Tue Jun 18 10:56:34 2024 +0200
+
+    linux: add definitions for hugetlb page size encodings
+    
+    A desired hugetlb page size can be encoded in the flags parameter of
+    system calls such as mmap() and shmget(). The Linux UAPI headers have
+    included explicit definitions for these encodings since v4.14.
+    
+    This patch adds these definitions that are used along with MAP_HUGETLB
+    and SHM_HUGETLB flags as specified in the corresponding man pages. This
+    relieves programs from having to duplicate and/or compute the encodings
+    manually.
+    
+    Additionally, the filter on these definitions in tst-mman-consts.py is
+    removed, as suggested by Florian. I then ran this tests successfully,
+    confirming the alignment with the kernel headers.
+    
+      PASS: misc/tst-mman-consts
+      original exit status 0
+    
+    Signed-off-by: Carlos Llamas <cmllamas@google.com>
+    Tested-by: Florian Weimer <fweimer@redhat.com>
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+
+diff --git a/sysdeps/unix/sysv/linux/bits/mman-linux.h b/sysdeps/unix/sysv/linux/bits/mman-linux.h
+index 5c3d43b0f2b659fd..522333c50a04481d 100644
+--- a/sysdeps/unix/sysv/linux/bits/mman-linux.h
++++ b/sysdeps/unix/sysv/linux/bits/mman-linux.h
+@@ -54,10 +54,29 @@
+ # define MAP_ANONYMOUS	0x20		/* Don't use a file.  */
+ #endif
+ #define MAP_ANON	MAP_ANONYMOUS
+-/* When MAP_HUGETLB is set bits [26:31] encode the log2 of the huge page size.  */
++
++/* When MAP_HUGETLB is set, bits [26:31] encode the log2 of the huge page size.
++   The following definitions are associated with this huge page size encoding.
++   It is responsibility of the application to know which sizes are supported on
++   the running system.  See mmap(2) man page for details.  */
++
+ #define MAP_HUGE_SHIFT	26
+ #define MAP_HUGE_MASK	0x3f
+ 
++#define MAP_HUGE_16KB	(14 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_64KB	(16 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_512KB	(19 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_1MB	(20 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_2MB	(21 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_8MB	(23 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_16MB	(24 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_32MB	(25 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_256MB	(28 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_512MB	(29 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_1GB	(30 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_2GB	(31 << MAP_HUGE_SHIFT)
++#define MAP_HUGE_16GB	(34U << MAP_HUGE_SHIFT)
++
+ /* Flags to `msync'.  */
+ #define MS_ASYNC	1		/* Sync memory asynchronously.  */
+ #define MS_SYNC		4		/* Synchronous memory sync.  */
+diff --git a/sysdeps/unix/sysv/linux/bits/shm.h b/sysdeps/unix/sysv/linux/bits/shm.h
+index 95f7863913ecebdb..76144f5ad4e52c21 100644
+--- a/sysdeps/unix/sysv/linux/bits/shm.h
++++ b/sysdeps/unix/sysv/linux/bits/shm.h
+@@ -58,6 +58,28 @@ typedef __syscall_ulong_t shmatt_t;
+ # define SHM_HUGETLB	04000	/* segment is mapped via hugetlb */
+ # define SHM_NORESERVE	010000	/* don't check for reservations */
+ 
++/* When SHM_HUGETLB is set, bits [26:31] encode the log2 of the huge page size.
++   The following definitions are associated with this huge page size encoding.
++   It is responsibility of the application to know which sizes are supported on
++   the running system.  See shmget(2) man page for details.  */
++
++#define SHM_HUGE_SHIFT	26
++#define SHM_HUGE_MASK	0x3f
++
++#define SHM_HUGE_16KB	(14 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_64KB	(16 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_512KB	(19 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_1MB	(20 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_2MB	(21 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_8MB	(23 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_16MB	(24 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_32MB	(25 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_256MB	(28 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_512MB	(29 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_1GB	(30 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_2GB	(31 << SHM_HUGE_SHIFT)
++#define SHM_HUGE_16GB	(34U << SHM_HUGE_SHIFT)
++
+ struct	shminfo
+   {
+     __syscall_ulong_t shmmax;
+diff --git a/sysdeps/unix/sysv/linux/tst-mman-consts.py b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+index 4a8f4e8919aa6b3d..441261c9456b2595 100644
+--- a/sysdeps/unix/sysv/linux/tst-mman-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+@@ -41,8 +41,7 @@ def main():
+         '#include <linux/mman.h>\n',
+         args.cc,
+         'MAP_.*',
+-        # A series of MAP_HUGE_<size> macros are defined by the kernel
+-        # but not by glibc.  MAP_UNINITIALIZED is kernel-only.
++        # MAP_UNINITIALIZED is defined by the kernel but not by glibc.
+         # MAP_FAILED is not a MAP_* flag and is glibc-only, as is the
+         # MAP_ANON alias for MAP_ANONYMOUS.  MAP_RENAME, MAP_AUTOGROW,
+         # MAP_LOCAL and MAP_AUTORSRV are in the kernel header for
+@@ -50,9 +49,8 @@ def main():
+         # in the kernel header, but does not use it.  The kernel
+         # header for HPPA removed a define of MAP_VARIABLE to 0 in
+         # Linux 6.2.
+-        'MAP_HUGE_[0-9].*|MAP_UNINITIALIZED|MAP_FAILED|MAP_ANON'
+-        '|MAP_RENAME|MAP_AUTOGROW|MAP_LOCAL|MAP_AUTORSRV|MAP_INHERIT'
+-        '|MAP_VARIABLE',
++        'MAP_UNINITIALIZED|MAP_FAILED|MAP_ANON|MAP_RENAME|MAP_AUTOGROW'
++        '|MAP_LOCAL|MAP_AUTORSRV|MAP_INHERIT|MAP_VARIABLE',
+         linux_version_glibc > linux_version_headers,
+         linux_version_headers > linux_version_glibc))
+ 

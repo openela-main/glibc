@@ -1,0 +1,23 @@
+commit 34bb581e7713589d38c797c214f4c6bf2b14b702
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Aug 16 16:05:19 2024 +0200
+
+    support: Include <string.h> for strcmp in support_format_addrinfo.c
+    
+    This is currently implied by the internal headers, but it makes
+    sense not to rely on this.
+    
+    Reviewed-by: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+
+diff --git a/support/support_format_addrinfo.c b/support/support_format_addrinfo.c
+index cbc72910a96a0e36..77f4db345c2912aa 100644
+--- a/support/support_format_addrinfo.c
++++ b/support/support_format_addrinfo.c
+@@ -22,6 +22,7 @@
+ #include <errno.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <support/support.h>
+ #include <support/xmemstream.h>
+ 

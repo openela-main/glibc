@@ -1,0 +1,61 @@
+commit f6e849fd7ce2a8954022bd23b94703975b3db0d1
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Tue Oct 8 15:45:26 2024 -0300
+
+    linux: Add MAP_DROPPABLE from Linux 6.11
+    
+    This request the page to be never written out to swap, it will be zeroed
+    under memory pressure (so kernel can just drop the page), it is inherited
+    by fork, it is not counted against @code{mlock} budget, and if there is
+    no enough memory to service a page faults there is no fatal error (so not
+    signal is sent).
+    
+    Tested with build-many-glibcs.py.
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+
+diff --git a/manual/llio.texi b/manual/llio.texi
+index 17fe1181d5cc2cef..a8ed72c5db6ecba9 100644
+--- a/manual/llio.texi
++++ b/manual/llio.texi
+@@ -1647,6 +1647,15 @@ The @code{MAP_HUGETLB} flag is specific to Linux.
+ @c user programs (and I don't understand the last two).  MAP_LOCKED does
+ @c not appear to be implemented.
+ 
++@item MAP_DROPPABLE
++Request the page to be never written out to swap, it will be zeroed
++under memory pressure (so kernel can just drop the page), it is inherited
++by fork, it is not counted against @code{mlock} budget, and if there is
++not enough memory to service a page fault there is no fatal error (so no
++signal is sent).
++
++The @code{MAP_DROPPABLE} flag is specific to Linux.
++
+ @end vtable
+ 
+ @code{mmap} returns the address of the new mapping, or
+diff --git a/sysdeps/unix/sysv/linux/bits/mman-linux.h b/sysdeps/unix/sysv/linux/bits/mman-linux.h
+index 522333c50a04481d..161a88509682cf69 100644
+--- a/sysdeps/unix/sysv/linux/bits/mman-linux.h
++++ b/sysdeps/unix/sysv/linux/bits/mman-linux.h
+@@ -43,6 +43,7 @@
+ #define MAP_PRIVATE	0x02		/* Changes are private.  */
+ #define MAP_SHARED_VALIDATE	0x03	/* Share changes and validate
+ 					   extension flags.  */
++#define MAP_DROPPABLE	0x08		/* Zero memory under memory pressure.  */
+ #define MAP_TYPE	0x0f		/* Mask for type of mapping.  */
+ 
+ /* Other flags.  */
+diff --git a/sysdeps/unix/sysv/linux/tst-mman-consts.py b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+index a1137eb1d59d95ec..2191bea36f8f69e0 100644
+--- a/sysdeps/unix/sysv/linux/tst-mman-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-mman-consts.py
+@@ -33,7 +33,7 @@ def main():
+                         help='C compiler (including options) to use')
+     args = parser.parse_args()
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 10)
++    linux_version_glibc = (6, 11)
+     sys.exit(glibcextract.compare_macro_consts(
+         '#define _GNU_SOURCE 1\n'
+         '#include <sys/mman.h>\n',
