@@ -140,15 +140,7 @@ end}
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-
-# We'll use baserelease here for two reasons:
-# - It is known to rpmdev-bumpspec, so it will be properly handled for mass-
-#   rebuilds
-# - It allows using the Release number without the %%dist tag in the dependency
-#   generator to make the generated requires interchangeable between Rawhide
-#   and ELN (.elnYY < .fcXX).
-%global baserelease 58
-Release: %{baserelease}%{?dist}
+Release: 58%{?dist}.2
 
 # Licenses:
 #
@@ -746,6 +738,8 @@ Patch415: glibc-upstream-2.39-253.patch
 Patch416: glibc-upstream-2.39-256.patch
 Patch417: glibc-upstream-2.39-257.patch
 Patch418: glibc-upstream-2.39-258.patch
+Patch419: glibc-RHEL-114264.patch
+Patch420: glibc-RHEL-113196.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2762,6 +2756,12 @@ update_gconv_modules_cache ()
 %endif
 
 %changelog
+* Tue Sep 23 2025 Frédéric Bérat <fberat@redhat.com> - 2.39-58.2
+- x86-64: Unconditionally run elf/check-dt-x86-64-plt ABI test (RHEL-113196)
+
+* Mon Sep 22 2025 Arjun Shankar <arjun@redhat.com> - 2.39-58.1
+- nss: Fix incorrect/empty results when merging groups (RHEL-114264)
+
 * Thu Aug 21 2025 Florian Weimer  <fweimer@redhat.com> - 2.39-58
 - Use Requires(pre): libgcc%{_isa} to break libgcc cycle (RHEL-110559)
 
