@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.25
+Release: %{glibcrelease}.27
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1286,6 +1286,15 @@ Patch1051: glibc-RHEL-18039-4.patch
 Patch1052: glibc-RHEL-18039-5.patch
 Patch1053: glibc-RHEL-18039-6.patch
 Patch1054: glibc-RHEL-105326.patch
+Patch1055: glibc-RHEL-114260.patch
+Patch1056: glibc-RHEL-72011-1.patch
+Patch1057: glibc-RHEL-72011-2.patch
+Patch1058: glibc-RHEL-72011-3.patch
+Patch1059: glibc-RHEL-72011-4.patch
+Patch1060: glibc-RHEL-72011-5.patch
+Patch1061: glibc-RHEL-72011-6.patch
+Patch1062: glibc-RHEL-72011-7.patch
+Patch1063: glibc-RHEL-72011-8.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2947,6 +2956,13 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Thu Nov 20 2025 Arjun Shankar <arjun@redhat.com> - 2.28-251.27
+- Fix a segmentation fault in multi-threaded multi-namespace programs using
+  ctype.h macros (RHEL-72011)
+
+* Fri Oct 03 2025 DJ Delorie <dj@redhat.com> - 2.28-251.26
+- nss: Group merge does not react to ERANGE during merge (RHEL-114260)
+
 * Thu Jul 24 2025 Florian Weimer  <fweimer@redhat.com> - 2.28-251.25
 - CVE-2025-8058: Double free in regcomp (RHEL-105326)
 
