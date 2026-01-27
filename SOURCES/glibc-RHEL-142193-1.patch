@@ -1,0 +1,76 @@
+commit 5d23dfb289174d73b8907b86d2bef7a3ca889840
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Sat Jul 19 07:43:29 2025 -0700
+
+    tst-env-setuid: Delete LD_DEBUG_OUTPUT output
+    
+    Update tst-env-setuid.c to delete LD_DEBUG_OUTPUT output, instead of
+    leaving it behind.
+    
+    This partially fixes BZ #33182.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+diff --git a/elf/tst-env-setuid.c b/elf/tst-env-setuid.c
+index c084aa4c1a382152..479087f0e738a4d0 100644
+--- a/elf/tst-env-setuid.c
++++ b/elf/tst-env-setuid.c
+@@ -40,6 +40,8 @@ static char SETGID_CHILD[] = "setgid-child";
+ # define PROFILE_LIB      "tst-sonamemove-runmod2.so"
+ #endif
+ 
++#define LD_DEBUG_OUTPUT   "/tmp/some-file"
++
+ struct envvar_t
+ {
+   const char *env;
+@@ -62,7 +64,7 @@ static const struct envvar_t filtered_envvars[] =
+   { "MALLOC_TRIM_THRESHOLD_",  FILTERED_VALUE },
+   { "RES_OPTIONS",             FILTERED_VALUE },
+   { "LD_DEBUG",                "all" },
+-  { "LD_DEBUG_OUTPUT",         "/tmp/some-file" },
++  { "LD_DEBUG_OUTPUT",         LD_DEBUG_OUTPUT },
+   { "LD_WARN",                 FILTERED_VALUE },
+   { "LD_VERBOSE",              FILTERED_VALUE },
+   { "LD_BIND_NOW",             "0" },
+@@ -75,6 +77,14 @@ static const struct envvar_t unfiltered_envvars[] =
+   { "LD_ASSUME_KERNEL",        UNFILTERED_VALUE },
+ };
+ 
++static void
++unlink_ld_debug_output (pid_t pid)
++{
++  char *output = xasprintf ("%s.%d", LD_DEBUG_OUTPUT, pid);
++  unlink (output);
++  free (output);
++}
++
+ static int
+ test_child (void)
+ {
+@@ -139,13 +149,21 @@ do_test (int argc, char **argv)
+   /* Setgid child process.  */
+   if (argc == 2 && strcmp (argv[1], SETGID_CHILD) == 0)
+     {
++      pid_t ppid = getppid ();
++
+       if (getgid () == getegid ())
+-	/* This can happen if the file system is mounted nosuid.  */
+-	FAIL_UNSUPPORTED ("SGID failed: GID and EGID match (%jd)\n",
+-			  (intmax_t) getgid ());
++	{
++	  /* This can happen if the file system is mounted nosuid.  */
++	  unlink_ld_debug_output (ppid);
++
++	  FAIL_UNSUPPORTED ("SGID failed: GID and EGID match (%jd)\n",
++			    (intmax_t) getgid ());
++	}
+ 
+       int ret = test_child ();
+ 
++      unlink_ld_debug_output (ppid);
++
+       if (ret != 0)
+ 	exit (1);
+       return 0;
