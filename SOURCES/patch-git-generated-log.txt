@@ -1,3 +1,158 @@
+commit 56deb46380448bca50f02be99f51a5467aa24030
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Thu Jan 29 14:17:01 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Thu Jan 29 14:17:01 2026 +0100
+
+    Handle FUSE_GETXATTR during FUSE FS mount in tests (RHEL-145151)
+    
+    Resolves: RHEL-145151
+
+:000000 100644 00000000 ee16c69b A	glibc-RHEL-145151.patch
+
+commit 0a09c16368e4e8fb2101cd6ed60618a79e479aab
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Tue Jan 27 11:32:03 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Tue Jan 27 11:32:03 2026 +0100
+
+    CVE-2025-15281: wordexp WRDE_REUSE uninitialized memory read (RHEL-144079)
+    
+    Resolves: RHEL-144079
+
+:000000 100644 00000000 be5ed54a A	glibc-RHEL-144079-1.patch
+:000000 100644 00000000 b459da17 A	glibc-RHEL-144079-2.patch
+
+commit 22c0310693412fd065c0411c90678a5845ab3f32
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Jan 19 22:38:03 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Tue Jan 20 21:50:10 2026 +0100
+
+    Ignore LD_PROFILE in SUID binaries (RHEL-142195)
+    
+    This is required to make the previous change effective.
+    
+    Resolves: RHEL-142195
+
+:000000 100644 00000000 fa52d55f A	glibc-RHEL-142194-2.patch
+:000000 100644 00000000 f22de711 A	glibc-RHEL-142194-3.patch
+
+commit d931b2849ec1e63c65177bfb9aaf8c2a7624641f
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Jan 19 09:15:30 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Mon Jan 19 09:15:30 2026 +0100
+
+    Remove default /var/tmp for LD_PROFILE_OUTPUT (RHEL-142195)
+    
+    Resolves: RHEL-142195
+
+:000000 100644 00000000 8f2ee5c7 A	glibc-RHEL-142194.patch
+
+commit c0e43e2f2d5018440cec50e6cf51d5ad84c86d52
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Fri Jan 16 15:04:59 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Jan 16 15:04:59 2026 +0100
+
+    CVE-2026-0915: Stack memory disclosure in getnetbyaddr (RHEL-141851)
+    
+    Resolves: RHEL-141851
+
+:000000 100644 00000000 1d3cf7f3 A	glibc-RHEL-141851.patch
+
+commit 930b24e88d549ee514a7dcfff44ecc298fecf5eb
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Fri Jan 16 14:57:11 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Jan 16 14:57:51 2026 +0100
+
+    patch-git: Avoid trailing tabs in changelog (RHEL-141921)
+    
+    The RPM Lua function print puts tabs between its arguments.
+    
+    Resolves: RHEL-141921
+
+:100644 100644 c975eb75 2ae7888a M	patch-git.lua
+
+commit 57e8ed6766ccca6decdfb5cc254624ffe78e9918
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Fri Jan 16 13:57:34 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Jan 16 14:27:17 2026 +0100
+
+    CVE-2026-0861: Check for alignment overflow in memalign functions (RHEL-141738)
+    
+    Resolves: RHEL-141738
+
+:000000 100644 00000000 98fe129e A	glibc-RHEL-141738.patch
+
+commit c0696b434e75e63edff714cd743ba757093ee7d2
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Thu Nov 27 16:49:34 2025 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Sat Dec 6 16:03:38 2025 +0100
+
+    patch-git: Do not require directory names in Lua patches table
+    
+    RPM 6.0.0 does not put the source directory prefix there anymore.
+    
+    Resolves: RHEL-134108
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 04cb0612 c975eb75 M	patch-git.lua
+
+commit 93a7b9082a4dfa980df60daf8eb8fa3f1b83b159
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Tue Nov 11 20:16:03 2025 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Sat Dec 6 16:03:01 2025 +0100
+
+    patch-git: Support git worktree
+    
+    After “git worktree”, .git is a text file, not a directory.
+    
+    Resolves: RHEL-127593
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 f95800e1 04cb0612 M	patch-git.lua
+
+commit 583e20a8c0b64e9e02abb1e37b625bed55035fd1
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Thu Oct 16 08:48:13 2025 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Tue Nov 11 20:09:20 2025 +0100
+
+    patch-git: Add auto-generated/ prefix to Source: files
+    
+    This suppresses a centpkg pre-push-check failure.
+    
+    Resolves: RHEL-126050
+
+:100644 100644 04f201b8 f95800e1 M	patch-git.lua
+
+commit bca5140d2048565256b4f2528068749ba6a9e2fc
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Mon Oct 13 22:20:35 2025 -0400
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Mon Oct 13 22:20:35 2025 -0400
+
+    rpminspect.yaml: note that glibc-minimal-langpack is empty (RHEL-118847)
+    
+    This fixes the "continues to be empty" VERIFY from rpminspect.
+    
+    Support for this was added by:
+    https://github.com/rpminspect/rpminspect/issues/1518
+    
+    Resolves: RHEL-116641
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 209d25db 214d07ba M	rpminspect.yaml
+
 commit 816c61b8558c2c34f1f2dd3cb447f9e5bfd127b7
 Author:     Arjun Shankar <arjun@redhat.com>
 AuthorDate: Thu Oct 9 15:25:37 2025 +0200

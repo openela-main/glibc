@@ -487,7 +487,7 @@ local function generate_files()
    -- True if %_sourcedir refers to a Git repository and git is installed.
    local have_git = (posix == nil -- Not running under rpm.
                      or (posix.access('/usr/bin/git', 'x')
-                         and posix.access(sourcedir .. '/.git/.', 'x')))
+                         and posix.access(sourcedir .. '/.git', 'r')))
    local commit_marker_contents -- For git_commit_file.
    if have_git then
       commit_marker_contents =
@@ -576,12 +576,18 @@ local function emit_sources()
          max = tointeger(k)
       end
    end
+
+   -- The centpkg pre-push-check recognizes this prefix on Source
+   -- files and does not fail if these sources are neither committed
+   -- to the Git repository nor listed in the sources file.
+   local auto_generated = 'auto-generated/'
+
    local function emit(name)
       max = max + 1
       print('Source' .. max .. ': ' .. name .. '\n')
    end
-   emit(git_commit_file)
-   emit(git_log_file)
+   emit(auto_generated .. git_commit_file)
+   emit(auto_generated .. git_log_file)
    emit('patch-git.lua') -- This file.
 end
 
@@ -1904,7 +1910,7 @@ if rpm then
       if patches_log ~= '' then
          local fp = assert(io.open(patches_log, 'w+'))
          for i=1,#patches do
-            local pname = assert(string.match(patches[i], '.*/([^/]+)$'))
+            local pname = assert(string.match(patches[i], '([^/]+)$'))
             fp:write('Patch' .. i .. ': ' .. pname .. '\n')
          end
          assert(fp:close())
@@ -1917,7 +1923,7 @@ if rpm then
          for j=1,#cl do
 	    -- RPM does not recursively macro-expand what we emit here,
 	    -- so do not apply %-escaping.
-            print(cl[j], '\n')
+            print(cl[j] .. '\n')
          end
          print('\n')
       end

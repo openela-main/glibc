@@ -1,0 +1,41 @@
+Downstream-only patch to move the LD_PROFILE_OUTPUT check to the right
+place, after it was added in the middle of an if statement in
+glibc-RHEL-142194-1.patch.
+
+diff --git a/elf/rtld.c b/elf/rtld.c
+index 44546e8e158e7b9c..b788857924e5a388 100644
+--- a/elf/rtld.c
++++ b/elf/rtld.c
+@@ -2951,16 +2951,6 @@ process_envvars (struct dl_main_state *state)
+       if (state->mode != rtld_mode_normal)
+ 	_exit (5);
+     }
+-
+-  /* There is no fixed, safe directory to store profiling data, so
+-     activate LD_PROFILE only if LD_PROFILE_OUTPUT is set as well.  */
+-  if (GLRO(dl_profile) != NULL && GLRO(dl_profile_output) == NULL)
+-    {
+-      _dl_error_printf ("\
+-warning: LD_PROFILE ignored because LD_PROFILE_OUTPUT not specified\n");
+-      GLRO(dl_profile) = NULL;
+-    }
+-
+   /* If we have to run the dynamic linker in debugging mode and the
+      LD_DEBUG_OUTPUT environment variable is given, we write the debug
+      messages to this file.  */
+@@ -2981,6 +2971,15 @@ warning: LD_PROFILE ignored because LD_PROFILE_OUTPUT not specified\n");
+ 	/* We use standard output if opening the file failed.  */
+ 	GLRO(dl_debug_fd) = STDOUT_FILENO;
+     }
++
++  /* There is no fixed, safe directory to store profiling data, so
++     activate LD_PROFILE only if LD_PROFILE_OUTPUT is set as well.  */
++  if (GLRO(dl_profile) != NULL && GLRO(dl_profile_output) == NULL)
++    {
++      _dl_error_printf ("\
++warning: LD_PROFILE ignored because LD_PROFILE_OUTPUT not specified\n");
++      GLRO(dl_profile) = NULL;
++    }
+ }
+ 
+ #if HP_TIMING_INLINE
