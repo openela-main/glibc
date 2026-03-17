@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.27
+Release: %{glibcrelease}.31
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1295,6 +1295,10 @@ Patch1060: glibc-RHEL-72011-5.patch
 Patch1061: glibc-RHEL-72011-6.patch
 Patch1062: glibc-RHEL-72011-7.patch
 Patch1063: glibc-RHEL-72011-8.patch
+Patch1064: glibc-RHEL-141849.patch
+Patch1065: glibc-RHEL-142194.patch
+Patch1066: glibc-RHEL-142787-1.patch
+Patch1067: glibc-RHEL-142787-2.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2956,6 +2960,18 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Mon Jan 26 2026 Florian Weimer  <fweimer@redhat.com> - 2.28-251.31
+- CVE-2025-15281: wordexp WRDE_REUSE uninitialized memory read (RHEL-142787)
+
+* Mon Jan 19 2026 Florian Weimer  <fweimer@redhat.com> - 2.28-251.30
+- Remove default /var/tmp for LD_PROFILE_OUTPUT (RHEL-142194)
+
+* Mon Jan 19 2026 Florian Weimer  <fweimer@redhat.com> - 2.28-251.29
+- rpminspect.yaml: note that glibc-minimal-langpack is empty (RHEL-123889)
+
+* Fri Jan 16 2026 Florian Weimer  <fweimer@redhat.com> - 2.28-251.28
+- CVE-2026-0915: Stack memory disclosure in getnetbyaddr (RHEL-141849)
+
 * Thu Nov 20 2025 Arjun Shankar <arjun@redhat.com> - 2.28-251.27
 - Fix a segmentation fault in multi-threaded multi-namespace programs using
   ctype.h macros (RHEL-72011)
