@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.31
+Release: %{glibcrelease}.34
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1299,6 +1299,30 @@ Patch1064: glibc-RHEL-141849.patch
 Patch1065: glibc-RHEL-142194.patch
 Patch1066: glibc-RHEL-142787-1.patch
 Patch1067: glibc-RHEL-142787-2.patch
+Patch1068: glibc-RHEL-24169-1.patch
+Patch1069: glibc-RHEL-24169-2.patch
+Patch1070: glibc-RHEL-24169-3.patch
+Patch1071: glibc-RHEL-24169-4.patch
+Patch1072: glibc-RHEL-24169-5.patch
+Patch1073: glibc-RHEL-24169-6.patch
+Patch1074: glibc-RHEL-24169-7.patch
+Patch1075: glibc-RHEL-24169-8.patch
+Patch1076: glibc-RHEL-24169-9.patch
+Patch1077: glibc-RHEL-24169-10.patch
+Patch1078: glibc-RHEL-24169-11.patch
+Patch1079: glibc-RHEL-24169-12.patch
+Patch1080: glibc-RHEL-24169-13.patch
+Patch1081: glibc-RHEL-24169-14.patch
+Patch1082: glibc-RHEL-24169-15.patch
+Patch1083: glibc-RHEL-24169-16.patch
+Patch1084: glibc-RHEL-24169-17.patch
+Patch1085: glibc-RHEL-24169-18.patch
+Patch1086: glibc-RHEL-24169-19.patch
+Patch1087: glibc-RHEL-24169-20.patch
+Patch1088: glibc-RHEL-24169-21.patch
+Patch1089: glibc-RHEL-24169-22.patch
+Patch1090: glibc-RHEL-137185.patch
+Patch1091: glibc-RHEL-140104.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2960,6 +2984,15 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Wed Apr 15 2026 Patsy Griffin <patsy@redhat.com> - 2.28-251.34
+- Update locales for Croatia to use EUR as currency symbol. (RHEL-140104)
+
+* Mon Apr 13 2026 Patsy Griffin <patsy@redhat.com> - 2.28-251.33
+- Change the currency symbol for the bg_BG locale to euro. (RHEL-137185)
+
+* Wed Apr 01 2026 Patsy Griffin <patsy@redhat.com> - 2.28-251.32
+- Improve qsort implementation (RHEL-24169)
+
 * Mon Jan 26 2026 Florian Weimer  <fweimer@redhat.com> - 2.28-251.31
 - CVE-2025-15281: wordexp WRDE_REUSE uninitialized memory read (RHEL-142787)
 
