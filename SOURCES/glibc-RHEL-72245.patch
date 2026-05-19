@@ -1,0 +1,151 @@
+commit cb4692ce1edd5a81c2521de49dfef6125141d1c7
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Dec 27 09:17:41 2024 +0100
+
+    libio: asprintf should write NULL upon failure
+    
+    This was suggested most recently by Solar Designer, noting
+    that code replacing vsprintf with vasprintf in a security fix
+    was subtly wrong:
+    
+      Re: GStreamer Security Advisory 2024-0003: Orc compiler
+      stack-based buffer overflow
+      <https://www.openwall.com/lists/oss-security/2024/07/26/2>
+    
+    Previous libc-alpha discussions:
+    
+      I: [PATCH] asprintf error handling fix
+      <https://inbox.sourceware.org/libc-alpha/20011205185828.GA8376@ldv.office.alt-linux.org/>
+    
+      asprintf() issue
+      <https://inbox.sourceware.org/libc-alpha/CANSoFxt-cdc-+C4u-rTENMtY4X9RpRSuv+axDswSPxbDgag8_Q@mail.gmail.com/>
+    
+    I don't think we need a compatibility symbol for this.  As the
+    GStreamer example shows, this change is much more likely to fix bugs
+    than cause compatibility issues.
+    
+    Suggested-by: Dmitry V. Levin <ldv@altlinux.org>
+    Suggested-by: Archie Cobbs <archie.cobbs@gmail.com>
+    Suggested-by: Solar Designer <solar@openwall.com>
+    Reviewed-by: Sam James <sam@gentoo.org>
+
+Conflicts:
+	libio/Makefile
+	  (Test differences)
+	libio/vasprintf.c
+	  (Adjust for missing change downstream:
+	  "libio: Convert __vasprintf_internal to buffers")
+
+diff --git a/libio/Makefile b/libio/Makefile
+index 1d2a7fd8ba1d06c7..9751a6f82ea80bdc 100644
+--- a/libio/Makefile
++++ b/libio/Makefile
+@@ -69,6 +69,7 @@ tests = \
+   bug-wmemstream1 \
+   bug-wsetpos \
+   test-fmemopen \
++  tst-asprintf-null \
+   tst-atime \
+   tst-bz22415 \
+   tst-bz24051 \
+diff --git a/libio/tst-asprintf-null.c b/libio/tst-asprintf-null.c
+new file mode 100644
+index 0000000000000000..1eebeb200f9d41e6
+--- /dev/null
++++ b/libio/tst-asprintf-null.c
+@@ -0,0 +1,51 @@
++/* Test that asprintf sets the buffer pointer to NULL on failure.
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <errno.h>
++#include <stdio.h>
++#include <support/check.h>
++#include <sys/resource.h>
++
++static int
++do_test (void)
++{
++  static const char sentinel[] = "sentinel";
++  char *buf = (char *) sentinel;
++  {
++    /* Avoid -Wformat-overflow warning.  */
++    const char *volatile format = "%2000000000d %2000000000d";
++    TEST_COMPARE (asprintf (&buf, format, 1, 2), -1);
++  }
++  if (errno != ENOMEM)
++    TEST_COMPARE (errno, EOVERFLOW);
++  TEST_VERIFY (buf == NULL);
++
++  /* Force ENOMEM in the test below.  */
++  struct rlimit rl;
++  TEST_COMPARE (getrlimit (RLIMIT_AS, &rl), 0);
++  rl.rlim_cur = 10 * 1024 * 1024;
++  TEST_COMPARE (setrlimit (RLIMIT_AS, &rl), 0);
++
++  buf = (char *) sentinel;
++  TEST_COMPARE (asprintf (&buf, "%20000000d", 1), -1);
++  TEST_COMPARE (errno, ENOMEM);
++  TEST_VERIFY (buf == NULL);
++  return 0;
++}
++
++#include <support/test-driver.c>
+diff --git a/libio/vasprintf.c b/libio/vasprintf.c
+index c9a09c11c8ca51db..c7d1d933a3a00b4e 100644
+--- a/libio/vasprintf.c
++++ b/libio/vasprintf.c
+@@ -44,7 +44,10 @@ __vasprintf_internal (char **result_ptr, const char *format, va_list args,
+      we know we will never seek on the stream.  */
+   string = (char *) malloc (init_string_size);
+   if (string == NULL)
+-    return -1;
++    {
++      *result_ptr = NULL;
++      return -1;
++    }
+ #ifdef _IO_MTSAFE_IO
+   sf._sbf._f._lock = NULL;
+ #endif
+@@ -58,6 +61,7 @@ __vasprintf_internal (char **result_ptr, const char *format, va_list args,
+   if (ret < 0)
+     {
+       free (sf._sbf._f._IO_buf_base);
++      *result_ptr = NULL;
+       return ret;
+     }
+   /* Only use realloc if the size we need is of the same (binary)
+diff --git a/manual/stdio.texi b/manual/stdio.texi
+index 01fa2d0ffdbd6f5f..90e720aeebc8142c 100644
+--- a/manual/stdio.texi
++++ b/manual/stdio.texi
+@@ -2536,7 +2536,14 @@ Allocation}) to hold the output, instead of putting the output in a
+ buffer you allocate in advance.  The @var{ptr} argument should be the
+ address of a @code{char *} object, and a successful call to
+ @code{asprintf} stores a pointer to the newly allocated string at that
+-location.
++location.  Current and future versions of @theglibc{} write a null
++pointer to @samp{*@var{ptr}} upon failure.  To achieve similar
++behavior with previous versions, initialize @samp{*@var{ptr}} to a
++null pointer before calling @code{asprintf}.  (Specifications for
++@code{asprintf} only require a valid pointer value in
++@samp{*@var{ptr}} if @code{asprintf} succeeds, but no implementations
++are known which overwrite a null pointer with a pointer that cannot be
++freed on failure.)
+ 
+ The return value is the number of characters allocated for the buffer, or
+ less than zero if an error occurred.  Usually this means that the buffer

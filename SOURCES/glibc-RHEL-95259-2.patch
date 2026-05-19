@@ -1,0 +1,26 @@
+commit 41d6461484d6d456fb07f495fb595e06b44758c4
+Author: Andreas K. Hüttel <dilfridge@gentoo.org>
+Date:   Sat Jun 15 15:41:22 2024 +0200
+
+    manual: minor language fix (bz 31340)
+    
+    Resolves: https://sourceware.org/bugzilla/show_bug.cgi?id=31340
+    Signed-off-by: Andreas K. Hüttel <dilfridge@gentoo.org>
+
+Conflicts
+	manual/resource.texi
+	  line numbers
+
+diff --git a/manual/resource.texi b/manual/resource.texi
+index 37462abc9e..c9b21dedeb 100644
+--- a/manual/resource.texi
++++ b/manual/resource.texi
+@@ -1321,7 +1321,7 @@ nice (int increment)
+ On a multi-processor system the operating system usually distributes
+ the different processes which are runnable on all available CPUs in a
+ way which allows the system to work most efficiently.  Which processes
+-and threads run can be to some extend be control with the scheduling
++and threads run can to some extend be controlled with the scheduling
+ functionality described in the last sections.  But which CPU finally
+ executes which process or thread is not covered.
+ 

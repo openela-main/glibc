@@ -1,0 +1,154 @@
+commit dc1e5eeb25c4bcb1cc0c883a2d67cf93eb252478
+Author: Andreas Schwab <schwab@suse.de>
+Date:   Tue May 31 13:09:38 2022 +0200
+
+    x86_64: Optimize sincos where sin/cos is optimized (bug 29193)
+    
+    The compiler may substitute calls to sin or cos with calls to sincos, thus
+    we should have the same optimized implementations for sincos.  The
+    optimized implementations may produce results that differ, that also makes
+    sure that the sincos call aggrees with the sin and cos calls.
+
+diff --git a/sysdeps/ieee754/dbl-64/s_sincos.c b/sysdeps/ieee754/dbl-64/s_sincos.c
+index a4a521d74227c06d..afd4179b9c04b932 100644
+--- a/sysdeps/ieee754/dbl-64/s_sincos.c
++++ b/sysdeps/ieee754/dbl-64/s_sincos.c
+@@ -25,10 +25,15 @@
+ #include <math-underflow.h>
+ #include <libm-alias-double.h>
+ 
++#ifndef SECTION
++# define SECTION
++#endif
++
+ #define IN_SINCOS
+ #include "s_sin.c"
+ 
+ void
++SECTION
+ __sincos (double x, double *sinx, double *cosx)
+ {
+   mynumber u;
+@@ -101,4 +106,6 @@ __sincos (double x, double *sinx, double *cosx)
+ 
+   *sinx = *cosx = x / x;
+ }
++#ifndef __sincos
+ libm_alias_double (__sincos, sincos)
++#endif
+diff --git a/sysdeps/x86_64/fpu/multiarch/Makefile b/sysdeps/x86_64/fpu/multiarch/Makefile
+index d425ffd6d32e13ed..4d00a27988073c40 100644
+--- a/sysdeps/x86_64/fpu/multiarch/Makefile
++++ b/sysdeps/x86_64/fpu/multiarch/Makefile
+@@ -10,7 +10,8 @@ libm-sysdep_routines += s_ceil-sse4_1 s_ceilf-sse4_1 s_floor-sse4_1 \
+ 			s_trunc-sse4_1 s_truncf-sse4_1
+ 
+ libm-sysdep_routines += e_exp-fma e_log-fma e_pow-fma s_atan-fma \
+-			e_asin-fma e_atan2-fma s_sin-fma s_tan-fma
++			e_asin-fma e_atan2-fma s_sin-fma s_tan-fma \
++			s_sincos-fma
+ 
+ CFLAGS-e_asin-fma.c = -mfma -mavx2
+ CFLAGS-e_atan2-fma.c = -mfma -mavx2
+@@ -20,6 +21,7 @@ CFLAGS-e_pow-fma.c = -mfma -mavx2
+ CFLAGS-s_atan-fma.c = -mfma -mavx2
+ CFLAGS-s_sin-fma.c = -mfma -mavx2
+ CFLAGS-s_tan-fma.c = -mfma -mavx2
++CFLAGS-s_sincos-fma.c = -mfma -mavx2
+ 
+ libm-sysdep_routines += s_sinf-sse2 s_cosf-sse2 s_sincosf-sse2
+ 
+@@ -36,7 +38,8 @@ CFLAGS-s_cosf-fma.c = -mfma -mavx2
+ CFLAGS-s_sincosf-fma.c = -mfma -mavx2
+ 
+ libm-sysdep_routines += e_exp-fma4 e_log-fma4 e_pow-fma4 s_atan-fma4 \
+-			e_asin-fma4 e_atan2-fma4 s_sin-fma4 s_tan-fma4
++			e_asin-fma4 e_atan2-fma4 s_sin-fma4 s_tan-fma4 \
++			s_sincos-fma4
+ 
+ CFLAGS-e_asin-fma4.c = -mfma4
+ CFLAGS-e_atan2-fma4.c = -mfma4
+@@ -46,9 +49,11 @@ CFLAGS-e_pow-fma4.c = -mfma4
+ CFLAGS-s_atan-fma4.c = -mfma4
+ CFLAGS-s_sin-fma4.c = -mfma4
+ CFLAGS-s_tan-fma4.c = -mfma4
++CFLAGS-s_sincos-fma4.c = -mfma4
+ 
+ libm-sysdep_routines += e_exp-avx e_log-avx s_atan-avx \
+-			e_atan2-avx s_sin-avx s_tan-avx
++			e_atan2-avx s_sin-avx s_tan-avx \
++			s_sincos-avx
+ 
+ CFLAGS-e_atan2-avx.c = -msse2avx -DSSE2AVX
+ CFLAGS-e_exp-avx.c = -msse2avx -DSSE2AVX
+@@ -56,6 +61,7 @@ CFLAGS-e_log-avx.c = -msse2avx -DSSE2AVX
+ CFLAGS-s_atan-avx.c = -msse2avx -DSSE2AVX
+ CFLAGS-s_sin-avx.c = -msse2avx -DSSE2AVX
+ CFLAGS-s_tan-avx.c = -msse2avx -DSSE2AVX
++CFLAGS-s_sincos-avx.c = -msse2avx -DSSE2AVX
+ endif
+ 
+ ifeq ($(subdir),mathvec)
+diff --git a/sysdeps/x86_64/fpu/multiarch/s_sincos-avx.c b/sysdeps/x86_64/fpu/multiarch/s_sincos-avx.c
+new file mode 100644
+index 0000000000000000..debea0f619ab1062
+--- /dev/null
++++ b/sysdeps/x86_64/fpu/multiarch/s_sincos-avx.c
+@@ -0,0 +1,3 @@
++#define __sincos __sincos_avx
++#define SECTION __attribute__ ((section (".text.avx")))
++#include <sysdeps/ieee754/dbl-64/s_sincos.c>
+diff --git a/sysdeps/x86_64/fpu/multiarch/s_sincos-fma.c b/sysdeps/x86_64/fpu/multiarch/s_sincos-fma.c
+new file mode 100644
+index 0000000000000000..31610b335613500e
+--- /dev/null
++++ b/sysdeps/x86_64/fpu/multiarch/s_sincos-fma.c
+@@ -0,0 +1,3 @@
++#define __sincos __sincos_fma
++#define SECTION __attribute__ ((section (".text.fma")))
++#include <sysdeps/ieee754/dbl-64/s_sincos.c>
+diff --git a/sysdeps/x86_64/fpu/multiarch/s_sincos-fma4.c b/sysdeps/x86_64/fpu/multiarch/s_sincos-fma4.c
+new file mode 100644
+index 0000000000000000..7e8b8e64846a9b96
+--- /dev/null
++++ b/sysdeps/x86_64/fpu/multiarch/s_sincos-fma4.c
+@@ -0,0 +1,3 @@
++#define __sincos __sincos_fma4
++#define SECTION __attribute__ ((section (".text.fma4")))
++#include <sysdeps/ieee754/dbl-64/s_sincos.c>
+diff --git a/sysdeps/x86_64/fpu/multiarch/s_sincos.c b/sysdeps/x86_64/fpu/multiarch/s_sincos.c
+new file mode 100644
+index 0000000000000000..67c2817d688379ab
+--- /dev/null
++++ b/sysdeps/x86_64/fpu/multiarch/s_sincos.c
+@@ -0,0 +1,30 @@
++/* Multiple versions of sincos.
++   Copyright (C) 2017-2022 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <libm-alias-double.h>
++
++extern void __redirect_sincos (double, double *, double *);
++
++#define SYMBOL_NAME sincos
++#include "ifunc-fma4.h"
++
++libc_ifunc_redirected (__redirect_sincos, __sincos, IFUNC_SELECTOR ());
++libm_alias_double (__sincos, sincos)
++
++#define __sincos __sincos_sse2
++#include <sysdeps/ieee754/dbl-64/s_sincos.c>

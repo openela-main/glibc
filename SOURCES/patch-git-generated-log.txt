@@ -1,168 +1,357 @@
-commit 56deb46380448bca50f02be99f51a5467aa24030
+commit eae38d8010e461f8f0d4a9ec27080eb89bc2e6fe
 Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Thu Jan 29 14:17:01 2026 +0100
+AuthorDate: Thu Feb 12 15:17:05 2026 +0100
 Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Thu Jan 29 14:17:01 2026 +0100
+CommitDate: Fri Feb 13 07:20:22 2026 +0000
 
-    Handle FUSE_GETXATTR during FUSE FS mount in tests (RHEL-145151)
+    CVE-2026-0915: Stack memory disclosure in getnetbyaddr
     
-    Resolves: RHEL-145151
+    Resolves: RHEL-141850
 
-:000000 100644 00000000 ee16c69b A	glibc-RHEL-145151.patch
+:000000 100644 00000000 1d3cf7f3 A	glibc-RHEL-141850.patch
 
-commit 0a09c16368e4e8fb2101cd6ed60618a79e479aab
+commit 949d465bf8b7390fe9f8f723597f0f1cdffc00a2
 Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Tue Jan 27 11:32:03 2026 +0100
+AuthorDate: Thu Feb 12 15:21:33 2026 +0100
 Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Tue Jan 27 11:32:03 2026 +0100
+CommitDate: Thu Feb 12 19:34:58 2026 +0000
 
-    CVE-2025-15281: wordexp WRDE_REUSE uninitialized memory read (RHEL-144079)
+    CVE-2026-0861: Check for alignment overflow in memalign functions
     
-    Resolves: RHEL-144079
+    Resolves: RHEL-141739
 
-:000000 100644 00000000 be5ed54a A	glibc-RHEL-144079-1.patch
-:000000 100644 00000000 b459da17 A	glibc-RHEL-144079-2.patch
+:000000 100644 00000000 98fe129e A	glibc-RHEL-141739.patch
 
-commit 22c0310693412fd065c0411c90678a5845ab3f32
+commit 9520284df9ed49d3e5df2e861baa2990be584656
 Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Mon Jan 19 22:38:03 2026 +0100
+AuthorDate: Thu Feb 12 15:11:11 2026 +0100
 Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Tue Jan 20 21:50:10 2026 +0100
+CommitDate: Thu Feb 12 15:11:32 2026 +0100
 
-    Ignore LD_PROFILE in SUID binaries (RHEL-142195)
+    CVE-2025-15281: wordexp WRDE_REUSE uninitialized memory read
     
-    This is required to make the previous change effective.
+    Resolves: RHEL-142788
+
+:000000 100644 00000000 be5ed54a A	glibc-RHEL-142788-1.patch
+:000000 100644 00000000 b459da17 A	glibc-RHEL-142788-2.patch
+
+commit a4f5c93ccf6366e83ef12d55d1191d7dbd351fb4
+Author:     Arjun Shankar <arjun@redhat.com>
+AuthorDate: Wed Feb 11 10:41:15 2026 +0100
+Commit:     Arjun Shankar <arjun@redhat.com>
+CommitDate: Wed Feb 11 10:41:15 2026 +0100
+
+    Set the currency symbol in Bulgarian locale to euro (RHEL-137186)
     
-    Resolves: RHEL-142195
+    Resolves: RHEL-137186
 
-:000000 100644 00000000 fa52d55f A	glibc-RHEL-142194-2.patch
-:000000 100644 00000000 f22de711 A	glibc-RHEL-142194-3.patch
+:000000 100644 00000000 08b03810 A	glibc-RHEL-137186.patch
 
-commit d931b2849ec1e63c65177bfb9aaf8c2a7624641f
+commit 7da8fd8c51dab268299ddbadcf50818b3f6b59b0
 Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Mon Jan 19 09:15:30 2026 +0100
+AuthorDate: Tue Jan 27 13:44:40 2026 +0100
 Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Mon Jan 19 09:15:30 2026 +0100
+CommitDate: Fri Feb 6 15:07:29 2026 +0000
 
-    Remove default /var/tmp for LD_PROFILE_OUTPUT (RHEL-142195)
+    patch-git: Add --no-decorate to git log invocation (RHEL-141925)
     
-    Resolves: RHEL-142195
-
-:000000 100644 00000000 8f2ee5c7 A	glibc-RHEL-142194.patch
-
-commit c0e43e2f2d5018440cec50e6cf51d5ad84c86d52
-Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Fri Jan 16 15:04:59 2026 +0100
-Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Fri Jan 16 15:04:59 2026 +0100
-
-    CVE-2026-0915: Stack memory disclosure in getnetbyaddr (RHEL-141851)
+    Sync patch-git git log invocation with konflux-ci/rpmbuild-pipeline-environment-container,
+    specifically this commit:
     
-    Resolves: RHEL-141851
+    commit 5753986ec0689bd83d8fd40f179186a1aa99ed9a
+    Author: Pavel Raiskup <pavel@raiskup.cz>
+    Date:   Fri Dec 19 15:25:01 2025 +0100
+    
+        Add patch-git support
+    
+        Follow the instructions in https://github.com/konflux-ci/rpmbuild-pipeline/issues/112
+    
+    <https://github.com/konflux-ci/rpmbuild-pipeline-environment-container/commit/5753986ec0689bd83d8fd40f179186a1aa99ed9a>
+    
+    Resolves: RHEL-141925
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
 
-:000000 100644 00000000 1d3cf7f3 A	glibc-RHEL-141851.patch
+:100644 100644 2ae7888a a362dd39 M	patch-git.lua
 
-commit 930b24e88d549ee514a7dcfff44ecc298fecf5eb
-Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Fri Jan 16 14:57:11 2026 +0100
-Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Fri Jan 16 14:57:51 2026 +0100
+commit 89305a5e300135bafb80a7ba47d9ce3b2eceb0c5
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Thu Feb 5 11:43:13 2026 -0500
+Commit:     pfrankli <pfrankli@redhat.com>
+CommitDate: Thu Feb 5 18:21:14 2026 +0000
 
-    patch-git: Avoid trailing tabs in changelog (RHEL-141921)
+    Document that GPLv3 files are present among the sources
+    
+    Resolves: RHEL-127529
+
+:000000 100644 00000000 533d4222 A	glibc-RHEL-127529.patch
+:100644 100644 291afe19 54e9fb1c M	glibc.spec
+
+commit 86738b0e3216588b95c7b370456ba628807300e8
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Sun Feb 1 22:21:01 2026 -0500
+Commit:     pfrankli <pfrankli@redhat.com>
+CommitDate: Mon Feb 2 19:59:33 2026 +0000
+
+    Backport CFLAGS changes for power10 multilib and fix a related test (RHEL-32737)
+    commit b3da3b4101b07800eafc05d9bfb5b7454a3c3f05 ("Rewrite flags inheritance in Lua") from c10s
+    
+    Resolves: RHEL-32737
+
+:000000 100644 00000000 002681cb A	glibc-RHEL-32737.patch
+:100644 100644 ce4f37dc 291afe19 M	glibc.spec
+
+commit 8b7a57810652225f563da999cb74f32e1797eb0c
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Mon Jan 26 20:08:27 2026 -0500
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Mon Jan 26 20:13:10 2026 -0500
+
+    patch-git: Avoid trailing tabs in changelog (RHEL-140227)
     
     The RPM Lua function print puts tabs between its arguments.
     
-    Resolves: RHEL-141921
+    Resolves: RHEL-140227
 
 :100644 100644 c975eb75 2ae7888a M	patch-git.lua
 
-commit 57e8ed6766ccca6decdfb5cc254624ffe78e9918
+commit ddbe2358d138425620b4c302a2648aeba1ae8a6a
 Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Fri Jan 16 13:57:34 2026 +0100
+AuthorDate: Wed Dec 17 10:11:26 2025 +0100
 Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Fri Jan 16 14:27:17 2026 +0100
+CommitDate: Tue Jan 20 11:27:57 2026 +0000
 
-    CVE-2026-0861: Check for alignment overflow in memalign functions (RHEL-141738)
+    x86-64: Additional math routines optimizes with FMA
     
-    Resolves: RHEL-141738
+    Resolves: RHEL-1063
 
-:000000 100644 00000000 98fe129e A	glibc-RHEL-141738.patch
+:000000 100644 00000000 d95530d1 A	glibc-RHEL-1063-1.patch
+:000000 100644 00000000 3eee7d2a A	glibc-RHEL-1063-10.patch
+:000000 100644 00000000 0e5c8fe9 A	glibc-RHEL-1063-11.patch
+:000000 100644 00000000 9a0aa5b1 A	glibc-RHEL-1063-12.patch
+:000000 100644 00000000 6af3ba4d A	glibc-RHEL-1063-13.patch
+:000000 100644 00000000 6e70e267 A	glibc-RHEL-1063-14.patch
+:000000 100644 00000000 647b8cf6 A	glibc-RHEL-1063-15.patch
+:000000 100644 00000000 4c1700bd A	glibc-RHEL-1063-16.patch
+:000000 100644 00000000 3b1dab06 A	glibc-RHEL-1063-17.patch
+:000000 100644 00000000 0bb6044b A	glibc-RHEL-1063-18.patch
+:000000 100644 00000000 5f26cb51 A	glibc-RHEL-1063-2.patch
+:000000 100644 00000000 b5fcd46b A	glibc-RHEL-1063-3.patch
+:000000 100644 00000000 ce4f14ce A	glibc-RHEL-1063-4.patch
+:000000 100644 00000000 45dd3e35 A	glibc-RHEL-1063-5.patch
+:000000 100644 00000000 5c1e0193 A	glibc-RHEL-1063-6.patch
+:000000 100644 00000000 8129ef4c A	glibc-RHEL-1063-7.patch
+:000000 100644 00000000 f222d268 A	glibc-RHEL-1063-8.patch
+:000000 100644 00000000 fb14931c A	glibc-RHEL-1063-9.patch
 
-commit c0696b434e75e63edff714cd743ba757093ee7d2
+commit b7e6283f1a962d6d0d642553628494dbd4e1c96f
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Fri Jan 9 10:21:49 2026 -0500
+Commit:     Patsy Griffin <patsy@redhat.com>
+CommitDate: Tue Jan 13 08:27:02 2026 -0500
+
+    misc: Add support for Linux uio.h RWF_ATOMIC and RWF_NOAPPEND flags
+    
+    Resolves: RHEL-87646
+
+:000000 100644 00000000 f195e7e8 A	glibc-RHEL-87646-1.patch
+:000000 100644 00000000 83ec4c47 A	glibc-RHEL-87646-2.patch
+:000000 100644 00000000 20c855c1 A	glibc-RHEL-87646-3.patch
+
+commit 06d55fdb46d6ed4f1ba6bcd22677f3773717cf20
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Mon Dec 15 19:23:30 2025 -0500
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Tue Dec 16 13:45:36 2025 -0500
+
+    Remove unneeded ld-linux .debug files (RHEL-27851)
+    
+    Resolves: RHEL-27851
+
+:100644 100644 5257de7c 7bc79aa2 M	wrap-find-debuginfo.sh
+
+commit fe0a9b0cabda67b359a31f062ebfe577636dc18f
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Thu Dec 11 22:11:58 2025 -0500
+Commit:     Patsy Griffin <patsy@redhat.com>
+CommitDate: Thu Dec 11 22:11:58 2025 -0500
+
+    string: Add tests for unique strerror and strsignal strings (RHEL-109758)
+    
+    Resolves: RHEL-109758
+
+:000000 100644 00000000 6bf25c1f A	glibc-RHEL-109758.patch
+
+commit 78fb5257b7c766e9829c5e5d214303365344e571
 Author:     Florian Weimer <fweimer@redhat.com>
 AuthorDate: Thu Nov 27 16:49:34 2025 +0100
 Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Sat Dec 6 16:03:38 2025 +0100
+CommitDate: Sat Dec 6 12:54:45 2025 +0100
 
     patch-git: Do not require directory names in Lua patches table
     
     RPM 6.0.0 does not put the source directory prefix there anymore.
     
-    Resolves: RHEL-134108
+    Resolves: RHEL-134109
     RPM-Changelog: -
     RPM-Skip-Release: yes
 
 :100644 100644 04cb0612 c975eb75 M	patch-git.lua
 
-commit 93a7b9082a4dfa980df60daf8eb8fa3f1b83b159
+commit d6294856324abaab9e132d20fbfa1e8413027230
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Tue Nov 25 16:23:25 2025 -0500
+Commit:     Patsy Griffin <patsy@redhat.com>
+CommitDate: Tue Dec 2 17:37:11 2025 -0500
+
+    Move ANSI_X3.110-1983 support from main package to glibc-gconv-extra.
+    Include iconvdata: fix invalid pointer arithmetic in ANSI_X3.110 module. (RHEL-41205)
+    
+    Resolves: RHEL-41205
+
+:000000 100644 00000000 8ed15bb5 A	glibc-RHEL-41205.patch
+:100644 100644 bd5424d6 ce4f37dc M	glibc.spec
+
+commit 58ede251185f0daa9173f673858b6fbf026403b2
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Mon Nov 17 13:15:41 2025 +0100
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Mon Nov 17 16:08:01 2025 +0100
+
+    x86-64: Add GLIBC_ABI_DT_X86_64_PLT version to enable DT_X86_64_PLT compatibility. (RHEL-109622)
+    
+    Resolves: RHEL-109622
+
+:000000 100644 00000000 fd08eca6 A	glibc-RHEL-109622.patch
+
+commit 9f5411077474af4b8bf39d3e8262439e37168a9a
 Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Tue Nov 11 20:16:03 2025 +0100
+AuthorDate: Mon Nov 17 10:55:37 2025 +0100
 Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Sat Dec 6 16:03:01 2025 +0100
+CommitDate: Mon Nov 17 10:55:37 2025 +0100
 
     patch-git: Support git worktree
     
     After “git worktree”, .git is a text file, not a directory.
     
-    Resolves: RHEL-127593
-    RPM-Changelog: -
-    RPM-Skip-Release: yes
+    Resolves: RHEL-127594
 
 :100644 100644 f95800e1 04cb0612 M	patch-git.lua
 
-commit 583e20a8c0b64e9e02abb1e37b625bed55035fd1
-Author:     Florian Weimer <fweimer@redhat.com>
-AuthorDate: Thu Oct 16 08:48:13 2025 +0200
-Commit:     Florian Weimer <fweimer@redhat.com>
-CommitDate: Tue Nov 11 20:09:20 2025 +0100
-
-    patch-git: Add auto-generated/ prefix to Source: files
-    
-    This suppresses a centpkg pre-push-check failure.
-    
-    Resolves: RHEL-126050
-
-:100644 100644 04f201b8 f95800e1 M	patch-git.lua
-
-commit bca5140d2048565256b4f2528068749ba6a9e2fc
+commit 95249e2082ec7c935d599805ccea83682f1c510d
 Author:     DJ Delorie <dj@redhat.com>
 AuthorDate: Mon Oct 13 22:20:35 2025 -0400
-Commit:     DJ Delorie <dj@redhat.com>
-CommitDate: Mon Oct 13 22:20:35 2025 -0400
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Thu Nov 13 09:53:30 2025 +0100
 
-    rpminspect.yaml: note that glibc-minimal-langpack is empty (RHEL-118847)
+    rpminspect.yaml: note that glibc-minimal-langpack is empty
     
     This fixes the "continues to be empty" VERIFY from rpminspect.
     
     Support for this was added by:
     https://github.com/rpminspect/rpminspect/issues/1518
     
-    Resolves: RHEL-116641
-    RPM-Changelog: -
-    RPM-Skip-Release: yes
+    Resolves: RHEL-118846
 
 :100644 100644 209d25db 214d07ba M	rpminspect.yaml
 
-commit 816c61b8558c2c34f1f2dd3cb447f9e5bfd127b7
+commit 1335d209f380fbfd4b554a6392c49be9117d5c81
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Thu Oct 16 08:48:13 2025 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Tue Nov 11 20:04:43 2025 +0100
+
+    patch-git: Add auto-generated/ prefix to Source: files
+    
+    This suppresses a centpkg pre-push-check failure.
+    
+    Resolves: RHEL-126051
+
+:100644 100644 04f201b8 f95800e1 M	patch-git.lua
+
+commit 420da6862a8f645f9bdc563163f00d56b88e7f72
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Mon Nov 3 22:56:29 2025 -0500
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Mon Nov 3 22:56:29 2025 -0500
+
+    Minor documentation improvements (RHEL-95259)
+    
+    Resolves: RHEL-95259
+
+:000000 100644 00000000 fd961417 A	glibc-RHEL-95259-1.patch
+:000000 100644 00000000 18d8ddb9 A	glibc-RHEL-95259-10.patch
+:000000 100644 00000000 55be8462 A	glibc-RHEL-95259-11.patch
+:000000 100644 00000000 0a1c55d2 A	glibc-RHEL-95259-12.patch
+:000000 100644 00000000 ad68de71 A	glibc-RHEL-95259-13.patch
+:000000 100644 00000000 3054c48c A	glibc-RHEL-95259-2.patch
+:000000 100644 00000000 148b76af A	glibc-RHEL-95259-3.patch
+:000000 100644 00000000 65b57f19 A	glibc-RHEL-95259-4.patch
+:000000 100644 00000000 6b5fb9cd A	glibc-RHEL-95259-5.patch
+:000000 100644 00000000 3280e4f3 A	glibc-RHEL-95259-6.patch
+:000000 100644 00000000 6887c60f A	glibc-RHEL-95259-7.patch
+:000000 100644 00000000 4bceeb84 A	glibc-RHEL-95259-8.patch
+:000000 100644 00000000 aaf6929f A	glibc-RHEL-95259-9.patch
+
+commit b69345d750261a03b06e0e8c62c2929a0a823625
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Tue Oct 28 15:53:41 2025 +0100
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Tue Oct 28 15:56:46 2025 +0100
+
+    Document open_memstream implementation-defined SEEK_END behavior (RHEL-61087)
+    
+    Resolves: RHEL-61087
+
+:000000 100644 00000000 1f21851c A	glibc-RHEL-61087.patch
+
+commit 7caf5b3af44c3d3b9a3b187067c59fd5fd604b27
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Thu Oct 16 13:05:13 2025 +0200
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Thu Oct 16 15:13:02 2025 +0200
+
+    Add new socket shutdown test (RHEL-50453)
+    
+    Resolves: RHEL-50453
+
+:000000 100644 00000000 71a394dd A	glibc-RHEL-50453-1.patch
+:000000 100644 00000000 82500150 A	glibc-RHEL-50453-2.patch
+
+commit b4d304b208cef7c67e3b61a58e84e0568ddb2299
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Wed Oct 15 12:14:54 2025 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Wed Oct 15 12:14:54 2025 +0200
+
+    Handle FUSE_GETXATTR during FUSE FS mount in tests (RHEL-121433)
+    
+    Resolves: RHEL-121433
+
+:000000 100644 00000000 ee16c69b A	glibc-RHEL-121433.patch
+
+commit 49e17cb0562064f3c1c2eb91d21aeff971a16813
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Mon Oct 13 15:35:20 2025 -0400
+Commit:     Patsy Griffin <patsy@redhat.com>
+CommitDate: Mon Oct 13 15:35:20 2025 -0400
+
+    nss: Fix incorrect/empty results when merging groups (RHEL-112149)
+    
+    Resolves: RHEL-112149
+
+:000000 100644 00000000 15cf58d4 A	glibc-RHEL-112149.patch
+
+commit 5a90f7a991653db97e26d8ff80526c54d4f25929
 Author:     Arjun Shankar <arjun@redhat.com>
 AuthorDate: Thu Oct 9 15:25:37 2025 +0200
 Commit:     Arjun Shankar <arjun@redhat.com>
-CommitDate: Fri Oct 10 12:39:07 2025 +0200
+CommitDate: Thu Oct 9 15:25:37 2025 +0200
 
-    patch-git: Import from rhel-9-main and turn on (RHEL-117087)
+    patch-git: Import from c10s and turn on (RHEL-117185)
     
     Sync patch-git.lua, CONTRIBUTING.md, .gitignore with
-    commit 5a90f7a991653db97e26d8ff80526c54d4f25929 from rhel-9-main.
+    commit e95aa14bd2498d13b32c4aff9aec547a17acb010 from c10s.
     
     Update glibc.spec to auto-generate version, release patch list,
     and changelog.
@@ -172,53 +361,78 @@ CommitDate: Fri Oct 10 12:39:07 2025 +0200
     410 onwards follow the intra-commit lexicographic order that patch-git
     uses and can therefore be auto-generated by patch-git tooling.
     
-    Resolves: RHEL-117087
-    Parent: 590d6dd6344197dcddaddf272943ab9d81f816f3
+    Resolves: RHEL-117185
+    Parent: e8cd46bcf167c0ccb83df7354c7c7e18eb825bba
     Patch-Git-Version: 1
     RPM-Version: 2.34
-    RPM-Release: 231%{?dist}.2
-    RPM-Branch-Type: zstream
+    RPM-Release: 235%{?dist}
     RPM-Changelog-Stop: yes
 
 :100644 100644 7a730813 b90bfc67 M	.gitignore
 :000000 100644 00000000 dfe9c399 A	CONTRIBUTING.md
-:100644 100644 7b5bb5bc bee8219b M	glibc.spec
+:100644 100644 3effbf06 bd5424d6 M	glibc.spec
 :000000 100644 00000000 04f201b8 A	patch-git.lua
 
-commit 590d6dd6344197dcddaddf272943ab9d81f816f3
-Author:     DJ Delorie <dj@redhat.com>
-AuthorDate: Tue Sep 30 16:23:31 2025 -0400
-Commit:     DJ Delorie <dj@redhat.com>
-CommitDate: Tue Sep 30 16:23:31 2025 -0400
+commit e8cd46bcf167c0ccb83df7354c7c7e18eb825bba
+Author:     Arjun Shankar <arjun@redhat.com>
+AuthorDate: Tue Oct 7 16:03:42 2025 +0200
+Commit:     Arjun Shankar <arjun@redhat.com>
+CommitDate: Tue Oct 7 16:03:42 2025 +0200
 
-    nss: Group merge does not react to ERANGE during merge (RHEL-114262)
+    test-bz22786: Mark UNSUPPORTED on low memory systems (RHEL-91400)
     
-    Resolves: RHEL-114262
+    Resolves: RHEL-91400
 
-:000000 100644 00000000 15cf58d4 A	glibc-RHEL-114262.patch
-:100644 100644 d433745d 7b5bb5bc M	glibc.spec
+:000000 100644 00000000 97d0564c A	glibc-RHEL-91400-1.patch
+:000000 100644 00000000 39e972a4 A	glibc-RHEL-91400-2.patch
+:100644 100644 2d5bd233 3effbf06 M	glibc.spec
 
-commit 2bd223d0aa7673baa3868ae8e76f90c59b363a7a
+commit 45ccc173fc7113a99b8337719496a7d34389926c
+Author:     Patsy Griffin <pfrankli@redhat.com>
+AuthorDate: Thu Oct 2 14:07:29 2025 -0400
+Commit:     Patsy Griffin <pfrankli@redhat.com>
+CommitDate: Thu Oct 2 14:08:31 2025 -0400
+
+    glibc-locale-source: Require gzip to handle compressed charmaps (RHEL-111005)
+    
+    Resolves: RHEL-111005
+
+:100644 100644 7be1b0eb 2d5bd233 M	glibc.spec
+
+commit 69397358262a4791182bd7e7ff4d6776d02823c5
 Author:     Rachel Sibley <rasibley@redhat.com>
-AuthorDate: Thu Sep 4 08:31:41 2025 -0400
+AuthorDate: Wed Sep 3 19:13:48 2025 -0400
 Commit:     Rachel Sibley <rasibley@redhat.com>
-CommitDate: Thu Sep 4 08:31:41 2025 -0400
+CommitDate: Wed Sep 3 19:13:48 2025 -0400
 
-    Update the revdep ci file to include binutils (RHEL-112852)
+    Update the revdep ci file to include binutils (RHEL-112820)
     
-    Resolves: RHEL-112852
+    Resolves: RHEL-112820
 
 :100644 100644 266181ad ac55fb57 M	revdep.yaml
 
-commit fef93eaf2150cd3e08c4828843c9b9cf535e16bb
-Author:     Rachel Sibley <rasibley@redhat.com>
-AuthorDate: Thu Aug 28 17:56:07 2025 -0400
-Commit:     Rachel Sibley <rasibley@redhat.com>
-CommitDate: Thu Aug 28 17:58:57 2025 -0400
+commit 1d21eb187fdd4fc078ee45f5fcc854d5ca480da6
+Author:     Arjun Shankar <arjun@redhat.com>
+AuthorDate: Tue Sep 2 12:25:19 2025 +0200
+Commit:     Arjun Shankar <arjun@redhat.com>
+CommitDate: Tue Sep 2 12:25:19 2025 +0200
 
-    Update the revdep ci file (RHEL-111545)
+    libio: Upon asprintf failure set the string pointer to NULL (RHEL-72245)
     
-    Resolves: RHEL-111545
+    Resolves: RHEL-72245
+
+:000000 100644 00000000 11dedea5 A	glibc-RHEL-72245.patch
+:100644 100644 d433745d 7be1b0eb M	glibc.spec
+
+commit faa64d329c14c150b1f287f02cf8aeb652c03bb6
+Author:     Rachel Sibley <rasibley@redhat.com>
+AuthorDate: Thu Aug 28 11:15:42 2025 -0400
+Commit:     Rachel Sibley <rasibley@redhat.com>
+CommitDate: Thu Aug 28 11:15:42 2025 -0400
+
+    Update the revdep ci file (RHEL-111538)
+    
+    Resolves: RHEL-111538
 
 :100644 100644 c5b2142b 266181ad M	revdep.yaml
 

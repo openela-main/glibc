@@ -1,0 +1,109 @@
+Partial backport of:
+
+commit 4fc321dc58b29217e322526b49549930d0807179
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Fri Jun 24 16:15:42 2022 -0700
+
+    x86: Fix backwards Prefer_No_VZEROUPPER check in ifunc-evex.h
+    
+    Add third argument to X86_ISA_CPU_FEATURES_ARCH_P macro so the runtime
+    CPU_FEATURES_ARCH_P check can be inverted if the
+    MINIMUM_X86_ISA_LEVEL is not high enough to constantly evaluate
+    the check.
+    
+    Use this new macro to correct the backwards check in ifunc-evex.h
+
+Conflicts:
+	sysdeps/x86_64/multiarch/ifunc-evex.h
+	  (skipped; EVEX variant selection not enabled downstream)
+
+diff --git a/sysdeps/x86/isa-ifunc-macros.h b/sysdeps/x86/isa-ifunc-macros.h
+index ba6826d518501396..d69905689b0963ec 100644
+--- a/sysdeps/x86/isa-ifunc-macros.h
++++ b/sysdeps/x86/isa-ifunc-macros.h
+@@ -56,15 +56,31 @@
+ # define X86_IFUNC_IMPL_ADD_V1(...)
+ #endif
+ 
+-#define X86_ISA_CPU_FEATURE_CONST_CHECK_ENABLED(name)                  \
+-  ((name##_X86_ISA_LEVEL) <= MINIMUM_X86_ISA_LEVEL)
++/* Both X86_ISA_CPU_FEATURE_USABLE_P and X86_ISA_CPU_FEATURES_ARCH_P
++   macros are wrappers for the the respective
++   CPU_FEATURE{S}_{USABLE|ARCH}_P runtime checks.  They differ in two
++   ways.
++
++    1.  The USABLE_P version is evaluated to true when the feature
++        is enabled.
++
++    2.  The ARCH_P version has a third argument `not`.  The `not`
++        argument can either be '!' or empty.  If the feature is
++        enabled above an ISA level, the third argument should be empty
++        and the expression is evaluated to true when the feature is
++        enabled.  If the feature is disabled above an ISA level, the
++        third argument should be `!` and the expression is evaluated
++        to true when the feature is disabled.
++ */
+ 
+ #define X86_ISA_CPU_FEATURE_USABLE_P(ptr, name)                        \
+-  (X86_ISA_CPU_FEATURE_CONST_CHECK_ENABLED (name)                      \
++  (((name##_X86_ISA_LEVEL) <= MINIMUM_X86_ISA_LEVEL)                   \
+    || CPU_FEATURE_USABLE_P (ptr, name))
+ 
+-#define X86_ISA_CPU_FEATURES_ARCH_P(ptr, name)                         \
+-  (X86_ISA_CPU_FEATURE_CONST_CHECK_ENABLED (name)                      \
+-   || CPU_FEATURES_ARCH_P (ptr, name))
++
++#define X86_ISA_CPU_FEATURES_ARCH_P(ptr, name, not)                    \
++  (((name##_X86_ISA_LEVEL) <= MINIMUM_X86_ISA_LEVEL)                   \
++   || not CPU_FEATURES_ARCH_P (ptr, name))
++
+ 
+ #endif
+diff --git a/sysdeps/x86/isa-level.h b/sysdeps/x86/isa-level.h
+index 7cae11c2289dd54d..075e7c6ee17777db 100644
+--- a/sysdeps/x86/isa-level.h
++++ b/sysdeps/x86/isa-level.h
+@@ -64,14 +64,8 @@
+ #define MINIMUM_X86_ISA_LEVEL                                                 \
+   (__X86_ISA_V1 + __X86_ISA_V2 + __X86_ISA_V3 + __X86_ISA_V4)
+ 
+-
+-/*
+- * CPU Features that are hard coded as enabled depending on ISA build
+- *   level.
+- *    - Values > 0 features are always ENABLED if:
+- *          Value >= MINIMUM_X86_ISA_LEVEL
+- */
+-
++/* Depending on the minimum ISA level, a feature check result can be a
++   compile-time constant.. */
+ 
+ /* ISA level >= 4 guaranteed includes.  */
+ #define AVX512VL_X86_ISA_LEVEL 4
+@@ -81,18 +75,16 @@
+ #define AVX2_X86_ISA_LEVEL 3
+ #define BMI2_X86_ISA_LEVEL 3
+ 
+-/*
+- * NB: This may not be fully assumable for ISA level >= 3. From
+- * looking over the architectures supported in cpu-features.h the
+- * following CPUs may have an issue with this being default set:
+- *      - AMD Excavator
+- */
++/* NB: This feature is enabled when ISA level >= 3, which was disabled
++   for the following CPUs:
++        - AMD Excavator
++   when ISA level < 3.  */
+ #define AVX_Fast_Unaligned_Load_X86_ISA_LEVEL 3
+ 
+-/*
+- * KNL (the only cpu that sets this supported in cpu-features.h)
+- * builds with ISA V1 so this shouldn't harm any architectures.
+- */
++/* NB: This feature is disabled when ISA level >= 3, which was enabled
++   for the following CPUs:
++        - Intel KNL
++   when ISA level < 3.  */
+ #define Prefer_No_VZEROUPPER_X86_ISA_LEVEL 3
+ 
+ #define ISA_SHOULD_BUILD(isa_build_level)                              \

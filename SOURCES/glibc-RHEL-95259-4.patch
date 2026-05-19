@@ -1,0 +1,36 @@
+commit f47596fcfe32ef96ba9b322a414803b25b8ce608
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Sep 27 11:41:12 2024 +0200
+
+    manual: Document that feof and ferror are mutually exclusive
+    
+    This is not completely clear from the C standard (although there
+    is footnote number 289 in C11), but I assume that our implementation
+    works this way.
+    
+    Reviewed-by: DJ Delorie <dj@redhat.com>
+
+Conflicts:
+	manual/stdio.texi
+	  line numbers
+
+diff --git a/manual/stdio.texi b/manual/stdio.texi
+index 8590ae955a..c7a2b4a9a1 100644
+--- a/manual/stdio.texi
++++ b/manual/stdio.texi
+@@ -4124,6 +4124,15 @@ check indicators that are part of the internal state of the stream
+ object, indicators set if the appropriate condition was detected by a
+ previous I/O operation on that stream.
+ 
++The end of file and error conditions are mutually exclusive.  For a
++narrow oriented stream, end of file is not considered an error.  For
++wide oriented streams, reaching the end of the underlying file can
++result an error if the underlying file ends with an incomplete multibyte
++sequence.  This is reported as an error by @code{ferror}, and not as an
++end of file by @code{feof}.  End of file on wide oriented streams that
++does not fall into the middle of a multibyte sequence is reported via
++@code{feof}.
++
+ @deftypevr Macro int EOF
+ @standards{ISO, stdio.h}
+ This macro is an integer value that is returned by a number of narrow

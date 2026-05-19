@@ -1,0 +1,21 @@
+commit bc4202521c2aaf587690ea6cbb67c22ee578c86e
+Author: Maciej W. Rozycki <macro@redhat.com>
+Date:   Fri May 30 15:01:50 2025 +0100
+
+    manual: Fix duplicate 'consult' erratum
+    
+    Remove 'consult' duplication appearing in Extensible Scheduling section.
+
+diff --git a/manual/resource.texi b/manual/resource.texi
+index 39df1c4cb6..1fd0310c6b 100644
+--- a/manual/resource.texi
++++ b/manual/resource.texi
+@@ -977,7 +977,7 @@ multiple parameters (not just priority and niceness).
+ It is expected that these interfaces will be compatible with all future
+ scheduling policies.
+ 
+-For additional information about scheduling policies, consult consult
++For additional information about scheduling policies, consult
+ the manual pages @manpageurl{sched,7} and @manpageurl{sched_setattr,2}.
+ @xref{Linux Kernel}.
+ 

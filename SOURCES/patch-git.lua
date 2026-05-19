@@ -535,8 +535,8 @@ local function generate_files()
    -- patch depth sorting below).  To include committer dates, use
    -- --pretty=fuller.
    check_git(
-      'log --first-parent --no-renames --raw --pretty=fuller --date=default > '
-      .. git_log_file)
+      'log --first-parent --no-decorate --no-renames --raw --pretty=fuller'
+      .. ' --date=default > ' .. git_log_file)
 
    -- Atomically replace the contents of git_commit_file, confirming that
    -- the new Git log has been written.

@@ -1,0 +1,321 @@
+commit 703f4341083afa7d71987aa96a35eab81309e634
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Wed Jun 22 16:51:19 2022 -0700
+
+    x86: Add defines / utilities for making ISA specific x86 builds
+    
+    1. Factor out some of the ISA level defines in isa-level.c to
+       standalone header isa-level.h
+    
+    2. Add new headers with ISA level dependent macros for handling
+       ifuncs.
+    
+    Note, this file does not change any code.
+    
+    Tested with and without multiarch on x86_64 for ISA levels:
+    {generic, x86-64-v2, x86-64-v3, x86-64-v4}
+    
+    And m32 with and without multiarch.
+
+diff --git a/sysdeps/x86/init-arch.h b/sysdeps/x86/init-arch.h
+index 2e8141ffbaecca69..df1bce2aae11450b 100644
+--- a/sysdeps/x86/init-arch.h
++++ b/sysdeps/x86/init-arch.h
+@@ -19,7 +19,9 @@
+ #include <ifunc-init.h>
+ #include <isa.h>
+ 
+-#ifndef __x86_64__
++#ifdef __x86_64__
++# include <isa-ifunc-macros.h>
++#else
+ /* Due to the reordering and the other nifty extensions in i686, it is
+    not really good to use heavily i586 optimized code on an i686.  It's
+    better to use i486 code if it isn't an i586.  */
+diff --git a/sysdeps/x86/isa-ifunc-macros.h b/sysdeps/x86/isa-ifunc-macros.h
+new file mode 100644
+index 0000000000000000..ba6826d518501396
+--- /dev/null
++++ b/sysdeps/x86/isa-ifunc-macros.h
+@@ -0,0 +1,70 @@
++/* Common ifunc selection utils
++   All versions must be listed in ifunc-impl-list.c.
++   Copyright (C) 2022 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#ifndef _ISA_IFUNC_MACROS_H
++#define _ISA_IFUNC_MACROS_H 1
++
++#include <isa-level.h>
++#include <sys/cdefs.h>
++#include <stdlib.h>
++
++/* Only include at the level of the minimum build ISA or higher. I.e
++   if built with ISA=V1, then include all implementations. On the
++   other hand if built with ISA=V3 only include V3/V4
++   implementations. If there is no implementation at or above the
++   minimum build ISA level, then include the highest ISA level
++   implementation.  */
++#if MINIMUM_X86_ISA_LEVEL <= 4
++# define X86_IFUNC_IMPL_ADD_V4(...) IFUNC_IMPL_ADD (__VA_ARGS__)
++#endif
++#if MINIMUM_X86_ISA_LEVEL <= 3
++# define X86_IFUNC_IMPL_ADD_V3(...) IFUNC_IMPL_ADD (__VA_ARGS__)
++#endif
++#if MINIMUM_X86_ISA_LEVEL <= 2
++# define X86_IFUNC_IMPL_ADD_V2(...) IFUNC_IMPL_ADD (__VA_ARGS__)
++#endif
++#if MINIMUM_X86_ISA_LEVEL <= 1
++# define X86_IFUNC_IMPL_ADD_V1(...) IFUNC_IMPL_ADD (__VA_ARGS__)
++#endif
++
++#ifndef X86_IFUNC_IMPL_ADD_V4
++# define X86_IFUNC_IMPL_ADD_V4(...)
++#endif
++#ifndef X86_IFUNC_IMPL_ADD_V3
++# define X86_IFUNC_IMPL_ADD_V3(...)
++#endif
++#ifndef X86_IFUNC_IMPL_ADD_V2
++# define X86_IFUNC_IMPL_ADD_V2(...)
++#endif
++#ifndef X86_IFUNC_IMPL_ADD_V1
++# define X86_IFUNC_IMPL_ADD_V1(...)
++#endif
++
++#define X86_ISA_CPU_FEATURE_CONST_CHECK_ENABLED(name)                  \
++  ((name##_X86_ISA_LEVEL) <= MINIMUM_X86_ISA_LEVEL)
++
++#define X86_ISA_CPU_FEATURE_USABLE_P(ptr, name)                        \
++  (X86_ISA_CPU_FEATURE_CONST_CHECK_ENABLED (name)                      \
++   || CPU_FEATURE_USABLE_P (ptr, name))
++
++#define X86_ISA_CPU_FEATURES_ARCH_P(ptr, name)                         \
++  (X86_ISA_CPU_FEATURE_CONST_CHECK_ENABLED (name)                      \
++   || CPU_FEATURES_ARCH_P (ptr, name))
++
++#endif
+diff --git a/sysdeps/x86/isa-level.c b/sysdeps/x86/isa-level.c
+index 07815381122c94c3..9bd52eadf8f2382b 100644
+--- a/sysdeps/x86/isa-level.c
++++ b/sysdeps/x86/isa-level.c
+@@ -26,38 +26,31 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include <elf.h>
+-
++#include <sysdeps/x86/isa-level.h>
+ /* ELF program property for x86 ISA level.  */
+ #ifdef INCLUDE_X86_ISA_LEVEL
+-# if defined __SSE__ && defined __SSE2__
++# if MINIMUM_X86_ISA_LEVEL >= 1
+ /* NB: ISAs, excluding MMX, in x86-64 ISA level baseline are used.  */
+ #  define ISA_BASELINE	GNU_PROPERTY_X86_ISA_1_BASELINE
+ # else
+ #  define ISA_BASELINE	0
+ # endif
+ 
+-# if ISA_BASELINE && defined __GCC_HAVE_SYNC_COMPARE_AND_SWAP_16 \
+-     && defined HAVE_X86_LAHF_SAHF && defined __POPCNT__ \
+-     && defined __SSE3__ && defined __SSSE3__ && defined __SSE4_1__ \
+-     && defined __SSE4_2__
++# if MINIMUM_X86_ISA_LEVEL >= 2
+ /* NB: ISAs in x86-64 ISA level v2 are used.  */
+ #  define ISA_V2	GNU_PROPERTY_X86_ISA_1_V2
+ # else
+ #  define ISA_V2	0
+ # endif
+ 
+-# if ISA_V2 && defined __AVX__ && defined __AVX2__ && defined __F16C__ \
+-     && defined __FMA__ && defined __LZCNT__ && defined HAVE_X86_MOVBE \
+-     && defined __BMI__ && defined __BMI2__
++# if MINIMUM_X86_ISA_LEVEL >= 3
+ /* NB: ISAs in x86-64 ISA level v3 are used.  */
+ #  define ISA_V3	GNU_PROPERTY_X86_ISA_1_V3
+ # else
+ #  define ISA_V3	0
+ # endif
+ 
+-# if ISA_V3 && defined __AVX512F__ && defined __AVX512BW__ \
+-     && defined __AVX512CD__ && defined __AVX512DQ__ \
+-     && defined __AVX512VL__
++# if MINIMUM_X86_ISA_LEVEL >= 4
+ /* NB: ISAs in x86-64 ISA level v4 are used.  */
+ #  define ISA_V4	GNU_PROPERTY_X86_ISA_1_V4
+ # else
+diff --git a/sysdeps/x86/isa-level.h b/sysdeps/x86/isa-level.h
+new file mode 100644
+index 0000000000000000..7cae11c2289dd54d
+--- /dev/null
++++ b/sysdeps/x86/isa-level.h
+@@ -0,0 +1,102 @@
++/* Header defining the minimum x86 ISA level
++   Copyright (C) 2022 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   In addition to the permissions in the GNU Lesser General Public
++   License, the Free Software Foundation gives you unlimited
++   permission to link the compiled version of this file with other
++   programs, and to distribute those programs without any restriction
++   coming from the use of this file.  (The Lesser General Public
++   License restrictions do apply in other respects; for example, they
++   cover modification of the file, and distribution when not linked
++   into another program.)
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#ifndef _ISA_LEVEL_H
++#define _ISA_LEVEL_H
++
++#if defined __SSE__ && defined __SSE2__
++/* NB: ISAs, excluding MMX, in x86-64 ISA level baseline are used.  */
++# define __X86_ISA_V1 1
++#else
++# define __X86_ISA_V1 0
++#endif
++
++#if __X86_ISA_V1 && defined __GCC_HAVE_SYNC_COMPARE_AND_SWAP_16               \
++    && defined HAVE_X86_LAHF_SAHF && defined __POPCNT__ && defined __SSE3__   \
++    && defined __SSSE3__ && defined __SSE4_1__ && defined __SSE4_2__
++/* NB: ISAs in x86-64 ISA level v2 are used.  */
++# define __X86_ISA_V2 1
++#else
++# define __X86_ISA_V2 0
++#endif
++
++#if __X86_ISA_V2 && defined __AVX__ && defined __AVX2__ && defined __F16C__   \
++    && defined __FMA__ && defined __LZCNT__ && defined HAVE_X86_MOVBE         \
++    && defined __BMI__ && defined __BMI2__
++/* NB: ISAs in x86-64 ISA level v3 are used.  */
++# define __X86_ISA_V3 1
++#else
++# define __X86_ISA_V3 0
++#endif
++
++#if __X86_ISA_V3 && defined __AVX512F__ && defined __AVX512BW__               \
++    && defined __AVX512CD__ && defined __AVX512DQ__ && defined __AVX512VL__
++/* NB: ISAs in x86-64 ISA level v4 are used.  */
++# define __X86_ISA_V4 1
++#else
++# define __X86_ISA_V4 0
++#endif
++
++#define MINIMUM_X86_ISA_LEVEL                                                 \
++  (__X86_ISA_V1 + __X86_ISA_V2 + __X86_ISA_V3 + __X86_ISA_V4)
++
++
++/*
++ * CPU Features that are hard coded as enabled depending on ISA build
++ *   level.
++ *    - Values > 0 features are always ENABLED if:
++ *          Value >= MINIMUM_X86_ISA_LEVEL
++ */
++
++
++/* ISA level >= 4 guaranteed includes.  */
++#define AVX512VL_X86_ISA_LEVEL 4
++#define AVX512BW_X86_ISA_LEVEL 4
++
++/* ISA level >= 3 guaranteed includes.  */
++#define AVX2_X86_ISA_LEVEL 3
++#define BMI2_X86_ISA_LEVEL 3
++
++/*
++ * NB: This may not be fully assumable for ISA level >= 3. From
++ * looking over the architectures supported in cpu-features.h the
++ * following CPUs may have an issue with this being default set:
++ *      - AMD Excavator
++ */
++#define AVX_Fast_Unaligned_Load_X86_ISA_LEVEL 3
++
++/*
++ * KNL (the only cpu that sets this supported in cpu-features.h)
++ * builds with ISA V1 so this shouldn't harm any architectures.
++ */
++#define Prefer_No_VZEROUPPER_X86_ISA_LEVEL 3
++
++#define ISA_SHOULD_BUILD(isa_build_level)                              \
++  (MINIMUM_X86_ISA_LEVEL <= (isa_build_level) && IS_IN (libc))         \
++   || defined ISA_DEFAULT_IMPL
++
++#endif
+diff --git a/sysdeps/x86_64/isa-default-impl.h b/sysdeps/x86_64/isa-default-impl.h
+new file mode 100644
+index 0000000000000000..34634668e56669c9
+--- /dev/null
++++ b/sysdeps/x86_64/isa-default-impl.h
+@@ -0,0 +1,49 @@
++/* Utility for including proper default function based on ISA level
++   Copyright (C) 2022 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <isa-level.h>
++
++#ifndef DEFAULT_IMPL_V1
++# error "Must have at least ISA V1 Version"
++#endif
++
++#ifndef DEFAULT_IMPL_V2
++# define DEFAULT_IMPL_V2 DEFAULT_IMPL_V1
++#endif
++
++#ifndef DEFAULT_IMPL_V3
++# define DEFAULT_IMPL_V3 DEFAULT_IMPL_V2
++#endif
++
++#ifndef DEFAULT_IMPL_V4
++# define DEFAULT_IMPL_V4 DEFAULT_IMPL_V3
++#endif
++
++#if MINIMUM_X86_ISA_LEVEL == 1
++# define ISA_DEFAULT_IMPL DEFAULT_IMPL_V1
++#elif MINIMUM_X86_ISA_LEVEL == 2
++# define ISA_DEFAULT_IMPL DEFAULT_IMPL_V2
++#elif MINIMUM_X86_ISA_LEVEL == 3
++# define ISA_DEFAULT_IMPL DEFAULT_IMPL_V3
++#elif MINIMUM_X86_ISA_LEVEL == 4
++# define ISA_DEFAULT_IMPL DEFAULT_IMPL_V4
++#else
++# error "Unsupported ISA Level!"
++#endif
++
++#include ISA_DEFAULT_IMPL

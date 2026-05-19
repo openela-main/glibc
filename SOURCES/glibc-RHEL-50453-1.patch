@@ -1,0 +1,215 @@
+commit 20b6b8e8a50874dd189687df8f6f8a11d4813b34
+Author: Frédéric Bérat <fberat@redhat.com>
+Date:   Wed Jun 14 10:52:06 2023 +0200
+
+    tests: replace read by xread
+    
+    With fortification enabled, read calls return result needs to be checked,
+    has it gets the __wur macro enabled.
+    
+    Note on read call removal from  sysdeps/pthread/tst-cancel20.c and
+    sysdeps/pthread/tst-cancel21.c:
+    It is assumed that this second read call was there to overcome the race
+    condition between pipe closure and thread cancellation that could happen
+    in the original code. Since this race condition got fixed by
+    d0e3ffb7a58854248f1d5e737610d50cd0a60f46 the second call seems
+    superfluous. Hence, instead of checking for the return value of read, it
+    looks reasonable to simply remove it.
+    Reviewed-by: Siddhesh Poyarekar <siddhesh@sourceware.org>
+
+diff --git a/dirent/tst-fdopendir.c b/dirent/tst-fdopendir.c
+index 2c9520574dddfba8..d6a24f47db25b7b6 100644
+--- a/dirent/tst-fdopendir.c
++++ b/dirent/tst-fdopendir.c
+@@ -45,7 +45,8 @@ do_test (void)
+     }
+ 
+   char buf[5];
+-  read(fd, buf, sizeof (buf));
++  xread(fd, buf, sizeof (buf));
++
+   close(fd);
+ 
+   struct stat64 st2;
+diff --git a/nptl/tst-cleanup4.c b/nptl/tst-cleanup4.c
+index 4a275ed950d6c5f8..8c95d944f9440360 100644
+--- a/nptl/tst-cleanup4.c
++++ b/nptl/tst-cleanup4.c
+@@ -22,6 +22,8 @@
+ #include <stdlib.h>
+ #include <unistd.h>
+ 
++#include <support/xunistd.h>
++
+ /* LinuxThreads pthread_cleanup_{push,pop} helpers.  */
+ extern void _pthread_cleanup_push (struct _pthread_cleanup_buffer *__buffer,
+                                    void (*__routine) (void *),
+@@ -65,7 +67,7 @@ fn_read (void)
+     }
+ 
+   char c;
+-  read (fds[0], &c, 1);
++  xread (fds[0], &c, 1);
+ }
+ 
+ 
+diff --git a/support/Makefile b/support/Makefile
+index fa3abb39d587a501..e89eeec45eba14a9 100644
+--- a/support/Makefile
++++ b/support/Makefile
+@@ -210,6 +210,7 @@ libsupport-routines = \
+   xpthread_spin_lock \
+   xpthread_spin_unlock \
+   xraise \
++  xread \
+   xreadlink \
+   xrealloc \
+   xrecvfrom \
+diff --git a/support/test-container.c b/support/test-container.c
+index 9a9d4b9ac6180c88..df8f74801f5ed641 100644
+--- a/support/test-container.c
++++ b/support/test-container.c
+@@ -1209,7 +1209,8 @@ main (int argc, char **argv)
+ 
+   /* Get our "outside" pid from our parent.  We use this to help with
+      debugging from outside the container.  */
+-  read (pipes[0], &child, sizeof(child));
++  xread (pipes[0], &child, sizeof(child));
++
+   close (pipes[0]);
+   close (pipes[1]);
+   sprintf (pid_buf, "%lu", (long unsigned)child);
+diff --git a/support/xread.c b/support/xread.c
+new file mode 100644
+index 0000000000000000..19f76fcfeb7165d6
+--- /dev/null
++++ b/support/xread.c
+@@ -0,0 +1,36 @@
++/* read with error checking and retries.
++   Copyright (C) 2023 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <support/xunistd.h>
++
++#include <support/check.h>
++
++void
++xread (int fd, void *buffer, size_t length)
++{
++  char *p = buffer;
++  char *end = p + length;
++  while (p < end)
++    {
++      ssize_t ret = read (fd, p, end - p);
++      if (ret < 0)
++        FAIL_EXIT1 ("read of %zu bytes failed after %td: %m",
++                    length, p - (char *) buffer);
++      p += ret;
++    }
++}
+diff --git a/support/xunistd.h b/support/xunistd.h
+index a4d0d3427204cfe5..68feedef7fc3831d 100644
+--- a/support/xunistd.h
++++ b/support/xunistd.h
+@@ -78,6 +78,9 @@ void xclose (int);
+ /* Write the buffer.  Retry on short writes.  */
+ void xwrite (int, const void *, size_t);
+ 
++/* Read to buffer.  Retry on short reads.  */
++void xread (int, void *, size_t);
++
+ /* Invoke mmap with a zero file offset.  */
+ void *xmmap (void *addr, size_t length, int prot, int flags, int fd);
+ void xmprotect (void *addr, size_t length, int prot);
+diff --git a/sysdeps/pthread/Makefile b/sysdeps/pthread/Makefile
+index fa70a33e25f23230..e9c54214da1ffb82 100644
+--- a/sysdeps/pthread/Makefile
++++ b/sysdeps/pthread/Makefile
+@@ -281,7 +281,7 @@ $(objpfx)tst-cancel28: $(librt)
+ 
+ $(objpfx)tst-fini1: $(shared-thread-library) $(objpfx)tst-fini1mod.so
+ 
+-$(objpfx)tst-fini1mod.so: $(shared-thread-library)
++$(objpfx)tst-fini1mod.so: $(libsupport) $(shared-thread-library)
+ 
+ $(objpfx)tst-_res1mod2.so: $(objpfx)tst-_res1mod1.so
+ LDFLAGS-tst-_res1mod1.so = -Wl,-soname,tst-_res1mod1.so
+diff --git a/sysdeps/pthread/tst-cancel11.c b/sysdeps/pthread/tst-cancel11.c
+index e485e0827e1895e5..a76638b3b629850a 100644
+--- a/sysdeps/pthread/tst-cancel11.c
++++ b/sysdeps/pthread/tst-cancel11.c
+@@ -57,7 +57,11 @@ tf (void *arg)
+ 
+   /* This call should block and be cancelable.  */
+   char buf[20];
+-  read (fd[0], buf, sizeof (buf));
++  if (read (fd[0], buf, sizeof (buf)))
++  {
++    puts ("read unexpectedly returned");
++    exit (1);
++  }
+ 
+   pthread_cleanup_pop (0);
+ 
+diff --git a/sysdeps/pthread/tst-cancel20.c b/sysdeps/pthread/tst-cancel20.c
+index 194726a0d4c56d53..0bed320bd3785685 100644
+--- a/sysdeps/pthread/tst-cancel20.c
++++ b/sysdeps/pthread/tst-cancel20.c
+@@ -85,8 +85,6 @@ tf_body (void)
+       exit (1);
+     }
+ 
+-  read (fd[0], &c, 1);
+-
+   pthread_cleanup_pop (0);
+ }
+ 
+diff --git a/sysdeps/pthread/tst-cancel21.c b/sysdeps/pthread/tst-cancel21.c
+index 2fe248082ec94b25..bfce7cbb98e53343 100644
+--- a/sysdeps/pthread/tst-cancel21.c
++++ b/sysdeps/pthread/tst-cancel21.c
+@@ -86,8 +86,6 @@ tf_body (void)
+       exit (1);
+     }
+ 
+-  read (fd[0], &c, 1);
+-
+   pthread_cleanup_pop (0);
+ }
+ 
+diff --git a/sysdeps/pthread/tst-fini1mod.c b/sysdeps/pthread/tst-fini1mod.c
+index cc6b9ee98220d63d..b40f9d5c7ba88caa 100644
+--- a/sysdeps/pthread/tst-fini1mod.c
++++ b/sysdeps/pthread/tst-fini1mod.c
+@@ -21,6 +21,8 @@
+ #include <stdlib.h>
+ #include <unistd.h>
+ 
++#include <support/xunistd.h>
++
+ 
+ static void *
+ tf (void *arg)
+@@ -33,7 +35,7 @@ tf (void *arg)
+     }
+ 
+   char buf[10];
+-  read (fds[0], buf, sizeof (buf));
++  xread (fds[0], buf, sizeof (buf));
+ 
+   puts ("read returned");
+   exit (1);

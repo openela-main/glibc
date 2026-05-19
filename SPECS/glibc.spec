@@ -61,19 +61,19 @@
 %endif
 %endif
 
+# Build the POWER10 multilib.
+%ifarch ppc64le
+%define buildpower10 1
+%else
+%define buildpower10 0
+%endif
+
 %if %{with bootstrap}
 # Disable benchtests, -Werror, docs, and valgrind if we're bootstrapping
 %undefine with_benchtests
 %undefine with_werror
 %undefine with_docs
 %undefine with_valgrind
-%endif
-
-# Build the POWER10 runtime on POWER, but only for downstream.
-%ifarch ppc64le
-%define buildpower10 0%{?rhel} > 0
-%else
-%define buildpower10 0
 %endif
 
 # The annobin annotations cause binutils to produce broken ARM EABI
@@ -172,6 +172,14 @@ Release: %{lua:patchgit.release()}
 #
 # GFDL is used for the documentation.
 #
+# * GPLv3+ is used for scripts/move-if-change.
+#
+# * Autoconf-related files are licensed as GPL-3.0-or-later WITH
+#   Autoconf-exception-generic-3.0.
+#
+# * Texinfo-related files are licensed as GPL-3.0-or-later WITH
+#   Texinfo-exception.
+#
 # Some other licenses are used in various places (BSD, Inner-Net,
 # ISC, Public Domain).
 #
@@ -185,7 +193,7 @@ Release: %{lua:patchgit.release()}
 #
 # LGPLv2 is used in one place (time/timespec_get.c, by mistake), but
 # it is not actually compiled, so it does not matter for libraries.
-License: LGPLv2+ and LGPLv2+ with exceptions and GPLv2+ and GPLv2+ with exceptions and BSD and Inner-Net and ISC and Public Domain and GFDL
+License: LGPL-2.1-or-later AND SunPro AND LGPL-2.1-or-later WITH GCC-exception-2.0 AND BSD-3-Clause AND GPL-2.0-or-later AND LGPL-2.1-or-later WITH GNU-compiler-exception AND GPL-2.0-only AND ISC AND LicenseRef-Fedora-Public-Domain AND HPND AND CMU-Mach AND LGPL-2.0-or-later AND Unicode-3.0 AND GFDL-1.1-or-later AND GPL-1.0-or-later AND FSFUL AND MIT AND Inner-Net-2.0 AND X11 AND GPL-2.0-or-later WITH GCC-exception-2.0 AND GFDL-1.3-only AND GFDL-1.1-only AND GPL-3.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GPL-3.0-or-later WITH Texinfo-exception
 
 URL: http://www.gnu.org/software/glibc/
 Source0: %{?glibc_release_url}%{glibcsrcdir}.tar.xz
@@ -1031,6 +1039,9 @@ Summary: The sources for the locales
 Requires: %{name} = %{version}-%{release}
 Requires: %{name}-common = %{version}-%{release}
 
+# This subpackage contains gzip compressed charmaps
+Requires: gzip
+
 %description locale-source
 The sources for all locales provided in the language packs.
 If you are building custom locales you will most likely use
@@ -1639,76 +1650,99 @@ cat /proc/sysinfo 2>/dev/null || true
 cat /proc/meminfo
 df
 
-# We build using the native system compilers.
-GCC=gcc
-GXX=g++
-
-# Part of rpm_inherit_flags.  Is overridden below.
-rpm_append_flag ()
-{
-    BuildFlags="$BuildFlags $*"
-}
-
-# Propagates the listed flags to rpm_append_flag if supplied by
-# redhat-rpm-config.
-BuildFlags="-O2 -g"
-rpm_inherit_flags ()
-{
-	local reference=" $* "
-	local flag
-	for flag in $RPM_OPT_FLAGS $RPM_LD_FLAGS ; do
-		if echo "$reference" | grep -q -F " $flag " ; then
-			rpm_append_flag "$flag"
-		fi
-	done
-}
-
 # Propgate select compiler flags from redhat-rpm-config.  These flags
 # are target-dependent, so we use only those which are specified in
 # redhat-rpm-config.  We keep the -m32/-m32/-m64 flags to support
 # multilib builds.
 #
-# Note: For building alternative run-times, care is required to avoid
-# overriding the architecture flags which go into CC/CXX.  The flags
-# below are passed in CFLAGS.
 
-rpm_inherit_flags \
-	"-Wp,-D_GLIBCXX_ASSERTIONS" \
-	"-fasynchronous-unwind-tables" \
-	"-fstack-clash-protection" \
-	"-funwind-tables" \
-	"-m31" \
-	"-m32" \
-	"-m64" \
-	"-march=armv8-a+lse" \
-	"-march=armv8.1-a" \
-	"-march=haswell" \
-	"-march=i686" \
-	"-march=x86-64" \
-	"-march=x86-64-v2" \
-	"-march=x86-64-v3" \
-	"-march=x86-64-v4" \
-	"-march=z13" \
-	"-march=z14" \
-	"-march=z15" \
-	"-march=zEC12" \
-	"-mbranch-protection=standard" \
-	"-mcpu=power10" \
-	"-mcpu=power8" \
-	"-mcpu=power9" \
-	"-mfpmath=sse" \
-	"-msse2" \
-	"-mstackrealign" \
-	"-mtune=generic" \
-	"-mtune=power10" \
-	"-mtune=power8" \
-	"-mtune=power9" \
-	"-mtune=z13" \
-	"-mtune=z14" \
-	"-mtune=z15" \
-	"-mtune=zEC12" \
-	"-specs=/usr/lib/rpm/redhat/redhat-annobin-cc1" \
+%{lua:
+-- Split the string argument into keys of an associate array.
+-- The values are set to true.
+local function string_to_array(s)
+    local result = {}
+    for e in string.gmatch(s, "%S+") do
+        result[e] = true
+    end
+    return result
+end
 
+local inherit_flags = {}
+
+-- These flags are put into the CC and CXX arguments to configure.
+-- Alternate builds do not use the flags listed here, only the main build does.
+inherit_flags.cc_main = string_to_array [[
+-march=armv8-a+lse
+-march=armv8.1-a
+-march=haswell
+-march=i686
+-march=x86-64
+-march=x86-64-v2
+-march=x86-64-v3
+-march=x86-64-v4
+-march=z13
+-march=z14
+-march=z15
+-march=zEC12
+-mcpu=power10
+-mcpu=power8
+-mcpu=power9
+-mtune=generic
+-mtune=power10
+-mtune=power8
+-mtune=power9
+-mtune=z13
+-mtune=z14
+-mtune=z15
+-mtune=zEC12
+]]
+
+-- Like inherit_flags_cc_main, but also used for alternate builds.
+inherit_flags.cc = string_to_array [[
+-m31
+-m32
+-m64
+]]
+
+-- These flags are passed through CFLAGS and CXXFLAGS.
+inherit_flags.cflags = string_to_array [[
+-O2
+-O3
+-Wall
+-Wp,-D_GLIBCXX_ASSERTIONS
+-fasynchronous-unwind-tables
+-fno-omit-frame-pointer
+-fstack-clash-protection
+-funwind-tables
+-g
+-mbackchain
+-mbranch-protection=standard
+-mfpmath=sse
+-mno-omit-leaf-frame-pointer
+-msse2
+-mstackrealign
+-specs=/usr/lib/rpm/redhat/redhat-annobin-cc1
+]]
+
+-- Iterate over the build_cflags RPM variable and emit a shell
+-- variable that contains the inherited flags of the indicated variant.
+local function shell_build_flags(variant)
+    local result = {}
+    local inherit = assert(inherit_flags[variant])
+    for f in string.gmatch(rpm.expand("%build_cflags"), "%S+") do
+        if inherit[f] then
+	    result[#result + 1] = f
+	end
+    end
+    print("glibc_flags_" .. variant .. "=\"" .. table.concat(result, " ")
+          .. "\"\n")
+end
+
+shell_build_flags('cc_main') -- Set $glibc_flags_cc_main.
+shell_build_flags('cc') -- Set $glibc_flags_cc.
+shell_build_flags('cflags') -- Set $glibc_flags_cflags.
+}
+ 
 # Use the RHEL 8 baseline for the early dynamic loader code, so that
 # running on too old CPUs results in a diagnostic.
 %if 0%{?rhel} >= 9
@@ -1723,6 +1757,15 @@ rpm_inherit_flags \
 %endif
 %endif
 
+# The annobin annotations cause binutils to produce broken ARM EABI
+# unwinding information.  Symptom is a hang/test failure for
+# malloc/tst-malloc-stats-cancellation.  See
+# <https://bugzilla.redhat.com/show_bug.cgi?id=1951492>.
+%ifarch armv7hl
+%undefine _annotated_build
+%endif 
+
+%if 0%{?_annotated_build} > 0
 # libc_nonshared.a cannot be built with the default hardening flags
 # because the glibc build system is incompatible with
 # -D_FORTIFY_SOURCE.  The object files need to be marked as to be
@@ -1730,6 +1773,7 @@ rpm_inherit_flags \
 # annobin does not work here because of flag ordering issues.)
 # See <https://bugzilla.redhat.com/show_bug.cgi?id=1668822>.
 BuildFlagsNonshared="-fplugin=annobin -fplugin-arg-annobin-disable -Wa,--generate-missing-build-notes=yes"
+%endif
 
 # Special flag to enable annobin annotations for statically linked
 # assembler code.  Needs to be passed to make; not preserved by
@@ -1741,35 +1785,30 @@ BuildFlagsNonshared="-fplugin=annobin -fplugin-arg-annobin-disable -Wa,--generat
 # %%build - Generic options.
 ##############################################################################
 EnableKernel="--enable-kernel=%{enablekernel}"
-# Save the used compiler and options into the file "Gcc" for use later
-# by %%install.
-echo "$GCC" > Gcc
 
 ##############################################################################
 # build()
-#	Build glibc in `build-%{target}$1', passing the rest of the arguments
-#	as CFLAGS to the build (not the same as configure CFLAGS). Several
+#	Build glibc in the directory $1, passing the rest of the arguments
+#	as additional configure arguments.  Several
 #	global values are used to determine build flags, kernel version,
 #	system tap support, etc.
 ##############################################################################
 build()
 {
-	local builddir=build-%{target}${1:+-$1}
-	${1+shift}
+	local builddir=$1
+	shift
 	rm -rf $builddir
 	mkdir $builddir
 	pushd $builddir
-	../configure CC="$GCC" CXX="$GXX" CFLAGS="$BuildFlags $*" \
+	../configure "$@" \
 		--prefix=%{_prefix} \
 		--with-headers=%{_prefix}/include $EnableKernel \
 		--with-nonshared-cflags="$BuildFlagsNonshared" \
 		--enable-bind-now \
 		--build=%{target} \
-		${configure_host} \
 		--enable-stack-protector=strong \
 		--enable-tunables \
 		--enable-systemtap \
-		${core_with_options} \
 		%{?glibc_rtld_early_cflags:--with-rtld-early-cflags=%glibc_rtld_early_cflags} \
 %ifarch %{ix86}
 		--disable-multi-arch \
@@ -1794,25 +1833,33 @@ build()
 
 %ifarch x86_64
 # Build for the glibc32 package.
-GCC="$GCC -m32" GXX="$GXX -m32" BuildFlags="${BuildFlags/-m64/-m32}" configure_host="--host=i686-linux-gnu" build 32
-%endif
-
-configure_host=""
-
-%ifarch x86_64
-configure_host="--enable-cet"
+build build-%{target}-32 \
+  CC="gcc -m32" \
+  CXX="g++ -m32" \
+  CFLAGS="${glibc_flags_cflags/-m64/-m32}" \
+  --host=i686-linux-gnu \
+#
 %endif
 
 # Default set of compiler options.
-build
+build build-%{target} \
+  CC="gcc $glibc_flags_cc $glibc_flags_cc_main" \
+  CXX="gcc $glibc_flags_cc $glibc_flags_cc_main" \
+  CFLAGS="$glibc_flags_cflags" \
+  %{?glibc_rtld_early_cflags:--with-rtld-early-cflags=%glibc_rtld_early_cflags} \
+%ifarch x86_64
+  --enable-cet \
+%endif
+#
 
+# POWER10 build variant.
 %if %{buildpower10}
-(
-  GCC="$GCC -mcpu=power10 -mtune=power10"
-  GXX="$GXX -mcpu=power10 -mtune=power10"
-  core_with_options="--with-cpu=power10"
-  build power10
-)
+build build-%{target}-power10 \
+  CC="gcc $glibc_flags_cc" \
+  CXX="g++ $glibc_flags_cc" \
+  CFLAGS="$glibc_flags_cflags" \
+  --with-cpu=power10 \
+#
 %endif
 
 ##############################################################################
@@ -2292,8 +2339,7 @@ split_sysroot_file_list \
 split_sysroot_file_list \
   %{_libdir}/gconv '-name *.so' \
   'gconv/
-   (ANSI_X3\.110
-   |CP1252
+   (CP1252
    |ISO8859-15?
    |UNICODE
    |UTF-[0-9]+
@@ -2811,8 +2857,15 @@ update_gconv_modules_cache ()
 
 %changelog
 %{lua:patchgit.changelog()}
-* Tue Sep 30 2025 DJ Delorie <dj@redhat.com> - 2.34-231.1
-- nss: Group merge does not react to ERANGE during merge (RHEL-114262)
+* Tue Oct 07 2025 Arjun Shankar <arjun@redhat.com> - 2.34-234
+- test-bz22786: Mark UNSUPPORTED on low memory systems (RHEL-91400)
+
+* Thu Oct 02 2025 Patsy Griffin <patsy@redhat.com> - 2.34-233
+- glibc-locale-source: Require gzip to handle compressed charmaps
+  (RHEL-111005)
+
+* Tue Sep 02 2025 Arjun Shankar <arjun@redhat.com> - 2.34-232
+- libio: Upon asprintf failure set the string pointer to NULL (RHEL-72245)
 
 * Tue Aug 19 2025 Arjun Shankar <arjun@redhat.com> - 2.34-231
 - Define __libc_tsd_CTYPE_* TLS variables as initial-exec (RHEL-107518)

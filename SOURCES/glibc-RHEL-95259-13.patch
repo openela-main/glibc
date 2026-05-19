@@ -1,0 +1,24 @@
+commit fcfbc3ee310519f600b712c699e2f411c6a5c7d6
+Author: Collin Funk <collin.funk1@gmail.com>
+Date:   Sat Oct 4 00:52:57 2025 -0700
+
+    manual: check the correct variable in SIOCATMARK example [BZ #33093]
+    
+    * manual/socket.texi (Out-of-Band Data): Check the atmark variable which
+    is set by the ioctl instead of the undefined result variable.
+    
+    Reviewed-by: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+
+diff --git a/manual/socket.texi b/manual/socket.texi
+index 56948073d5..2ed8112344 100644
+--- a/manual/socket.texi
++++ b/manual/socket.texi
+@@ -2999,7 +2999,7 @@ discard_until_mark (int socket)
+       success = ioctl (socket, SIOCATMARK, &atmark);
+       if (success < 0)
+         perror ("ioctl");
+-      if (result)
++      if (atmark)
+         return;
+ 
+       /* @r{Otherwise, read a bunch of ordinary data and discard it.}

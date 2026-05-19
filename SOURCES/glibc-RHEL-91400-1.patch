@@ -1,0 +1,285 @@
+commit 480660e270057e40381fd6d4c47f89116415928e
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Sep 18 19:11:38 2025 +0200
+
+    support: Add support_accept_oom to heuristically support OOM errors
+    
+    Some tests may trigger the kernel OOM handler under conditions
+    which are difficult to predict (depending on available RAM and
+    swap space).  If we can determine specific regions which might
+    do this and this does not contradict the test object, the
+    functions support_accept_oom (true) and support_accept_oom (false)
+    can be called at the start and end, and the test driver will
+    ignore SIGKILL signals.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+Conflicts:
+	support/Makefile
+	  (Test differences)
+
+diff --git a/support/Makefile b/support/Makefile
+index bffcb06d7185d674..fa3abb39d587a501 100644
+--- a/support/Makefile
++++ b/support/Makefile
+@@ -322,6 +322,7 @@ $(objpfx)test-run-command : $(libsupport) $(common-objpfx)elf/static-stubs.o
+ tests = \
+   README-testing \
+   tst-support-namespace \
++  tst-support_accept_oom \
+   tst-support_blob_repeat \
+   tst-support_capture_subprocess \
+   tst-support_descriptors \
+diff --git a/support/check.h b/support/check.h
+index 6b8b70a10961db6c..08daf9c041a7d781 100644
+--- a/support/check.h
++++ b/support/check.h
+@@ -196,9 +196,11 @@ void support_test_compare_string_wide (const wchar_t *left,
+ 				       const char *left_expr,
+ 				       const char *right_expr);
+ 
+-/* Internal function called by the test driver.  */
++/* Internal functions called by the test driver.  */
+ int support_report_failure (int status)
+   __attribute__ ((weak, warn_unused_result));
++int support_is_oom_accepted (void)
++  __attribute__ ((weak, warn_unused_result));
+ 
+ /* Internal function used to test the failure recording framework.  */
+ void support_record_failure_reset (void);
+diff --git a/support/support.h b/support/support.h
+index ed7862daf9e4120a..e3835066679b3fdd 100644
+--- a/support/support.h
++++ b/support/support.h
+@@ -233,6 +233,15 @@ extern void arc4random_buf (void *__buf, size_t __size)
+ extern uint32_t arc4random_uniform (__uint32_t __upper_bound)
+      __THROW __wur;
+ 
++/* If invoked with a true argument, it instructs the supervising
++   process to ignore unexpected termination of the test process,
++   likely due to an OOM error.  (This can theoretically mask other
++   test errors, so it should be used sparingly.)
++
++   If invoked with a false argument, the default behavior is restored,
++   and OOM-induced errors result in test failure.  */
++void support_accept_oom (bool);
++
+ __END_DECLS
+ 
+ #endif /* SUPPORT_H */
+diff --git a/support/support_record_failure.c b/support/support_record_failure.c
+index c0bd489637990b70..aacf9655f27e91f8 100644
+--- a/support/support_record_failure.c
++++ b/support/support_record_failure.c
+@@ -31,6 +31,10 @@
+    failure is detected, so that even if the counter wraps around to
+    zero, the failure of a test can be detected.
+ 
++   If the accept_oom member is not zero, the supervisor process will
++   use heuristics to suppress process termination due to OOM
++   conditions.
++
+    The init constructor function below puts *state on a shared
+    annonymous mapping, so that failure reports from subprocesses
+    propagate to the parent process.  */
+@@ -38,6 +42,7 @@ struct test_failures
+ {
+   unsigned int counter;
+   unsigned int failed;
++  unsigned int accept_oom;
+ };
+ static struct test_failures *state;
+ 
+@@ -122,3 +127,34 @@ support_record_failure_barrier (void)
+       exit (1);
+     }
+ }
++
++void
++support_accept_oom (bool onoff)
++{
++  if (onoff)
++    {
++      /* One thread detects the overflow.   */
++      if (__atomic_fetch_add (&state->accept_oom, 1, __ATOMIC_RELAXED)
++          == UINT_MAX)
++        {
++          puts ("error: OOM acceptance counter overflow");
++          exit (1);
++        }
++    }
++  else
++    {
++      /* One thread detects the underflow.  */
++      if (__atomic_fetch_add (&state->accept_oom, -1, __ATOMIC_RELAXED)
++          == 0)
++        {
++          puts ("error: OOM acceptance counter underflow");
++          exit (1);
++        }
++    }
++}
++
++int
++support_is_oom_accepted (void)
++{
++  return __atomic_load_n (&state->accept_oom, __ATOMIC_RELAXED) != 0;
++}
+diff --git a/support/support_test_main.c b/support/support_test_main.c
+index 66a754b84fbb79ad..d21083ce1557a190 100644
+--- a/support/support_test_main.c
++++ b/support/support_test_main.c
+@@ -266,6 +266,20 @@ adjust_exit_status (int status)
+   return status;
+ }
+ 
++/* Return true if the exit status looks like it may have been
++   triggered by kernel OOM handling, and support_accept_oom (true) was
++   active in the test process.  This is a very approximate check.
++   Unfortunately, the SI_KERNEL value for si_code in siginfo_t is not
++   observable via waitid (it gets translated to CLD_KILLED.  */
++static bool
++accept_oom_heuristic (int status)
++{
++  return (WIFSIGNALED (status)
++	  && WTERMSIG (status) == SIGKILL
++	  && support_is_oom_accepted != NULL
++	  && support_is_oom_accepted ());
++}
++
+ int
+ support_test_main (int argc, char **argv, const struct test_config *config)
+ {
+@@ -499,6 +513,11 @@ support_test_main (int argc, char **argv, const struct test_config *config)
+   /* Process was killed by timer or other signal.  */
+   else
+     {
++      if (accept_oom_heuristic (status))
++	{
++	  puts ("Heuristically determined OOM termination; SIGKILL ignored");
++	  exit (adjust_exit_status (EXIT_UNSUPPORTED));
++	}
+       if (config->expected_signal == 0)
+         {
+           printf ("Didn't expect signal from child: got `%s'\n",
+diff --git a/support/tst-support_accept_oom.c b/support/tst-support_accept_oom.c
+new file mode 100644
+index 0000000000000000..42a4328cbc60764d
+--- /dev/null
++++ b/support/tst-support_accept_oom.c
+@@ -0,0 +1,115 @@
++/* Test that OOM error suppression works.
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++/* This test reacts to the reject_oom and inject_error environment
++   variables.  It is never executed automatically because it can run
++   for a very long time on large systems, and is generally stressful
++   to the system.  */
++
++#include <stdbool.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <support.h>
++#include <support/check.h>
++#include <sys/mman.h>
++#include <unistd.h>
++
++/* If true, support_accept_oom is called.   */
++static bool accept_oom;
++
++/* System page size.  Allocations are always at least that large.   */
++static size_t page_size;
++
++/* All allocated bytes.  */
++static size_t total_bytes;
++
++/* Try to allocate SIZE bytes of memory, and ensure that is backed by
++   actual memory.  */
++static bool
++populate_memory (size_t size)
++{
++  TEST_COMPARE (size % page_size, 0);
++  char *ptr = mmap (NULL, size, PROT_READ | PROT_WRITE,
++                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++  if (ptr == MAP_FAILED)
++    return false;
++
++  if (accept_oom)
++    support_accept_oom (true);
++
++  /* Ensure that the kernel allocates backing storage.  Make the pages
++     distinct using the total_bytes counter.  */
++  for (size_t offset = 0; offset < size; offset += page_size)
++    {
++      memcpy (ptr + offset, &total_bytes, sizeof (total_bytes));
++      total_bytes += page_size;
++    }
++
++  if (accept_oom)
++    support_accept_oom (false);
++
++  return true;
++}
++
++static int
++do_test (void)
++{
++  if (getenv ("oom_test_active") == NULL)
++    {
++      puts ("info: This test does nothing by default.");
++      puts ("info: Set the oom_test_active environment variable to enable it.");
++      puts ("info: Consider testing with inject_error and reject_oom as well.");
++      return 0;
++    }
++
++  accept_oom = getenv ("reject_oom") == NULL;
++
++  page_size = sysconf (_SC_PAGESIZE);
++  size_t size = page_size;
++
++  /* The environment variable can be set to trigger a test failure.
++     The OOM event should not obscure this error.  */
++  TEST_COMPARE_STRING (getenv ("inject_error"), NULL);
++
++  /* Grow the allocation until allocation fails.  */
++  while (true)
++    {
++      size_t new_size = 2 * size;
++      if (new_size == 0 || !populate_memory (new_size))
++        break;
++      size = new_size;
++    }
++
++  while (true)
++    {
++      if (!populate_memory (size))
++        {
++          /* Decrease size and see if the allocation succeeds.  */
++          size /= 2;
++          if (size < page_size)
++            FAIL_UNSUPPORTED ("could not trigger OOM"
++                              " after allocating %zu bytes",
++                              total_bytes);
++        }
++    }
++
++  return 0;
++}
++
++#include <support/test-driver.c>

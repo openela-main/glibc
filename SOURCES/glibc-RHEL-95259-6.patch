@@ -1,0 +1,33 @@
+commit 62fba6d9807fc12334d7c5513407715d59539611
+Author: Maciej W. Rozycki <macro@redhat.com>
+Date:   Fri Jun 6 18:14:34 2025 +0100
+
+    manual: Add a comparative example of 'clock_nanosleep' use
+    
+    Add an illustrative example of how to express 'nanosleep' in terms of
+    'clock_nanosleep'.
+
+diff --git a/manual/time.texi b/manual/time.texi
+index 697a6287f2..d003ddb637 100644
+--- a/manual/time.texi
++++ b/manual/time.texi
+@@ -3240,6 +3240,19 @@ different from @code{nanosleep}, which returns @math{-1} upon failure and
+ sets the global variable @code{errno} according to the error encountered
+ instead.
+ 
++Except for the return value convention and the way to communicate an error
++condition the call:
++
++@smallexample
++nanosleep (@var{requested_time}, @var{remaining_time})
++@end smallexample
++
++is analogous to:
++
++@smallexample
++clock_nanosleep (CLOCK_REALTIME, 0, @var{requested_time}, @var{remaining_time})
++@end smallexample
++
+ The @var{clock} argument specifies the clock to use.
+ @xref{Getting the Time}, for the @code{clockid_t} type and possible values
+ of @var{clock}.  Not all clocks listed are supported for use with

@@ -1,0 +1,191 @@
+commit 9e1f4aef865ddeffeb4b5f6578fefab606783120
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Thu Apr 4 15:43:50 2024 -0700
+
+    x86-64: Exclude FMA4 IFUNC functions for -mapxf
+    
+    When -mapxf is used to build glibc, the resulting glibc will never run
+    on FMA4 machines.  Exclude FMA4 IFUNC functions when -mapxf is used.
+    This requires GCC which defines __APX_F__ for -mapxf with commit:
+    
+    1df56719bd8 x86: Define __APX_F__ for -mapxf
+    
+    Reviewed-by: Sunil K Pandey <skpgkp2@gmail.com>
+
+diff --git a/config.h.in b/config.h.in
+index 790038fec60eb049..c95d510f078136b7 100644
+--- a/config.h.in
++++ b/config.h.in
+@@ -298,4 +298,7 @@
+ /* Define if -mmovbe is enabled by default on x86.  */
+ #undef HAVE_X86_MOVBE
+ 
++/* Define if -mapxf is enabled by default on x86.  */
++#undef HAVE_X86_APX
++
+ #endif
+diff --git a/sysdeps/x86_64/configure b/sysdeps/x86_64/configure
+index 75c96d60d4da5543..642386d8d185b37d 100755
+--- a/sysdeps/x86_64/configure
++++ b/sysdeps/x86_64/configure
+@@ -113,5 +113,37 @@ $as_echo "#define PI_STATIC_AND_HIDDEN 1" >>confdefs.h
+ $as_echo "#define SUPPORT_STATIC_PIE 1" >>confdefs.h
+ 
+ 
++# Check if -mapxf is enabled.
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether -mapxf is enabled" >&5
++printf %s "checking whether -mapxf is enabled... " >&6; }
++if test ${libc_cv_x86_have_apx+y}
++then :
++  printf %s "(cached) " >&6
++else $as_nop
++  cat > conftest.c <<EOF
++#ifndef __APX_F__
++# error APX isn't enabled
++#endif
++EOF
++	       libc_cv_x86_have_apx=no
++	       if { ac_try='${CC-cc} -c $CFLAGS conftest.c -o conftest.o 1>&5'
++  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
++  test $ac_status = 0; }; }; then
++		   libc_cv_x86_have_apx=yes
++	       fi
++	       rm -rf conftest*
++fi
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $libc_cv_x86_have_apx" >&5
++printf "%s\n" "$libc_cv_x86_have_apx" >&6; }
++if test $libc_cv_x86_have_apx = yes; then
++  printf "%s\n" "#define HAVE_X86_APX 1" >>confdefs.h
++
++fi
++config_vars="$config_vars
++have-x86-apx = $libc_cv_x86_have_apx"
++
+ test -n "$critic_missing" && as_fn_error $? "
+ *** $critic_missing" "$LINENO" 5
+diff --git a/sysdeps/x86_64/configure.ac b/sysdeps/x86_64/configure.ac
+index 66219e7ce5e190ae..53259c24a9f49822 100644
+--- a/sysdeps/x86_64/configure.ac
++++ b/sysdeps/x86_64/configure.ac
+@@ -60,5 +60,23 @@ AC_DEFINE(PI_STATIC_AND_HIDDEN)
+ dnl Static PIE is supported.
+ AC_DEFINE(SUPPORT_STATIC_PIE)
+ 
++# Check if -mapxf is enabled.
++AC_CACHE_CHECK(whether -mapxf is enabled,
++	       libc_cv_x86_have_apx, [dnl
++cat > conftest.c <<EOF
++#ifndef __APX_F__
++# error APX isn't enabled
++#endif
++EOF
++	       libc_cv_x86_have_apx=no
++	       if AC_TRY_COMMAND(${CC-cc} -c $CFLAGS conftest.c -o conftest.o 1>&AS_MESSAGE_LOG_FD); then
++		   libc_cv_x86_have_apx=yes
++	       fi
++	       rm -rf conftest*])
++if test $libc_cv_x86_have_apx = yes; then
++  AC_DEFINE(HAVE_X86_APX)
++fi
++LIBC_CONFIG_VAR([have-x86-apx], [$libc_cv_x86_have_apx])
++
+ test -n "$critic_missing" && AC_MSG_ERROR([
+ *** $critic_missing])
+diff --git a/sysdeps/x86_64/fpu/multiarch/Makefile b/sysdeps/x86_64/fpu/multiarch/Makefile
+index 73f9af871b9bad45..e94c2c3ed78ca462 100644
+--- a/sysdeps/x86_64/fpu/multiarch/Makefile
++++ b/sysdeps/x86_64/fpu/multiarch/Makefile
+@@ -38,29 +38,36 @@ libm-sysdep_routines += \
+   s_truncf-avx \
+ # libm-sysdep_routines
+ else
++ifeq (no,$(have-x86-apx))
+ libm-sysdep_routines += \
+-  e_asin-fma \
+   e_asin-fma4 \
++  e_atan2-fma4 \
++  e_exp-fma4 \
++  e_log-fma4 \
++  e_pow-fma4 \
++  s_atan-fma4 \
++  s_sin-fma4 \
++  s_sincos-fma4 \
++  s_tan-fma4 \
++# libm-sysdep_routines
++endif
++libm-sysdep_routines += \
++  e_asin-fma \
+   e_atan2-avx \
+   e_atan2-fma \
+-  e_atan2-fma4 \
+   e_exp-avx \
+   e_exp-fma \
+-  e_exp-fma4 \
+   e_exp2f-fma \
+   e_expf-fma \
+   e_log-avx \
+   e_log-fma \
+-  e_log-fma4 \
+   e_log2-fma \
+   e_log2f-fma \
+   e_logf-fma \
+   e_pow-fma \
+-  e_pow-fma4 \
+   e_powf-fma \
+   s_atan-avx \
+   s_atan-fma \
+-  s_atan-fma4 \
+   s_ceil-sse4_1 \
+   s_ceilf-sse4_1 \
+   s_cosf-fma \
+@@ -77,17 +84,14 @@ libm-sysdep_routines += \
+   s_roundevenf-sse4_1 \
+   s_sin-avx \
+   s_sin-fma \
+-  s_sin-fma4 \
+   s_sincos-avx \
+   s_sincos-fma \
+-  s_sincos-fma4 \
+   s_sincosf-fma \
+   s_sincosf-sse2 \
+   s_sinf-fma \
+   s_sinf-sse2 \
+   s_tan-avx \
+   s_tan-fma \
+-  s_tan-fma4 \
+   s_trunc-sse4_1 \
+   s_truncf-sse4_1 \
+ # libm-sysdep_routines
+diff --git a/sysdeps/x86_64/fpu/multiarch/ifunc-avx-fma4.h b/sysdeps/x86_64/fpu/multiarch/ifunc-avx-fma4.h
+index 997602b3b5ad5383..e1c01e6e07ea4a27 100644
+--- a/sysdeps/x86_64/fpu/multiarch/ifunc-avx-fma4.h
++++ b/sysdeps/x86_64/fpu/multiarch/ifunc-avx-fma4.h
+@@ -33,8 +33,10 @@ IFUNC_SELECTOR (void)
+       && CPU_FEATURE_USABLE_P (cpu_features, AVX2))
+     return OPTIMIZE (fma);
+ 
++#ifndef HAVE_X86_APX
+   if (CPU_FEATURE_USABLE_P (cpu_features, FMA4))
+     return OPTIMIZE (fma4);
++#endif
+ 
+   if (CPU_FEATURE_USABLE_P (cpu_features, AVX))
+     return OPTIMIZE (avx);
+diff --git a/sysdeps/x86_64/fpu/multiarch/ifunc-fma4.h b/sysdeps/x86_64/fpu/multiarch/ifunc-fma4.h
+index 20219ad2a38e6699..1299763fecea57ab 100644
+--- a/sysdeps/x86_64/fpu/multiarch/ifunc-fma4.h
++++ b/sysdeps/x86_64/fpu/multiarch/ifunc-fma4.h
+@@ -32,8 +32,10 @@ IFUNC_SELECTOR (void)
+       && CPU_FEATURE_USABLE_P (cpu_features, AVX2))
+     return OPTIMIZE (fma);
+ 
++#ifndef HAVE_X86_APX
+   if (CPU_FEATURE_USABLE_P (cpu_features, FMA4))
+     return OPTIMIZE (fma4);
++#endif
+ 
+   return OPTIMIZE (sse2);
+ }

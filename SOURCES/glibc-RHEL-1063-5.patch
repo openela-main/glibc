@@ -1,0 +1,153 @@
+commit cfdc4df66ce1464611e1b508f7a5a8f38afd5337
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Mon Jun 27 11:36:28 2022 -0700
+
+    x86-64: Only define used SSE/AVX/AVX512 run-time resolvers
+    
+    When glibc is built with x86-64 ISA level v3, SSE run-time resolvers
+    aren't used.  For x86-64 ISA level v4 build, both SSE and AVX resolvers
+    are unused.  Check the minimum x86-64 ISA level to exclude the unused
+    run-time resolvers.
+
+diff --git a/sysdeps/x86/isa-level.h b/sysdeps/x86/isa-level.h
+index c6156e7f7ac7ece5..f293aea9068cc2a9 100644
+--- a/sysdeps/x86/isa-level.h
++++ b/sysdeps/x86/isa-level.h
+@@ -68,10 +68,12 @@
+    compile-time constant.. */
+ 
+ /* ISA level >= 4 guaranteed includes.  */
++#define AVX512F_X86_ISA_LEVEL 4
+ #define AVX512VL_X86_ISA_LEVEL 4
+ #define AVX512BW_X86_ISA_LEVEL 4
+ 
+ /* ISA level >= 3 guaranteed includes.  */
++#define AVX_X86_ISA_LEVEL 3
+ #define AVX2_X86_ISA_LEVEL 3
+ #define BMI2_X86_ISA_LEVEL 3
+ 
+diff --git a/sysdeps/x86_64/dl-machine.h b/sysdeps/x86_64/dl-machine.h
+index 742682517179fab5..5da493ea4097886d 100644
+--- a/sysdeps/x86_64/dl-machine.h
++++ b/sysdeps/x86_64/dl-machine.h
+@@ -29,6 +29,7 @@
+ #include <dl-tlsdesc.h>
+ #include <dl-static-tls.h>
+ #include <dl-machine-rel.h>
++#include <isa-level.h>
+ 
+ /* Return nonzero iff ELF header is compatible with the running host.  */
+ static inline int __attribute__ ((unused))
+@@ -94,6 +95,8 @@ elf_machine_runtime_setup (struct link_map *l, struct r_scope_elem *scope[],
+       /* Identify this shared object.  */
+       *(ElfW(Addr) *) (got + 1) = (ElfW(Addr)) l;
+ 
++      const struct cpu_features* cpu_features = __get_cpu_features ();
++
+       /* The got[2] entry contains the address of a function which gets
+ 	 called to get the address of a so far unresolved function and
+ 	 jump to it.  The profiling extension of the dynamic linker allows
+@@ -102,9 +105,9 @@ elf_machine_runtime_setup (struct link_map *l, struct r_scope_elem *scope[],
+ 	 end in this function.  */
+       if (__glibc_unlikely (profile))
+ 	{
+-	  if (CPU_FEATURE_USABLE (AVX512F))
++	  if (X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512F))
+ 	    *(ElfW(Addr) *) (got + 2) = (ElfW(Addr)) &_dl_runtime_profile_avx512;
+-	  else if (CPU_FEATURE_USABLE (AVX))
++	  else if (X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX))
+ 	    *(ElfW(Addr) *) (got + 2) = (ElfW(Addr)) &_dl_runtime_profile_avx;
+ 	  else
+ 	    *(ElfW(Addr) *) (got + 2) = (ElfW(Addr)) &_dl_runtime_profile_sse;
+@@ -120,9 +123,10 @@ elf_machine_runtime_setup (struct link_map *l, struct r_scope_elem *scope[],
+ 	  /* This function will get called to fix up the GOT entry
+ 	     indicated by the offset on the stack, and then jump to
+ 	     the resolved address.  */
+-	  if (GLRO(dl_x86_cpu_features).xsave_state_size != 0)
++	  if (MINIMUM_X86_ISA_LEVEL >= AVX_X86_ISA_LEVEL
++	      || GLRO(dl_x86_cpu_features).xsave_state_size != 0)
+ 	    *(ElfW(Addr) *) (got + 2)
+-	      = (CPU_FEATURE_USABLE (XSAVEC)
++	      = (CPU_FEATURE_USABLE_P (cpu_features, XSAVEC)
+ 		 ? (ElfW(Addr)) &_dl_runtime_resolve_xsavec
+ 		 : (ElfW(Addr)) &_dl_runtime_resolve_xsave);
+ 	  else
+diff --git a/sysdeps/x86_64/dl-trampoline.S b/sysdeps/x86_64/dl-trampoline.S
+index 90b2a6ce56d1d370..3cf517f84c87cf22 100644
+--- a/sysdeps/x86_64/dl-trampoline.S
++++ b/sysdeps/x86_64/dl-trampoline.S
+@@ -20,6 +20,7 @@
+ #include <sysdep.h>
+ #include <cpu-features-offsets.h>
+ #include <link-defines.h>
++#include <isa-level.h>
+ 
+ #ifndef DL_STACK_ALIGNMENT
+ /* Due to GCC bug:
+@@ -71,35 +72,39 @@
+ #undef VMOVA
+ #undef VEC_SIZE
+ 
+-#define VEC_SIZE		32
+-#define VMOVA			vmovdqa
+-#define VEC(i)			ymm##i
+-#define _dl_runtime_profile	_dl_runtime_profile_avx
+-#include "dl-trampoline.h"
+-#undef _dl_runtime_profile
+-#undef VEC
+-#undef VMOVA
+-#undef VEC_SIZE
++#if MINIMUM_X86_ISA_LEVEL <= AVX_X86_ISA_LEVEL
++# define VEC_SIZE		32
++# define VMOVA			vmovdqa
++# define VEC(i)			ymm##i
++# define _dl_runtime_profile	_dl_runtime_profile_avx
++# include "dl-trampoline.h"
++# undef _dl_runtime_profile
++# undef VEC
++# undef VMOVA
++# undef VEC_SIZE
++#endif
+ 
++#if MINIMUM_X86_ISA_LEVEL < AVX_X86_ISA_LEVEL
+ /* movaps/movups is 1-byte shorter.  */
+-#define VEC_SIZE		16
+-#define VMOVA			movaps
+-#define VEC(i)			xmm##i
+-#define _dl_runtime_profile	_dl_runtime_profile_sse
+-#undef RESTORE_AVX
+-#include "dl-trampoline.h"
+-#undef _dl_runtime_profile
+-#undef VEC
+-#undef VMOVA
+-#undef VEC_SIZE
+-
+-#define USE_FXSAVE
+-#define STATE_SAVE_ALIGNMENT	16
+-#define _dl_runtime_resolve	_dl_runtime_resolve_fxsave
+-#include "dl-trampoline.h"
+-#undef _dl_runtime_resolve
+-#undef USE_FXSAVE
+-#undef STATE_SAVE_ALIGNMENT
++# define VEC_SIZE		16
++# define VMOVA			movaps
++# define VEC(i)			xmm##i
++# define _dl_runtime_profile	_dl_runtime_profile_sse
++# undef RESTORE_AVX
++# include "dl-trampoline.h"
++# undef _dl_runtime_profile
++# undef VEC
++# undef VMOVA
++# undef VEC_SIZE
++
++# define USE_FXSAVE
++# define STATE_SAVE_ALIGNMENT	16
++# define _dl_runtime_resolve	_dl_runtime_resolve_fxsave
++# include "dl-trampoline.h"
++# undef _dl_runtime_resolve
++# undef USE_FXSAVE
++# undef STATE_SAVE_ALIGNMENT
++#endif
+ 
+ #define USE_XSAVE
+ #define STATE_SAVE_ALIGNMENT	64
