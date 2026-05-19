@@ -1,3 +1,206 @@
+commit 6876da6c3cd740735f9227fa71494e3e72c91cdf
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Tue Mar 24 15:29:18 2026 +0100
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Thu Mar 26 16:10:21 2026 +0000
+
+    Fix namespace violation in fortify wrappers (bug 32052) (RHEL-52966)
+    
+    Resolves: RHEL-52966
+
+:000000 100644 00000000 52a65c16 A	glibc-RHEL-52966.patch
+
+commit d19518e588c4477fcde9374ec70350a1bc382c0b
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Tue Mar 24 14:18:52 2026 +0100
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Wed Mar 25 20:42:54 2026 +0000
+
+    Fix null pointer dereference and assertion failures in __nss_database_get (bug 28940) (RHEL-150269)
+    
+    Resolves: RHEL-150269
+
+:000000 100644 00000000 0eda8a77 A	glibc-RHEL-150269-1.patch
+:000000 100644 00000000 39255656 A	glibc-RHEL-150269-2.patch
+:000000 100644 00000000 7c99f3d9 A	glibc-RHEL-150269-3.patch
+:000000 100644 00000000 f811d428 A	glibc-RHEL-150269-4.patch
+
+commit 0e8e4ecae9fa126d2cea194d09042c554bdc420c
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Tue Mar 24 11:01:32 2026 +0100
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Wed Mar 25 12:30:41 2026 +0000
+
+    Add LD_DEBUG=tls support for tracking TLS and TCB events (RHEL-49785)
+    
+    Resolves: RHEL-49785
+
+:000000 100644 00000000 b9a8d925 A	glibc-RHEL-49785-1.patch
+:000000 100644 00000000 312faf76 A	glibc-RHEL-49785-2.patch
+:000000 100644 00000000 39691659 A	glibc-RHEL-49785-3.patch
+:000000 100644 00000000 6ee9ef6c A	glibc-RHEL-49785-4.patch
+:000000 100644 00000000 be0b0eb7 A	glibc-RHEL-49785-5.patch
+:000000 100644 00000000 e109ac52 A	glibc-RHEL-49785-6.patch
+
+commit d58e05d599e91bf2d7597da217208b2ef4c92fc1
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Mar 23 16:53:51 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Mon Mar 23 16:53:51 2026 +0100
+
+    Avoid duplicate DNS query if search list contains '.'
+    
+    Resolves: RHEL-153056
+
+:000000 100644 00000000 bf93cf76 A	glibc-RHEL-153056-1.patch
+:000000 100644 00000000 df435366 A	glibc-RHEL-153056-2.patch
+:000000 100644 00000000 ed5efd81 A	glibc-RHEL-153056-3.patch
+
+commit 6a5da8faa95148af5ace04cd63a9e11686b61d12
+Author:     Arjun Shankar <arjun@redhat.com>
+AuthorDate: Tue Mar 17 12:39:23 2026 +0100
+Commit:     Arjun Shankar <arjun@redhat.com>
+CommitDate: Tue Mar 17 12:39:23 2026 +0100
+
+    dlfcn: Add dlinfo request type RTLD_DI_ORIGIN_PATH (RHEL-54450)
+    
+    Resolves: RHEL-54450
+
+:000000 100644 00000000 ab7c187a A	glibc-RHEL-54450.patch
+
+commit 7bff59bb7c59d40d81878bbe411782c7e393b538
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Mon Mar 2 20:38:08 2026 +0100
+Commit:     Sergey Kolosov <skolosov@redhat.com>
+CommitDate: Mon Mar 9 08:59:24 2026 +0000
+
+    CI Gating: update gating.yaml for taskrpm deprecation
+    
+    Replace the deprecated baseos-ci.brew-build.tier1.functional rule with
+    fast-line and slow-line rules for tier0, tier1 and testsuite tests.
+    
+    Related: RHEL-126175
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 07eeedb5 a1e2d559 M	gating.yaml
+
+commit e2834b00283401e1a1cb8c6a1768b2c2fdaa7836
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Tue Feb 24 09:51:00 2026 +0100
+Commit:     Sergey Kolosov <skolosov@redhat.com>
+CommitDate: Mon Mar 2 19:10:44 2026 +0100
+
+    CI Tests: remove conflicting glibc32 to fix prepare stage
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 72495752 7749a2d4 M	plans/ci.fmf
+
+commit ca2c60812dc5d34b77f94382c7340dbdf0ca2748
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Mon Feb 23 21:36:01 2026 +0100
+Commit:     Sergey Kolosov <skolosov@redhat.com>
+CommitDate: Mon Mar 2 19:10:44 2026 +0100
+
+    CI Tests: add Regression/bz1882466-RHEL8-2-LD-PRELOAD-of-some-lib-that-has
+    
+    This test was originally missing during the import from Fedora test
+    plan.
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:000000 100644 00000000 2852f585 A	tests/Regression/bz1882466-RHEL8-2-LD-PRELOAD-of-some-lib-that-has/Makefile
+:000000 100644 00000000 020631ca A	tests/Regression/bz1882466-RHEL8-2-LD-PRELOAD-of-some-lib-that-has/PURPOSE
+:000000 100644 00000000 45d13719 A	tests/Regression/bz1882466-RHEL8-2-LD-PRELOAD-of-some-lib-that-has/main.fmf
+:000000 100755 00000000 d36bb2d4 A	tests/Regression/bz1882466-RHEL8-2-LD-PRELOAD-of-some-lib-that-has/runtest.sh
+:000000 100644 00000000 b8a08ec4 A	tests/Regression/bz1882466-RHEL8-2-LD-PRELOAD-of-some-lib-that-has/testlib.cc
+
+commit 1d7a0617ff0c43317425ee2a5b7379c7e2ef73ac
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Mon Feb 23 18:22:41 2026 -0500
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Thu Feb 26 10:03:06 2026 +0000
+
+    Remove default value for LD_PROFILE_OUTPUT
+    
+    Resolves: RHEL-142196
+
+:000000 100644 00000000 fa52d55f A	glibc-RHEL-142196-1.patch
+:000000 100644 00000000 f12aeb87 A	glibc-RHEL-142196-2.patch
+:000000 100644 00000000 28567d26 A	glibc-RHEL-142196-3.patch
+:000000 100644 00000000 e1a8ab7d A	glibc-RHEL-142196-4.patch
+:000000 100644 00000000 84b027a4 A	glibc-RHEL-142196-5.patch
+:000000 100644 00000000 68cdcffc A	glibc-RHEL-142196-6.patch
+:000000 100644 00000000 79975600 A	glibc-RHEL-142196-7.patch
+:000000 100644 00000000 a999fc88 A	glibc-RHEL-142196-8.patch
+
+commit 8a9ddda3347d613915845ebc322ed2c38145b070
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Tue Feb 24 15:23:26 2026 +0100
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Tue Feb 24 15:23:26 2026 +0100
+
+    Fix race condition in io/tst-stat symlink test (RHEL-142209)
+    
+    Resolves: RHEL-142209
+
+:000000 100644 00000000 0b0cc99c A	glibc-RHEL-142209.patch
+
+commit a5df4f06f796a4c1f78aa9c8e06f4ca823431072
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Mon Feb 23 14:17:12 2026 +0100
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Mon Feb 23 14:17:12 2026 +0100
+
+    Restore iconv tool verbosity for unrecognized encoding names (RHEL-1018)
+    
+    Resolves: RHEL-1018
+
+:000000 100644 00000000 ffe3c502 A	glibc-RHEL-1018.patch
+
+commit 3b96603253e3faf6588dee6d8b20043566c6d5e4
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Fri Feb 6 16:08:23 2026 -0500
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Mon Feb 16 07:43:17 2026 +0000
+
+    Optimize trylock for high cache contention workloads.
+    
+    Resolves: RHEL-141072
+
+:000000 100644 00000000 496a62f4 A	glibc-RHEL-141072.patch
+
+commit c7f278779ca2b29a5524121252ab11f051cfb8bb
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Tue Feb 10 18:53:05 2026 -0500
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Feb 13 15:27:36 2026 +0000
+
+    Update locales for Croatia to use EUR as currency symbol
+    
+    Resolves: RHEL-140105
+
+:000000 100644 00000000 1b763ae2 A	glibc-RHEL-140105.patch
+
+commit 426ad63b6259338de1b2083c57dab64d16b06bb0
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Thu Feb 12 20:37:12 2026 +0100
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Feb 13 15:21:49 2026 +0000
+
+    CI Tests: enable Regression/bz2115831-glibc-missing-gnu-debuglink-section-in
+    
+    Re-enable this test as RHEL-27851 has been fixed
+    
+    Related: RHEL-27851
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 4a3341c3 36de4261 M	tests/Regression/bz2115831-glibc-missing-gnu-debuglink-section-in/main.fmf
+
 commit eae38d8010e461f8f0d4a9ec27080eb89bc2e6fe
 Author:     Florian Weimer <fweimer@redhat.com>
 AuthorDate: Thu Feb 12 15:17:05 2026 +0100

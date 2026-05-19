@@ -1,0 +1,70 @@
+commit 20092f2ef601aef57cc184cbacd7cab39bba5a25
+Author: Yury Khrustalev <yury.khrustalev@arm.com>
+Date:   Mon Dec 1 10:09:14 2025 +0000
+
+    nptl: tests: Fix test-wrapper use in tst-dl-debug-tid.sh
+    
+    Test wrapper script was used twice: once to run the test
+    command and second time within the text command which
+    seems unnecessary and results in false errors when running
+    this test.
+    
+    Fixes 332f8e62afef53492dd8285490bcf7aeef18c80a
+    
+    Reviewed-by: Frédéric Bérat <fberat@redhat.com>
+
+diff --git a/nptl/Makefile b/nptl/Makefile
+index 7001ecd17b752dba..597311bf07223c4f 100644
+--- a/nptl/Makefile
++++ b/nptl/Makefile
+@@ -688,8 +688,8 @@ tst-stackguard1-static-ARGS = --command "$(objpfx)tst-stackguard1-static --child
+ 
+ ifeq ($(run-built-tests),yes)
+ $(objpfx)tst-dl-debug-tid.out: tst-dl-debug-tid.sh $(objpfx)tst-dl-debug-tid
+-	$(SHELL) $< $(common-objpfx) '$(test-wrapper)' '$(rtld-prefix)' \
+-	  '$(test-wrapper-env)' '$(run-program-env)' \
++	$(SHELL) $< $(common-objpfx) '$(test-wrapper-env)' '$(rtld-prefix)' \
++	  '$(run-program-env)' \
+ 	  $(objpfx)tst-dl-debug-tid > $@; $(evaluate-test)
+ 
+ $(objpfx)tst-oddstacklimit.out: $(objpfx)tst-oddstacklimit $(objpfx)tst-basic1
+diff --git a/nptl/tst-dl-debug-tid.sh b/nptl/tst-dl-debug-tid.sh
+index 93d27134a09eaca7..9ee31ac4f241f0b4 100644
+--- a/nptl/tst-dl-debug-tid.sh
++++ b/nptl/tst-dl-debug-tid.sh
+@@ -25,18 +25,17 @@ set -e
+ 
+ # Arguments are from Makefile.
+ common_objpfx="$1"
+-test_wrapper="$2"
++test_wrapper_env="$2"
+ rtld_prefix="$3"
+-test_wrapper_env="$4"
+-run_program_env="$5"
+-test_program="$6"
++run_program_env="$4"
++test_program="$5"
+ 
+ debug_output="${common_objpfx}elf/tst-dl-debug-tid.debug"
+ rm -f "${debug_output}".*
+ 
+ # Run the test program with LD_DEBUG=tls.
+ eval "${test_wrapper_env}" LD_DEBUG=tls LD_DEBUG_OUTPUT="${debug_output}" \
+-    "${test_wrapper}" "${rtld_prefix}" "${test_program}"
++    "${rtld_prefix}" "${test_program}"
+ 
+ debug_output=$(ls "${debug_output}".*)
+ # Check for the "Thread starting" message.
+@@ -49,9 +48,9 @@ fi
+ # Check that we have a message where the PID (from prefix) is different
+ # from the TID (in the message). This indicates a worker thread log.
+ if ! grep 'Thread starting: TID=' "${debug_output}" | awk -F '[ \t:]+' '{
+-  sub(/,/, "", $5);
+-  sub(/TID=/, "", $5);
+-  if ($1 != $5)
++  sub(/,/, "", $4);
++  sub(/TID=/, "", $4);
++  if ($1 != $4)
+     exit 0;
+   exit 1
+ }'; then

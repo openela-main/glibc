@@ -1,0 +1,374 @@
+commit 332f8e62afef53492dd8285490bcf7aeef18c80a
+Author: Frédéric Bérat <fberat@redhat.com>
+Date:   Fri Sep 5 16:14:38 2025 +0200
+
+    tls: Add debug logging for TLS and TCB management
+    
+    Introduce the `DL_DEBUG_TLS` debug mask to enable detailed logging for
+    Thread-Local Storage (TLS) and Thread Control Block (TCB) management.
+    
+    This change integrates a new `tls` option into the `LD_DEBUG`
+    environment variable, allowing developers to trace:
+    - TCB allocation, deallocation, and reuse events in `dl-tls.c`,
+      `nptl/allocatestack.c`, and `nptl/nptl-stack.c`.
+    - Thread startup events, including the TID and TCB address, in
+      `nptl/pthread_create.c`.
+    
+    A new test, `tst-dl-debug-tid`, has been added to validate the
+    functionality of this new debug logging, ensuring that relevant messages
+    are correctly generated for both main and worker threads.
+    
+    This enhances the debugging capabilities for diagnosing issues related
+    to TLS allocation and thread lifecycle within the dynamic linker.
+    
+    Reviewed-by: DJ Delorie <dj@redhat.com>
+
+Conflicts:
+	sysdeps/generic/ldsodefs.h
+	  (PRELINK is still there downstream)
+
+diff --git a/elf/dl-tls.c b/elf/dl-tls.c
+index 1b1bc4292eb24747..20d6036b891f653c 100644
+--- a/elf/dl-tls.c
++++ b/elf/dl-tls.c
+@@ -503,6 +503,8 @@ _dl_allocate_tls_storage (void)
+   result = allocate_dtv (result);
+   if (result == NULL)
+     free (allocated);
++  else if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    _dl_debug_printf ("TCB allocated: 0x%lx\n", (unsigned long int) result);
+ 
+   _dl_tls_allocate_end ();
+   return result;
+@@ -691,6 +693,10 @@ rtld_hidden_def (_dl_allocate_tls)
+ void
+ _dl_deallocate_tls (void *tcb, bool dealloc_tcb)
+ {
++  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    _dl_debug_printf ("TCB deallocating: 0x%lx (dealloc_tcb=%d)\n",
++		      (unsigned long int) tcb, dealloc_tcb);
++
+   dtv_t *dtv = GET_DTV (tcb);
+ 
+   /* We need to free the memory allocated for non-static TLS.  */
+diff --git a/elf/rtld.c b/elf/rtld.c
+index 629ad7f8f4f75353..ff4c160d8fafd70d 100644
+--- a/elf/rtld.c
++++ b/elf/rtld.c
+@@ -2676,10 +2676,12 @@ process_dl_debug (struct dl_main_state *state, const char *dl_debug)
+ 	DL_DEBUG_VERSIONS | DL_DEBUG_IMPCALLS },
+       { LEN_AND_STR ("scopes"), "display scope information",
+ 	DL_DEBUG_SCOPES },
++      { LEN_AND_STR ("tls"), "display TLS structures processing",
++	DL_DEBUG_TLS },
+       { LEN_AND_STR ("all"), "all previous options combined",
+ 	DL_DEBUG_LIBS | DL_DEBUG_RELOC | DL_DEBUG_FILES | DL_DEBUG_SYMBOLS
+ 	| DL_DEBUG_BINDINGS | DL_DEBUG_VERSIONS | DL_DEBUG_IMPCALLS
+-	| DL_DEBUG_SCOPES },
++	| DL_DEBUG_SCOPES | DL_DEBUG_TLS },
+       { LEN_AND_STR ("statistics"), "display relocation statistics",
+ 	DL_DEBUG_STATISTICS },
+       { LEN_AND_STR ("unused"), "determined unused DSOs",
+diff --git a/nptl/Makefile b/nptl/Makefile
+index 80c7587f0086677b..7001ecd17b752dba 100644
+--- a/nptl/Makefile
++++ b/nptl/Makefile
+@@ -374,6 +374,7 @@ tests-container =  tst-pthread-getattr
+ tests-internal := \
+   tst-barrier5 \
+   tst-cond22 \
++  tst-dl-debug-tid \
+   tst-mutex8 \
+   tst-mutex8-static \
+   tst-mutexpi8 \
+@@ -562,6 +563,7 @@ xtests-static += tst-setuid1-static
+ 
+ ifeq ($(run-built-tests),yes)
+ tests-special += \
++  $(objpfx)tst-dl-debug-tid.out \
+   $(objpfx)tst-oddstacklimit.out \
+   $(objpfx)tst-stack3-mem.out \
+   # tests-special
+@@ -685,6 +687,11 @@ tst-stackguard1-ARGS = --command "$(host-test-program-cmd) --child"
+ tst-stackguard1-static-ARGS = --command "$(objpfx)tst-stackguard1-static --child"
+ 
+ ifeq ($(run-built-tests),yes)
++$(objpfx)tst-dl-debug-tid.out: tst-dl-debug-tid.sh $(objpfx)tst-dl-debug-tid
++	$(SHELL) $< $(common-objpfx) '$(test-wrapper)' '$(rtld-prefix)' \
++	  '$(test-wrapper-env)' '$(run-program-env)' \
++	  $(objpfx)tst-dl-debug-tid > $@; $(evaluate-test)
++
+ $(objpfx)tst-oddstacklimit.out: $(objpfx)tst-oddstacklimit $(objpfx)tst-basic1
+ 	$(test-program-prefix) $< --command '$(host-test-program-cmd)' > $@; \
+ 	$(evaluate-test)
+diff --git a/nptl/allocatestack.c b/nptl/allocatestack.c
+index b0f40afd3f5801f6..9e0bb8f0eeff8e88 100644
+--- a/nptl/allocatestack.c
++++ b/nptl/allocatestack.c
+@@ -114,6 +114,10 @@ get_cached_stack (size_t *sizep, void **memp)
+   /* Release the lock early.  */
+   lll_unlock (GL (dl_stack_cache_lock), LLL_PRIVATE);
+ 
++  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    GLRO (dl_debug_printf) ("TLS TCB reused from cache: 0x%lx\n",
++			    (unsigned long int) result);
++
+   /* Report size and location of the stack to the caller.  */
+   *sizep = result->stackblock_size;
+   *memp = result->stackblock;
+@@ -291,6 +295,12 @@ allocate_stack (const struct pthread_attr *attr, struct pthread **pdp,
+ 	 stack cache nor will the memory (except the TLS memory) be freed.  */
+       pd->user_stack = true;
+ 
++      if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	GLRO (dl_debug_printf) (
++	  "TCB for user-supplied stack created: 0x%lx, stack=0x%lx, size=%lu\n",
++	  (unsigned long int) pd, (unsigned long int) pd->stackblock,
++	  (unsigned long int) pd->stackblock_size);
++
+       /* This is at least the second thread.  */
+       pd->header.multiple_threads = 1;
+ #ifndef TLS_MULTIPLE_THREADS_IN_TCB
+@@ -425,6 +435,10 @@ allocate_stack (const struct pthread_attr *attr, struct pthread **pdp,
+ 	  /* Don't allow setxid until cloned.  */
+ 	  pd->setxid_futex = -1;
+ 
++	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	    GLRO (dl_debug_printf) ("TCB for new stack allocated: 0x%lx\n",
++				    (unsigned long int) pd);
++
+ 	  /* Allocate the DTV for this thread.  */
+ 	  if (_dl_allocate_tls (TLS_TPADJ (pd)) == NULL)
+ 	    {
+diff --git a/nptl/nptl-stack.c b/nptl/nptl-stack.c
+index 3f33a4c20b39a4aa..4ef6527ff7e8192b 100644
+--- a/nptl/nptl-stack.c
++++ b/nptl/nptl-stack.c
+@@ -75,6 +75,11 @@ __nptl_free_stacks (size_t limit)
+ 	  /* Account for the freed memory.  */
+ 	  GL (dl_stack_cache_actsize) -= curr->stackblock_size;
+ 
++	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	    GLRO (dl_debug_printf) (
++		"TCB cache full, deallocating: TID=%ld, TCB=0x%lx\n",
++		(long int) curr->tid, (unsigned long int) curr);
++
+ 	  /* Free the memory associated with the ELF TLS.  */
+ 	  _dl_deallocate_tls (TLS_TPADJ (curr), false);
+ 
+@@ -96,6 +101,12 @@ static inline void
+ __attribute ((always_inline))
+ queue_stack (struct pthread *stack)
+ {
++  /* The 'stack' parameter is a pointer to the TCB (struct pthread),
++     not just the stack.  */
++  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    GLRO (dl_debug_printf) ("TCB deallocated into cache: TID=%ld, TCB=0x%lx\n",
++			    (long int) stack->tid, (unsigned long int) stack);
++
+   /* We unconditionally add the stack to the list.  The memory may
+      still be in use but it will not be reused until the kernel marks
+      the stack as not used anymore.  */
+@@ -123,8 +134,16 @@ __nptl_deallocate_stack (struct pthread *pd)
+   if (__glibc_likely (! pd->user_stack))
+     (void) queue_stack (pd);
+   else
+-    /* Free the memory associated with the ELF TLS.  */
+-    _dl_deallocate_tls (TLS_TPADJ (pd), false);
++    {
++      /* User-provided stack.  We must not free it.  But we must free
++	 the TLS memory.  */
++      if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	GLRO (dl_debug_printf) (
++	    "TCB for user-supplied stack deallocated: TID=%ld, TCB=0x%lx\n",
++	    (long int) pd->tid, (unsigned long int) pd);
++      /* Free the memory associated with the ELF TLS.  */
++      _dl_deallocate_tls (TLS_TPADJ (pd), false);
++    }
+ 
+   lll_unlock (GL (dl_stack_cache_lock), LLL_PRIVATE);
+ }
+diff --git a/nptl/pthread_create.c b/nptl/pthread_create.c
+index 109c5e3dc78c9aa2..37de54eaa570cedb 100644
+--- a/nptl/pthread_create.c
++++ b/nptl/pthread_create.c
+@@ -362,6 +362,10 @@ start_thread (void *arg)
+ 	goto out;
+     }
+ 
++  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    GLRO (dl_debug_printf) ("Thread starting: TID=%ld, TCB=0x%lx\n",
++			    (long int) pd->tid, (unsigned long int) pd);
++
+   /* Initialize resolver state pointer.  */
+   __resp = &pd->res;
+ 
+diff --git a/nptl/tst-dl-debug-tid.c b/nptl/tst-dl-debug-tid.c
+new file mode 100644
+index 0000000000000000..231fa43516b233b3
+--- /dev/null
++++ b/nptl/tst-dl-debug-tid.c
+@@ -0,0 +1,69 @@
++/* Test for thread ID logging in dynamic linker.
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++/* This test checks that the dynamic linker correctly logs thread creation
++   and destruction. It creates a detached thread followed by a joinable
++   thread to exercise different code paths. A barrier is used to ensure
++   the detached thread has started before the joinable one is created,
++   making the test more deterministic. The tst-dl-debug-tid.sh shell script
++   wrapper then verifies the LD_DEBUG output.  */
++
++#include <pthread.h>
++#include <support/xthread.h>
++#include <stdio.h>
++#include <unistd.h>
++
++static void *
++thread_function (void *arg)
++{
++  if (arg)
++    pthread_barrier_wait ((pthread_barrier_t *) arg);
++  return NULL;
++}
++
++static int
++do_test (void)
++{
++  pthread_t thread1;
++  pthread_attr_t attr;
++  pthread_barrier_t barrier;
++
++  pthread_barrier_init (&barrier, NULL, 2);
++
++  /* A detached thread.
++   * Deallocation is done by the thread itself upon exit.  */
++  xpthread_attr_init (&attr);
++  xpthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
++  /* We don't need the thread handle for the detached thread.  */
++  xpthread_create (&attr, thread_function, &barrier);
++  xpthread_attr_destroy (&attr);
++
++  /* Wait for the detached thread to be executed.  */
++  pthread_barrier_wait (&barrier);
++  pthread_barrier_destroy (&barrier);
++
++  /* A joinable thread.
++   * Deallocation is done by the main thread in pthread_join.  */
++  thread1 = xpthread_create (NULL, thread_function, NULL);
++
++  xpthread_join (thread1);
++
++  return 0;
++}
++
++#include <support/test-driver.c>
+diff --git a/nptl/tst-dl-debug-tid.sh b/nptl/tst-dl-debug-tid.sh
+new file mode 100644
+index 0000000000000000..93d27134a09eaca7
+--- /dev/null
++++ b/nptl/tst-dl-debug-tid.sh
+@@ -0,0 +1,72 @@
++#!/bin/sh
++# Test for thread ID logging in dynamic linker.
++# Copyright (C) 2025 Free Software Foundation, Inc.
++# This file is part of the GNU C Library.
++#
++# The GNU C Library is free software; you can redistribute it and/or
++# modify it under the terms of the GNU Lesser General Public
++# License as published by the Free Software Foundation; either
++# version 2.1 of the License, or (at your option) any later version.
++#
++# The GNU C Library is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++# Lesser General Public License for more details.
++#
++# You should have received a copy of the GNU Lesser General Public
++# License along with the GNU C Library; if not, see
++# <https://www.gnu.org/licenses/>.
++
++# This script runs the tst-dl-debug-tid test case and verifies its
++# LD_DEBUG output. It checks for thread creation/destruction messages
++# to ensure the dynamic linker's thread-aware logging is working.
++
++set -e
++
++# Arguments are from Makefile.
++common_objpfx="$1"
++test_wrapper="$2"
++rtld_prefix="$3"
++test_wrapper_env="$4"
++run_program_env="$5"
++test_program="$6"
++
++debug_output="${common_objpfx}elf/tst-dl-debug-tid.debug"
++rm -f "${debug_output}".*
++
++# Run the test program with LD_DEBUG=tls.
++eval "${test_wrapper_env}" LD_DEBUG=tls LD_DEBUG_OUTPUT="${debug_output}" \
++    "${test_wrapper}" "${rtld_prefix}" "${test_program}"
++
++debug_output=$(ls "${debug_output}".*)
++# Check for the "Thread starting" message.
++if ! grep -q 'Thread starting: TID=' "${debug_output}"; then
++    echo "error: 'Thread starting' message not found"
++    cat "${debug_output}"
++    exit 1
++fi
++
++# Check that we have a message where the PID (from prefix) is different
++# from the TID (in the message). This indicates a worker thread log.
++if ! grep 'Thread starting: TID=' "${debug_output}" | awk -F '[ \t:]+' '{
++  sub(/,/, "", $5);
++  sub(/TID=/, "", $5);
++  if ($1 != $5)
++    exit 0;
++  exit 1
++}'; then
++    echo "error: No 'Thread starting' message from a worker thread found"
++    cat "${debug_output}"
++    exit 1
++fi
++
++# We expect messages from thread creation and destruction.
++if ! grep -q 'TCB allocated\|TCB deallocating\|TCB reused\|TCB deallocated' \
++     "${debug_output}"; then
++    echo "error: Expected TCB allocation/deallocation message not found"
++    cat "${debug_output}"
++    exit 1
++fi
++
++cat "${debug_output}"
++rm -f "${debug_output}"
+diff --git a/sysdeps/generic/ldsodefs.h b/sysdeps/generic/ldsodefs.h
+index e5860916345487e7..5080db9381c31c4f 100644
+--- a/sysdeps/generic/ldsodefs.h
++++ b/sysdeps/generic/ldsodefs.h
+@@ -560,9 +560,10 @@ struct rtld_global_ro
+ #define DL_DEBUG_STATISTICS (1 << 7)
+ #define DL_DEBUG_UNUSED	    (1 << 8)
+ #define DL_DEBUG_SCOPES	    (1 << 9)
+-/* These two are used only internally.  */
++/* DL_DEBUG_HELP is only used internally.  */
+ #define DL_DEBUG_HELP       (1 << 10)
+ #define DL_DEBUG_PRELINK    (1 << 11)
++#define DL_DEBUG_TLS        (1 << 12)
+ 
+   /* OS version.  */
+   EXTERN unsigned int _dl_osversion;

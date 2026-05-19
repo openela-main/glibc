@@ -1,0 +1,49 @@
+commit e8502182f09211663c1583960442eb6ff502a33e
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Sat Jan 24 10:29:22 2026 +0100
+
+    support: Add support_hardcoded_paths_in_test
+    
+    It indicates whether glibc was configured with
+    --enable-hardcoded-path-in-tests.
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+diff -Nrup a/support/Makefile b/support/Makefile
+--- a/support/Makefile	2026-02-23 07:44:09.189237390 -0500
++++ b/support/Makefile	2026-02-23 07:49:33.975521231 -0500
+@@ -252,6 +252,12 @@ CFLAGS-support_paths.c = \
+ 		-DROOTSBINDIR_PATH=\"$(rootsbindir)\" \
+ 		-DCOMPLOCALEDIR_PATH=\"$(complocaledir)\"
+ 
++ifeq ($(build-hardcoded-path-in-tests),yes)
++CFLAGS-support_paths.c += -DHARDCODED_PATHS_IN_TEST=true
++else
++CFLAGS-support_paths.c += -DHARDCODED_PATHS_IN_TEST=false
++endif
++
+ # In support_timespec_check_in_range we may be passed a very tight
+ # range for which we should produce a correct result for expected
+ # being withing the observed range.  The code uses double internally
+diff -Nrup a/support/support.h b/support/support.h
+--- a/support/support.h	2026-02-23 07:44:09.127896391 -0500
++++ b/support/support.h	2026-02-23 07:52:57.800614726 -0500
+@@ -144,6 +144,9 @@ extern const char support_install_rootsb
+ /* Corresponds to the install's compiled locale directory.  */
+ extern const char support_complocaledir_prefix[];
+ 
++/* If true, glibc was configured with --enable-hardcoded-path-in-tests.  */
++extern const bool support_hardcoded_paths_in_test;
++
+ /* Copies the file at the path FROM to TO.  If TO does not exist, it
+    is created.  If TO is a regular file, it is truncated before
+    copying.  The file mode is copied, but the permissions are not.  */
+diff -Nrup a/support/support_paths.c b/support/support_paths.c
+--- a/support/support_paths.c	2021-08-01 21:33:43.000000000 -0400
++++ b/support/support_paths.c	2026-02-23 07:56:12.231942401 -0500
+@@ -92,3 +92,5 @@ const char support_complocaledir_prefix[
+ #else
+ # error please -DCOMPLOCALEDIR_PATH=something in the Makefile
+ #endif
++
++const bool support_hardcoded_paths_in_test = HARDCODED_PATHS_IN_TEST;

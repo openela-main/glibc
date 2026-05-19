@@ -1,0 +1,681 @@
+commit 1e47dbcce4d5cf2ce71377e729014e454a3e15ae
+Author: Frédéric Bérat <fberat@redhat.com>
+Date:   Fri Dec 12 16:19:43 2025 +0100
+
+    elf(tls): Add debug logging for TLS operations
+    
+    This commit introduces extensive debug logging for thread-local storage
+    (TLS) operations within the dynamic linker. When `LD_DEBUG=tls` is
+    enabled, messages are printed for:
+    - TLS module assignment and release.
+    - DTV (Dynamic Thread Vector) resizing events.
+    - TLS block allocations and deallocations.
+    - `__tls_get_addr` slow path events (DTV updates, lazy allocations, and
+      static TLS usage).
+    
+    The log format is standardized to use a "tls: " prefix and identifies
+    modules using the "modid %lu" convention. To aid in debugging
+    multithreaded applications, thread-specific logs include the Thread
+    Control Block (TCB) address to identify the context of the operation.
+    
+    A new test module `tst-tls-debug-mod.c` and a corresponding shell script
+    `tst-tls-debug-recursive.sh` have been added. Additionally, the existing
+    `tst-dl-debug-tid` NPTL test has been updated to verify these TLS debug
+    messages in a multithreaded context.
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+Conflicts:
+	elf/Makefile
+	  (fixup context)
+	elf/dl-tls.c
+	  (missing 5e249192cac7354af02a7347a0d8c984e0c88ed3 downstream)
+	sysdeps/x86_64/dl-tls.c
+	  (missing 5e249192cac7354af02a7347a0d8c984e0c88ed3 downstream)
+
+diff --git a/elf/Makefile b/elf/Makefile
+index bd12a20435538fdd..2431e7032c44beb8 100644
+--- a/elf/Makefile
++++ b/elf/Makefile
+@@ -1252,6 +1252,7 @@ $(objpfx)tst-glibcelf.out: tst-glibcelf.py elf.h $(..)/scripts/glibcelf.py \
+ 
+ ifeq ($(run-built-tests),yes)
+ tests-special += $(objpfx)tst-tls-allocation-failure-static-patched.out
++tests-special += $(objpfx)tst-tls-debug-recursive.out
+ endif
+ 
+ # The test requires shared _and_ PIE because the executable
+@@ -3052,3 +3053,15 @@ LDFLAGS-tst-version-hash-zero-linkmod.so = \
+ $(objpfx)tst-version-hash-zero-refmod.so: \
+   $(objpfx)tst-version-hash-zero-linkmod.so
+ tst-version-hash-zero-refmod.so-no-z-defs = yes
++
++ifeq ($(run-built-tests),yes)
++$(objpfx)tst-tls-debug-recursive.out: tst-tls-debug-recursive.sh \
++			      $(objpfx)tst-recursive-tls \
++			      $(objpfx)tst-recursive-tlsmallocmod.so \
++			      $(patsubst %,$(objpfx)tst-recursive-tlsmod%.so, \
++				0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)
++	$(SHELL) $< $(common-objpfx) '$(test-wrapper-env)' \
++		 '$(rtld-prefix)' '$(run_program_env)' \
++		 $(objpfx)tst-recursive-tls > $@; \
++	$(evaluate-test)
++endif
+diff --git a/elf/dl-close.c b/elf/dl-close.c
+index 4514c53d2db261c1..8020b0b182d66f4f 100644
+--- a/elf/dl-close.c
++++ b/elf/dl-close.c
+@@ -79,6 +79,11 @@ remove_slotinfo (size_t idx, struct dtv_slotinfo_list *listp, size_t disp,
+       if (__glibc_likely (old_map != NULL))
+ 	{
+ 	  /* Mark the entry as unused.  These can be read concurrently.  */
++	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	    _dl_debug_printf (
++		"tls: release modid %lu from %s [%ld]\n",
++		(unsigned long int) idx, DSO_FILENAME (old_map->l_name),
++		(long int) old_map->l_ns);
+ 	  atomic_store_relaxed (&listp->slotinfo[idx - disp].gen,
+ 				GL(dl_tls_generation) + 1);
+ 	  atomic_store_relaxed (&listp->slotinfo[idx - disp].map, NULL);
+diff --git a/elf/dl-tls.c b/elf/dl-tls.c
+index 20d6036b891f653c..f22d828a86539057 100644
+--- a/elf/dl-tls.c
++++ b/elf/dl-tls.c
+@@ -215,6 +215,12 @@ _dl_assign_tls_modid (struct link_map *l)
+     }
+ 
+   l->l_tls_modid = result;
++
++  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    _dl_debug_printf ("tls: assign modid %lu to %s [%ld]\n",
++		      (unsigned long int) result,
++		      DSO_FILENAME (l->l_name),
++		      (long int) l->l_ns);
+ }
+ 
+ 
+@@ -504,7 +510,7 @@ _dl_allocate_tls_storage (void)
+   if (result == NULL)
+     free (allocated);
+   else if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+-    _dl_debug_printf ("TCB allocated: 0x%lx\n", (unsigned long int) result);
++    _dl_debug_printf ("tls: allocate TCB 0x%lx\n", (unsigned long int) result);
+ 
+   _dl_tls_allocate_end ();
+   return result;
+@@ -517,13 +523,18 @@ extern dtv_t _dl_static_dtv[];
+ #endif
+ 
+ static dtv_t *
+-_dl_resize_dtv (dtv_t *dtv, size_t max_modid)
++_dl_resize_dtv (dtv_t *dtv, size_t max_modid, void *tcb)
+ {
+   /* Resize the dtv.  */
+   dtv_t *newp;
+   size_t newsize = max_modid + DTV_SURPLUS;
+   size_t oldsize = dtv[-1].counter;
+ 
++  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    _dl_debug_printf ("tls: DTV resized for TCB 0x%lx: oldsize=%lu, newsize=%lu\n",
++		      (unsigned long int) tcb,
++		      (unsigned long int) oldsize, (unsigned long int) newsize);
++
+   _dl_tls_allocate_begin ();
+   if (dtv == GL(dl_initial_dtv))
+     {
+@@ -592,7 +603,7 @@ _dl_allocate_tls_init (void *result, bool main_thread)
+   if (dtv[-1].counter < GL(dl_tls_max_dtv_idx))
+     {
+       /* Resize the dtv.  */
+-      dtv = _dl_resize_dtv (dtv, GL(dl_tls_max_dtv_idx));
++      dtv = _dl_resize_dtv (dtv, GL(dl_tls_max_dtv_idx), result);
+ 
+       /* Install this new dtv in the thread data structures.  */
+       INSTALL_DTV (result, &dtv[-1]);
+@@ -683,9 +694,14 @@ rtld_hidden_def (_dl_allocate_tls_init)
+ void *
+ _dl_allocate_tls (void *mem)
+ {
+-  return _dl_allocate_tls_init (mem == NULL
+-				? _dl_allocate_tls_storage ()
+-				: allocate_dtv (mem), false);
++  void *result = _dl_allocate_tls_init (mem == NULL
++					? _dl_allocate_tls_storage ()
++					: allocate_dtv (mem), false);
++  if (__glibc_unlikely (result != NULL
++			&& (GLRO (dl_debug_mask) & DL_DEBUG_TLS)))
++    _dl_debug_printf ("tls: TLS initialized for TCB 0x%lx\n",
++		      (unsigned long int) result);
++  return result;
+ }
+ rtld_hidden_def (_dl_allocate_tls)
+ 
+@@ -694,14 +710,22 @@ void
+ _dl_deallocate_tls (void *tcb, bool dealloc_tcb)
+ {
+   if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+-    _dl_debug_printf ("TCB deallocating: 0x%lx (dealloc_tcb=%d)\n",
++    _dl_debug_printf ("tls: deallocate TCB 0x%lx (dealloc_tcb=%d)\n",
+ 		      (unsigned long int) tcb, dealloc_tcb);
+ 
+   dtv_t *dtv = GET_DTV (tcb);
+ 
+   /* We need to free the memory allocated for non-static TLS.  */
+   for (size_t cnt = 0; cnt < dtv[-1].counter; ++cnt)
+-    free (dtv[1 + cnt].pointer.to_free);
++    {
++      if (dtv[1 + cnt].pointer.to_free != NULL
++	  && __glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	_dl_debug_printf (
++	    "tls: deallocate block 0x%lx for modid %lu; TCB=0x%lx\n",
++	    (unsigned long int) dtv[1 + cnt].pointer.to_free,
++	    (unsigned long int) (1 + cnt), (unsigned long int) tcb);
++      free (dtv[1 + cnt].pointer.to_free);
++    }
+ 
+   /* The array starts with dtv[-1].  */
+   if (dtv != GL(dl_initial_dtv))
+@@ -773,6 +797,12 @@ allocate_and_init (struct link_map *map)
+     (map->l_tls_align, map->l_tls_blocksize);
+   if (result.val == NULL)
+     oom ();
++  else if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    _dl_debug_printf ("tls: allocate block 0x%lx for modid %lu; size=%lu, TCB=0x%lx\n",
++		      (unsigned long int) result.to_free,
++		      (unsigned long int) map->l_tls_modid,
++		      (unsigned long int) map->l_tls_blocksize,
++		      (unsigned long int) THREAD_SELF);
+ 
+   /* Initialize the memory.  */
+   memset (__mempcpy (result.val, map->l_tls_initimage,
+@@ -874,7 +904,7 @@ _dl_update_slotinfo (unsigned long int req_modid, size_t new_gen)
+ 		    continue;
+ 
+ 		  /* Resizing the dtv aborts on failure: bug 16134.  */
+-		  dtv = _dl_resize_dtv (dtv, max_modid);
++		  dtv = _dl_resize_dtv (dtv, max_modid, THREAD_SELF);
+ 
+ 		  assert (modid <= dtv[-1].counter);
+ 
+@@ -895,6 +925,12 @@ _dl_update_slotinfo (unsigned long int req_modid, size_t new_gen)
+ 		 least some dynamic TLS usage by interposed mallocs.  */
+ 	      if (dtv[modid].pointer.to_free != NULL)
+ 		{
++		  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++		    _dl_debug_printf (
++			"tls: DTV update for TCB 0x%lx: modid %lu deallocated block 0x%lx\n",
++			(unsigned long int) THREAD_SELF,
++			(unsigned long int) modid,
++			(unsigned long int) dtv[modid].pointer.to_free);
+ 		  _dl_tls_allocate_begin ();
+ 		  free (dtv[modid].pointer.to_free);
+ 		  _dl_tls_allocate_end ();
+@@ -975,6 +1011,11 @@ tls_get_addr_tail (GET_ADDR_ARGS, dtv_t *dtv, struct link_map *the_map)
+ 	  dtv[GET_ADDR_MODULE].pointer.to_free = NULL;
+ 	  dtv[GET_ADDR_MODULE].pointer.val = p;
+ 
++	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	    _dl_debug_printf ("tls: modid %lu using static TLS; TCB=0x%lx\n",
++			      (unsigned long int) GET_ADDR_MODULE,
++			      (unsigned long int) THREAD_SELF);
++
+ 	  return (char *) p + GET_ADDR_OFFSET;
+ 	}
+       else
+@@ -1030,18 +1071,28 @@ __tls_get_addr (GET_ADDR_ARGS)
+     {
+       if (_dl_tls_allocate_active ()
+ 	  && GET_ADDR_MODULE < _dl_tls_initial_modid_limit)
++	{
+ 	  /* This is a reentrant __tls_get_addr call, but we can
+ 	     satisfy it because it's an initially-loaded module ID.
+ 	     These TLS slotinfo slots do not change, so the
+ 	     out-of-date generation counter does not matter.  However,
+ 	     if not in a TLS update, still update_get_addr below, to
+ 	     get off the slow path eventually.  */
+-	;
++	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	    _dl_debug_printf ("tls: modid %lu reentrant usage; TCB=0x%lx\n",
++			      (unsigned long int) GET_ADDR_MODULE,
++			      (unsigned long int) THREAD_SELF);
++	}
+       else
+ 	{
+ 	  /* Update DTV up to the global generation, see CONCURRENCY NOTES
+ 	     in _dl_update_slotinfo.  */
+ 	  gen = atomic_load_acquire (&GL(dl_tls_generation));
++	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	    _dl_debug_printf (
++		"tls: modid %lu update DTV to generation %lu; TCB=0x%lx\n",
++		(unsigned long int) GET_ADDR_MODULE, (unsigned long int) gen,
++		(unsigned long int) THREAD_SELF);
+ 	  return update_get_addr (GET_ADDR_PARAM, gen);
+ 	}
+     }
+@@ -1049,7 +1100,13 @@ __tls_get_addr (GET_ADDR_ARGS)
+   void *p = dtv[GET_ADDR_MODULE].pointer.val;
+ 
+   if (__glibc_unlikely (p == TLS_DTV_UNALLOCATED))
+-    return tls_get_addr_tail (GET_ADDR_PARAM, dtv, NULL);
++    {
++      if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	_dl_debug_printf ("tls: modid %lu lazy allocation; TCB=0x%lx\n",
++			  (unsigned long int) GET_ADDR_MODULE,
++			  (unsigned long int) THREAD_SELF);
++      return tls_get_addr_tail (GET_ADDR_PARAM, dtv, NULL);
++    }
+ 
+   return (char *) p + GET_ADDR_OFFSET;
+ }
+@@ -1119,6 +1176,10 @@ _dl_tls_initial_modid_limit_setup (void)
+ 	break;
+     }
+   _dl_tls_initial_modid_limit = idx;
++
++  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++    _dl_debug_printf ("tls: initial modid limit set to %lu\n",
++		      (unsigned long int) idx);
+ }
+ 
+ 
+diff --git a/elf/rtld.c b/elf/rtld.c
+index ff4c160d8fafd70d..3221bc8520996097 100644
+--- a/elf/rtld.c
++++ b/elf/rtld.c
+@@ -1257,6 +1257,11 @@ rtld_setup_main_map (struct link_map *main_map)
+ 
+ 	    /* This image gets the ID one.  */
+ 	    GL(dl_tls_max_dtv_idx) = main_map->l_tls_modid = 1;
++	    if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	      _dl_debug_printf ("tls: assign modid %lu to %s [%ld]\n",
++				(unsigned long int) main_map->l_tls_modid,
++				DSO_FILENAME (main_map->l_name),
++				(long int) main_map->l_ns);
+ 	  }
+ 	break;
+ 
+diff --git a/elf/tst-recursive-tlsmodN.c b/elf/tst-recursive-tlsmodN.c
+index bb7592aee6ed347e..921980605cf32a38 100644
+--- a/elf/tst-recursive-tlsmodN.c
++++ b/elf/tst-recursive-tlsmodN.c
+@@ -19,10 +19,10 @@
+ /* Compiled with VAR and FUNC set via -D.  FUNC requires some
+    relocation against TLS variable VAR.  */
+ 
+-__thread int VAR;
++__thread char VAR[32768];
+ 
+ int
+ FUNC (void)
+ {
+-  return VAR;
++  return VAR[0];
+ }
+diff --git a/elf/tst-tls-debug-recursive.sh b/elf/tst-tls-debug-recursive.sh
+new file mode 100755
+index 0000000000000000..083e716f7216ffd5
+--- /dev/null
++++ b/elf/tst-tls-debug-recursive.sh
+@@ -0,0 +1,83 @@
++#!/bin/sh
++# Test for TLS logging in dynamic linker.
++# Copyright (C) 2026 Free Software Foundation, Inc.
++# This file is part of the GNU C Library.
++#
++# The GNU C Library is free software; you can redistribute it and/or
++# modify it under the terms of the GNU Lesser General Public
++# License as published by the Free Software Foundation; either
++# version 2.1 of the License, or (at your option) any later version.
++#
++# The GNU C Library is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++# Lesser General Public License for more details.
++#
++# You should have received a copy of the GNU Lesser General Public
++# License along with the GNU C Library; if not, see
++# <https://www.gnu.org/licenses/>.
++
++# This script runs the tst-tls-debug-recursive test case and verifies its
++# LD_DEBUG=tls output. It checks for various TLS-related messages
++# to ensure the dynamic linker's TLS logging is working correctly.
++
++set -e
++common_objpfx="$1"
++test_wrapper_env="$2"
++rtld_prefix="$3"
++run_program_env="$4"
++test_program="$5"
++
++debug_output="${common_objpfx}elf/tst-tls-debug-recursive.debug"
++rm -f "${debug_output}".*
++
++# Run the test program with LD_DEBUG=tls.
++eval "${test_wrapper_env}" LD_DEBUG=tls LD_DEBUG_OUTPUT="${debug_output}" \
++    "${rtld_prefix}" "${test_program}"
++
++debug_output=$(ls "${debug_output}".*)
++
++fail=0
++
++# Check for expected messages
++if ! grep -q 'tls: DTV resized for TCB 0x.*: oldsize' "${debug_output}"; then
++  echo "FAIL: DTV resized message not found"
++  fail=1
++fi
++
++if ! grep -q 'tls: DTV update for TCB 0x.*: modid .* deallocated block' "${debug_output}"; then
++  echo "FAIL: module deallocated during DTV update message not found"
++  fail=1
++fi
++
++if ! grep -q 'tls: assign modid .* to' "${debug_output}"; then
++  echo "FAIL: module assigned message not found"
++  fail=1
++fi
++
++if ! grep -q 'tls: allocate block .* for modid .* size=.*, TCB=0x' "${debug_output}"; then
++  echo "FAIL: module allocated message not found"
++  fail=1
++fi
++
++if ! grep -q 'tls: modid .* update DTV to generation .* TCB=0x' "${debug_output}"; then
++  echo "FAIL: update DTV message not found"
++  fail=1
++fi
++
++if ! grep -q 'tls: initial modid limit set to' "${debug_output}"; then
++  echo "FAIL: initial modid limit message not found"
++  fail=1
++fi
++
++if [ $fail -ne 0 ]; then
++  echo "Test FAILED"
++  cat "${debug_output}"
++  rm -f "${debug_output}"
++  exit 1
++fi
++
++echo "Test PASSED"
++cat "${debug_output}"
++rm -f "${debug_output}"
++exit 0
+diff --git a/nptl/Makefile b/nptl/Makefile
+index 597311bf07223c4f..958de6b0002f63aa 100644
+--- a/nptl/Makefile
++++ b/nptl/Makefile
+@@ -274,6 +274,7 @@ CFLAGS-tst-thread-exit-clobber.o = -std=gnu++11
+ LDLIBS-tst-thread-exit-clobber = -lstdc++
+ CFLAGS-tst-minstack-throw.o = -std=gnu++11
+ LDLIBS-tst-minstack-throw = -lstdc++
++LDLIBS-tst-dl-debug-tid = $(libdl)
+ 
+ tests = \
+   tst-attr2 \
+@@ -486,6 +487,7 @@ modules-names = \
+   tst-compat-forwarder-mod \
+   tst-execstack-mod \
+   tst-stack4mod \
++  tst-tls-debug-mod \
+   tst-tls3mod \
+   tst-tls5mod \
+   tst-tls5moda \
+@@ -687,7 +689,8 @@ tst-stackguard1-ARGS = --command "$(host-test-program-cmd) --child"
+ tst-stackguard1-static-ARGS = --command "$(objpfx)tst-stackguard1-static --child"
+ 
+ ifeq ($(run-built-tests),yes)
+-$(objpfx)tst-dl-debug-tid.out: tst-dl-debug-tid.sh $(objpfx)tst-dl-debug-tid
++$(objpfx)tst-dl-debug-tid.out: tst-dl-debug-tid.sh $(objpfx)tst-dl-debug-tid \
++			 $(objpfx)tst-tls-debug-mod.so
+ 	$(SHELL) $< $(common-objpfx) '$(test-wrapper-env)' '$(rtld-prefix)' \
+ 	  '$(run-program-env)' \
+ 	  $(objpfx)tst-dl-debug-tid > $@; $(evaluate-test)
+diff --git a/nptl/allocatestack.c b/nptl/allocatestack.c
+index 9e0bb8f0eeff8e88..6c6094e929f927cc 100644
+--- a/nptl/allocatestack.c
++++ b/nptl/allocatestack.c
+@@ -115,7 +115,7 @@ get_cached_stack (size_t *sizep, void **memp)
+   lll_unlock (GL (dl_stack_cache_lock), LLL_PRIVATE);
+ 
+   if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+-    GLRO (dl_debug_printf) ("TLS TCB reused from cache: 0x%lx\n",
++    GLRO (dl_debug_printf) ("tls: TCB reused from cache: 0x%lx\n",
+ 			    (unsigned long int) result);
+ 
+   /* Report size and location of the stack to the caller.  */
+@@ -297,9 +297,9 @@ allocate_stack (const struct pthread_attr *attr, struct pthread **pdp,
+ 
+       if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+ 	GLRO (dl_debug_printf) (
+-	  "TCB for user-supplied stack created: 0x%lx, stack=0x%lx, size=%lu\n",
+-	  (unsigned long int) pd, (unsigned long int) pd->stackblock,
+-	  (unsigned long int) pd->stackblock_size);
++	  "tls: TCB created (user-supplied stack); stack=0x%lx, size=%lu, TCB=0x%lx\n",
++	  (unsigned long int) pd->stackblock,
++	  (unsigned long int) pd->stackblock_size, (unsigned long int) pd);
+ 
+       /* This is at least the second thread.  */
+       pd->header.multiple_threads = 1;
+@@ -436,7 +436,7 @@ allocate_stack (const struct pthread_attr *attr, struct pthread **pdp,
+ 	  pd->setxid_futex = -1;
+ 
+ 	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+-	    GLRO (dl_debug_printf) ("TCB for new stack allocated: 0x%lx\n",
++	    GLRO (dl_debug_printf) ("tls: TCB allocated (new stack): 0x%lx\n",
+ 				    (unsigned long int) pd);
+ 
+ 	  /* Allocate the DTV for this thread.  */
+diff --git a/nptl/nptl-stack.c b/nptl/nptl-stack.c
+index 4ef6527ff7e8192b..d2d0729035a19dfe 100644
+--- a/nptl/nptl-stack.c
++++ b/nptl/nptl-stack.c
+@@ -77,7 +77,7 @@ __nptl_free_stacks (size_t limit)
+ 
+ 	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+ 	    GLRO (dl_debug_printf) (
+-		"TCB cache full, deallocating: TID=%ld, TCB=0x%lx\n",
++		"tls: TCB deallocating from full cache; TID=%ld, TCB=0x%lx\n",
+ 		(long int) curr->tid, (unsigned long int) curr);
+ 
+ 	  /* Free the memory associated with the ELF TLS.  */
+@@ -104,7 +104,7 @@ queue_stack (struct pthread *stack)
+   /* The 'stack' parameter is a pointer to the TCB (struct pthread),
+      not just the stack.  */
+   if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+-    GLRO (dl_debug_printf) ("TCB deallocated into cache: TID=%ld, TCB=0x%lx\n",
++    GLRO (dl_debug_printf) ("tls: TCB deallocated into cache; TID=%ld, TCB=0x%lx\n",
+ 			    (long int) stack->tid, (unsigned long int) stack);
+ 
+   /* We unconditionally add the stack to the list.  The memory may
+@@ -139,7 +139,7 @@ __nptl_deallocate_stack (struct pthread *pd)
+ 	 the TLS memory.  */
+       if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+ 	GLRO (dl_debug_printf) (
+-	    "TCB for user-supplied stack deallocated: TID=%ld, TCB=0x%lx\n",
++	    "tls: TCB deallocated (user-supplied stack); TID=%ld, TCB=0x%lx\n",
+ 	    (long int) pd->tid, (unsigned long int) pd);
+       /* Free the memory associated with the ELF TLS.  */
+       _dl_deallocate_tls (TLS_TPADJ (pd), false);
+diff --git a/nptl/pthread_create.c b/nptl/pthread_create.c
+index 37de54eaa570cedb..c69b4108f60f647d 100644
+--- a/nptl/pthread_create.c
++++ b/nptl/pthread_create.c
+@@ -363,7 +363,7 @@ start_thread (void *arg)
+     }
+ 
+   if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
+-    GLRO (dl_debug_printf) ("Thread starting: TID=%ld, TCB=0x%lx\n",
++    GLRO (dl_debug_printf) ("tls: thread starting; TID=%ld, TCB=0x%lx\n",
+ 			    (long int) pd->tid, (unsigned long int) pd);
+ 
+   /* Initialize resolver state pointer.  */
+diff --git a/nptl/tst-dl-debug-tid.c b/nptl/tst-dl-debug-tid.c
+index 231fa43516b233b3..f3b443f9786a9a99 100644
+--- a/nptl/tst-dl-debug-tid.c
++++ b/nptl/tst-dl-debug-tid.c
+@@ -27,12 +27,25 @@
+ #include <support/xthread.h>
+ #include <stdio.h>
+ #include <unistd.h>
++#include <dlfcn.h>
++#include <support/xdlfcn.h>
++#include <support/check.h>
+ 
+ static void *
+ thread_function (void *arg)
+ {
+   if (arg)
+     pthread_barrier_wait ((pthread_barrier_t *) arg);
++
++  /* Load a module with TLS to verify allocation/deallocation logs.  */
++  void *h = xdlopen ("tst-tls-debug-mod.so", RTLD_NOW);
++
++  /* Call a function that accesses TLS.  */
++  int (*fp) (void) = (int (*) (void)) xdlsym (h, "in_dso");
++  TEST_COMPARE (fp (), 0);
++
++  xdlclose (h);
++
+   return NULL;
+ }
+ 
+diff --git a/nptl/tst-dl-debug-tid.sh b/nptl/tst-dl-debug-tid.sh
+index 9ee31ac4f241f0b4..8708ac9f2ea25c9e 100644
+--- a/nptl/tst-dl-debug-tid.sh
++++ b/nptl/tst-dl-debug-tid.sh
+@@ -39,7 +39,7 @@ eval "${test_wrapper_env}" LD_DEBUG=tls LD_DEBUG_OUTPUT="${debug_output}" \
+ 
+ debug_output=$(ls "${debug_output}".*)
+ # Check for the "Thread starting" message.
+-if ! grep -q 'Thread starting: TID=' "${debug_output}"; then
++if ! grep -q 'tls: thread starting; TID=.*, TCB=0x' "${debug_output}"; then
+     echo "error: 'Thread starting' message not found"
+     cat "${debug_output}"
+     exit 1
+@@ -47,10 +47,10 @@ fi
+ 
+ # Check that we have a message where the PID (from prefix) is different
+ # from the TID (in the message). This indicates a worker thread log.
+-if ! grep 'Thread starting: TID=' "${debug_output}" | awk -F '[ \t:]+' '{
+-  sub(/,/, "", $4);
+-  sub(/TID=/, "", $4);
+-  if ($1 != $4)
++if ! grep 'tls: thread starting; TID=.*, TCB=0x' "${debug_output}" | awk -F '[ \t:]+' '{
++  sub(/TID=/, "", $5);
++  sub(/,/, "", $5);
++  if ($1 != $5)
+     exit 0;
+   exit 1
+ }'; then
+@@ -60,12 +60,33 @@ if ! grep 'Thread starting: TID=' "${debug_output}" | awk -F '[ \t:]+' '{
+ fi
+ 
+ # We expect messages from thread creation and destruction.
+-if ! grep -q 'TCB allocated\|TCB deallocating\|TCB reused\|TCB deallocated' \
++if ! grep -q 'tls: allocate TCB 0x\|tls: deallocate TCB 0x\|tls: TCB reused from cache\|tls: TCB deallocated' \
+      "${debug_output}"; then
+     echo "error: Expected TCB allocation/deallocation message not found"
+     cat "${debug_output}"
+     exit 1
+ fi
+ 
++# Check for TLS module ID assignment.
++if ! grep -q 'tls: assign modid .* to' "${debug_output}"; then
++    echo "error: Expected 'modid ... assigned to' message not found"
++    cat "${debug_output}"
++    exit 1
++fi
++
++# Check for TLS block allocation.
++if ! grep -q 'tls: allocate block .* for modid .* size=.*, TCB=0x' "${debug_output}"; then
++    echo "error: Expected 'modid ... allocated' message not found"
++    cat "${debug_output}"
++    exit 1
++fi
++
++# TLS block deallocation might be skipped due to DTV surplus.
++if grep -q 'tls: deallocate block .* for modid .* TCB=0x' "${debug_output}"; then
++    echo "INFO: module deallocated message found"
++else
++    echo "INFO: module deallocated message not found (may be due to DTV surplus)"
++fi
++
+ cat "${debug_output}"
+ rm -f "${debug_output}"
+diff --git a/nptl/tst-tls-debug-mod.c b/nptl/tst-tls-debug-mod.c
+new file mode 100644
+index 0000000000000000..0308c8a3e2d76fe1
+--- /dev/null
++++ b/nptl/tst-tls-debug-mod.c
+@@ -0,0 +1,26 @@
++/* Test for TLS logging in dynamic linker.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++__thread char tls_var[32768] __attribute__ ((tls_model ("global-dynamic")));
++
++int
++in_dso (void)
++{
++  tls_var[0] = 42;
++  return tls_var[0] - 42;
++}
+diff --git a/sysdeps/x86_64/dl-tls.c b/sysdeps/x86_64/dl-tls.c
+index 7abfb18413b1d06c..2bd336876a6613c8 100644
+--- a/sysdeps/x86_64/dl-tls.c
++++ b/sysdeps/x86_64/dl-tls.c
+@@ -41,11 +41,36 @@ __tls_get_addr_slow (GET_ADDR_ARGS)
+   dtv_t *dtv = THREAD_DTV ();
+ 
+   size_t gen = atomic_load_acquire (&GL(dl_tls_generation));
+-  if (__glibc_unlikely (dtv[0].counter != gen)
++  if (__glibc_unlikely (dtv[0].counter != gen))
++    {
+       /* See comment in __tls_get_addr in elf/dl-tls.c.  */
+-      && !(_dl_tls_allocate_active ()
+-           && GET_ADDR_MODULE < _dl_tls_initial_modid_limit))
+-    return update_get_addr (GET_ADDR_PARAM, gen);
++      if (_dl_tls_allocate_active ()
++	  && GET_ADDR_MODULE < _dl_tls_initial_modid_limit)
++	{
++	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	    _dl_debug_printf (
++		"tls: modid %lu reentrant usage; TCB=0x%lx\n",
++		(unsigned long int) GET_ADDR_MODULE,
++		(unsigned long int) THREAD_SELF);
++	}
++      else
++	{
++	  if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	    _dl_debug_printf (
++		"tls: modid %lu update DTV to generation %lu; TCB=0x%lx\n",
++		(unsigned long int) GET_ADDR_MODULE, (unsigned long int) gen,
++		(unsigned long int) THREAD_SELF);
++	  return update_get_addr (GET_ADDR_PARAM, gen);
++	}
++    }
++
++  if (__glibc_unlikely (dtv[GET_ADDR_MODULE].pointer.val == TLS_DTV_UNALLOCATED))
++    {
++      if (__glibc_unlikely (GLRO (dl_debug_mask) & DL_DEBUG_TLS))
++	_dl_debug_printf ("tls: modid %lu lazy allocation; TCB=0x%lx\n",
++			  (unsigned long int) GET_ADDR_MODULE,
++			  (unsigned long int) THREAD_SELF);
++    }
+ 
+   return tls_get_addr_tail (GET_ADDR_PARAM, dtv, NULL);
+ }

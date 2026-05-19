@@ -1,0 +1,40 @@
+commit 458a6a2b935f60a25a136846fe8b7a4723296dda
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Sat Jan 24 10:29:39 2026 +0100
+
+    support: Reinitialize containers if /etc is present
+    
+    This prevents test failures because configuration file leftovers
+    unexpectedly change glibc for future tests.  Whether this
+    triggers depends on test execution order.
+    
+    Adding postclean.req files manually (before this change) appears
+    too error-prone.
+    
+    Reviewed-by: DJ Delorie <dj@redhat.com>
+
+diff --git a/support/test-container.c b/support/test-container.c
+index a9c9926c21f3a21e..f2853f6a71475420 100644
+--- a/support/test-container.c
++++ b/support/test-container.c
+@@ -134,7 +134,9 @@ int verbose = 0;
+ 	 - 'mkdirp': A minimal "mkdir -p FILE" command.
+ 
+    * mytest.root/postclean.req causes fresh rsync (with delete) after
+-     test if present
++     test if present.  If /etc is present, the testroot is cleaned,
++     too.  This prevents further tests from using special
++     configurations in /etc from previous tests.
+ 
+    * mytest.root/ldconfig.run causes ldconfig to be issued prior
+      test execution (to setup the initial ld.so.cache).
+@@ -868,7 +870,8 @@ main (int argc, char **argv)
+   if (strrchr (so_base, '/') != NULL)
+     strrchr (so_base, '/')[1] = 0;
+ 
+-  if (file_exists (concat (command_root, "/postclean.req", NULL)))
++  if (file_exists (concat (command_root, "/postclean.req", NULL))
++      || file_exists (concat (command_root, "/etc", NULL)))
+     do_postclean = 1;
+ 
+   if (file_exists (concat (command_root, "/ldconfig.run", NULL)))

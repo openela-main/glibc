@@ -1,0 +1,52 @@
+commit 55e85c1e48c2aae71c0b5907fd22a3e9b978b6e8
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Fri Jul 18 17:03:04 2025 -0700
+
+    io/tst-stat.c: Use a temporary directory for symlink test
+    
+    Call support_create_temp_directory to create a temporary directory for
+    symlink test, instead of a fixed file in the glibc source tree, to avoid
+    the race condition when there are more than one glibc tests running at the
+    same time with the same glibc source tree.  This fixes BZ #33178.
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+    Reviewed-by: Andreas K. Huettel <dilfridge@gentoo.org>
+
+diff --git a/io/tst-stat.c b/io/tst-stat.c
+index 269c62d29e7e93fa..af31b4b39d3d65a8 100644
+--- a/io/tst-stat.c
++++ b/io/tst-stat.c
+@@ -27,6 +27,7 @@
+ #include <sys/sysmacros.h>
+ #include <stdio.h>
+ #include <unistd.h>
++#include <stdlib.h>
+ 
+ static void
+ stat_check (int fd, const char *path, struct stat *st)
+@@ -78,7 +79,8 @@ static int
+ do_test (void)
+ {
+   char *path;
+-  const char *linkame = "tst-fstat.linkname";
++  char *tempdir = support_create_temp_directory ("tst-stat-");
++  char *linkname = xasprintf ("%s/tst-fstat.linkname", tempdir);
+   int fd = create_temp_file ("tst-fstat.", &path);
+   TEST_VERIFY_EXIT (fd >= 0);
+   support_write_file_string (path, "abc");
+@@ -122,9 +124,12 @@ do_test (void)
+ 	}
+     }
+ 
+-  TEST_COMPARE (symlink ("tst-fstat.target", linkame), 0);
+-  add_temp_file (linkame);
+-  fstatat_link (linkame, &st);
++  TEST_COMPARE (symlink ("tst-fstat.target", linkname), 0);
++  add_temp_file (linkname);
++  fstatat_link (linkname, &st);
++
++  free (linkname);
++  free (tempdir);
+ 
+   return 0;
+ }
