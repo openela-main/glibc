@@ -1,0 +1,47 @@
+commit 323ad087a1b275bbc88cf824b873681ec667da0f
+Author: Jiamei Xie <xiejiamei@hygon.cn>
+Date:   Tue Oct 14 20:14:11 2025 +0800
+
+    x86: fix wmemset ifunc stray '!' (bug 33542)
+    
+    The ifunc selector for wmemset had a stray '!' in the
+    X86_ISA_CPU_FEATURES_ARCH_P(...) check:
+    
+      if (X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX2)
+          && X86_ISA_CPU_FEATURES_ARCH_P (cpu_features,
+                                          AVX_Fast_Unaligned_Load, !))
+    
+    This effectively negated the predicate and caused the AVX2/AVX512
+    paths to be skipped, making the dispatcher fall back to the SSE2
+    implementation even on CPUs where AVX2/AVX512 are available. The
+    regression leads to noticeable throughput loss for wmemset.
+    
+    Remove the stray '!' so the AVX_Fast_Unaligned_Load capability is
+    tested as intended and the correct AVX2/EVEX variants are selected.
+    
+    Impact:
+    - On AVX2/AVX512-capable x86_64, wmemset no longer incorrectly
+      falls back to SSE2; perf now shows __wmemset_evex/avx2 variants.
+    
+    Testing:
+    - benchtests/bench-wmemset shows improved bandwidth across sizes.
+    - perf confirm the selected symbol is no longer SSE2.
+    
+    Signed-off-by: xiejiamei <xiejiamei@hygon.com>
+    Signed-off-by: Li jing <lijing@hygon.cn>
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+    (cherry picked from commit 4d86b6cdd8132e0410347e07262239750f86dfb4)
+
+diff --git a/sysdeps/x86_64/multiarch/ifunc-wmemset.h b/sysdeps/x86_64/multiarch/ifunc-wmemset.h
+index 6e20d9dd5a22a52e..727b69f95b0ebad0 100644
+--- a/sysdeps/x86_64/multiarch/ifunc-wmemset.h
++++ b/sysdeps/x86_64/multiarch/ifunc-wmemset.h
+@@ -35,7 +35,7 @@ IFUNC_SELECTOR (void)
+ 
+   if (X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX2)
+       && X86_ISA_CPU_FEATURES_ARCH_P (cpu_features,
+-				      AVX_Fast_Unaligned_Load, !))
++				      AVX_Fast_Unaligned_Load,))
+     {
+       if (X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512VL))
+ 	{

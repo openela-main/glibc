@@ -1,0 +1,98 @@
+commit dc9ca785a5fe2059a9b04ab336520d463d9a715b
+Author: Carlos Peón Costa <carlospeon@gmail.com>
+Date:   Tue Mar 3 18:48:47 2026 +0100
+
+    resolv: Avoid duplicate query if search list contains '.' (bug 33804)
+    
+    Co-authored-by: Florian Weimer <fweimer@redhat.com>
+    Signed-off-by: Florian Weimer <fweimer@redhat.com>
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/resolv/res_query.c b/resolv/res_query.c
+index bd55453552e9e9c9..abd00f65bb729969 100644
+--- a/resolv/res_query.c
++++ b/resolv/res_query.c
+@@ -354,7 +354,7 @@ __res_context_search (struct resolv_context *ctx,
+ 	char tmp[NS_MAXDNAME];
+ 	u_int dots;
+ 	int trailing_dot, ret, saved_herrno;
+-	int got_nodata = 0, got_servfail = 0, root_on_list = 0;
++	int got_nodata = 0, got_servfail = 0;
+ 	int tried_as_is = 0;
+ 	int searched = 0;
+ 
+@@ -433,8 +433,11 @@ __res_context_search (struct resolv_context *ctx,
+ 			   domain.  */
+ 			if (dname[0] == '.')
+ 				dname++;
+-			if (dname[0] == '\0')
+-				root_on_list++;
++			if (dname[0] == '\0') {
++				if (tried_as_is)
++					continue;
++				tried_as_is++;
++			}
+ 
+ 			ret = __res_context_querydomain
+ 			  (ctx, name, dname, class, type,
+@@ -506,7 +509,7 @@ __res_context_search (struct resolv_context *ctx,
+ 	 * unless RES_NOTLDQUERY is set and there were no dots.
+ 	 */
+ 	if ((dots || !searched || (statp->options & RES_NOTLDQUERY) == 0)
+-	    && !(tried_as_is || root_on_list)) {
++	    && !tried_as_is) {
+ 		ret = __res_context_querydomain
+ 		  (ctx, name, NULL, class, type,
+ 		   answer, anslen, answerp, answerp2, nanswerp2,
+diff --git a/resolv/tst-resolv-no-search.c b/resolv/tst-resolv-no-search.c
+index 29701d4772507507..7d78d4044cf50e48 100644
+--- a/resolv/tst-resolv-no-search.c
++++ b/resolv/tst-resolv-no-search.c
+@@ -27,6 +27,11 @@
+ #include <support/resolv_test.h>
+ #include <support/support.h>
+ 
++/* Used to check for duplicated queries (bug 33804).  POSIX does not
++   explicitly say that socket calls (as used in the resolver tests)
++   provide synchronization.  */
++static _Atomic unsigned int query_count;
++
+ /* Check that plain res_init loads the configuration as expected.  */
+ static void
+ test_res_init (void *ignored)
+@@ -43,6 +48,7 @@ response (const struct resolv_response_context *ctx,
+ {
+   TEST_VERIFY_EXIT (qclass == C_IN);
+   TEST_COMPARE (ctx->server_index, 0);
++  ++query_count;
+ 
+   if (strncmp (qname, "does-not-exist", strlen ("does-not-exist")) == 0)
+     {
+@@ -82,12 +88,16 @@ check_h (const char *name, int family, const char *expected)
+   if (family == AF_INET)
+     {
+       char *query = xasprintf ("gethostbyname (\"%s\")", name);
++      query_count = 0;
+       check_hostent (query, gethostbyname (name), expected);
++      TEST_COMPARE (query_count, 1);
+       free (query);
+     }
+   {
+     char *query = xasprintf ("gethostbyname2 (\"%s\", %d)", name, family);
++    query_count = 0;
+     check_hostent (query, gethostbyname2 (name, family), expected);
++    TEST_COMPARE (query_count, 1);
+     free (query);
+   }
+ }
+@@ -98,8 +108,10 @@ check_ai (const char *name, int family, const char *expected)
+   struct addrinfo hints = { .ai_family = family, .ai_socktype = SOCK_STREAM, };
+   struct addrinfo *ai;
+   char *query = xasprintf ("%s:80 [%d]", name, hints.ai_family);
++  query_count = 0;
+   int ret = getaddrinfo (name, "80", &hints, &ai);
+   check_addrinfo (query, ai, ret, expected);
++  TEST_COMPARE (query_count, family == AF_UNSPEC ? 2 : 1);
+   if (ret == 0)
+     freeaddrinfo (ai);
+   free (query);

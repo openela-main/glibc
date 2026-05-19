@@ -1,0 +1,361 @@
+commit 58cf4aa42100f869a2cd9dda0604d0a03d252ad6
+Author: Yury Khrustalev <yury.khrustalev@arm.com>
+Date:   Tue Apr 29 13:44:11 2025 +0100
+
+    aarch64: update tests for SME
+    
+    Add test that checks that ZA state is disabled after setjmp and sigsetjmp
+    Update existing SME test that uses setjmp
+    
+    Reviewed-by: Wilco Dijkstra  <Wilco.Dijkstra@arm.com>
+    (cherry picked from commit 251f93262483b9c1184f5b72993d77a5d1c95f68)
+    (cherry picked from commit 97076e0cf14c635ef1d4ce1241e41c2c497533c8)
+    (cherry picked from commit 51bcc73d95051e74512bb32fe17096b3db329cf3)
+
+diff --git a/sysdeps/aarch64/Makefile b/sysdeps/aarch64/Makefile
+index eb34f4541e9710ba..62ae97fab07d54db 100644
+--- a/sysdeps/aarch64/Makefile
++++ b/sysdeps/aarch64/Makefile
+@@ -74,7 +74,9 @@ sysdep_routines += \
+   __arm_za_disable
+ 
+ tests += \
+-  tst-sme-jmp
++  tst-sme-jmp \
++  tst-sme-za-state \
++  # tests
+ endif
+ 
+ ifeq ($(subdir),malloc)
+diff --git a/sysdeps/aarch64/tst-sme-helper.h b/sysdeps/aarch64/tst-sme-helper.h
+new file mode 100644
+index 0000000000000000..f049416c2bd6d377
+--- /dev/null
++++ b/sysdeps/aarch64/tst-sme-helper.h
+@@ -0,0 +1,97 @@
++/* Utility functions for SME tests.
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++/* Streaming SVE vector register size.  */
++static unsigned long svl;
++
++struct blk {
++  void *za_save_buffer;
++  uint16_t num_za_save_slices;
++  char __reserved[6];
++};
++
++/* Read SVCR to get SM (bit0) and ZA (bit1) state.  */
++static unsigned long
++get_svcr (void)
++{
++  register unsigned long x0 asm ("x0");
++  asm volatile (
++    ".inst   0xd53b4240  /* mrs     x0, svcr  */\n"
++    : "=r" (x0));
++  return x0;
++}
++
++/* Returns tpidr2.  */
++static void *
++get_tpidr2 (void)
++{
++  register unsigned long x0 asm ("x0");
++  asm volatile (
++    ".inst   0xd53bd0a0  /* mrs     x0, tpidr2_el0  */\n"
++    : "=r"(x0) :: "memory");
++  return (void *) x0;
++}
++
++/* Obtains current streaming SVE vector register size.  */
++static unsigned long
++get_svl (void)
++{
++  register unsigned long x0 asm ("x0");
++  asm volatile (
++    ".inst   0x04bf5820  /* rdsvl   x0, 1  */\n"
++    : "=r" (x0));
++  return x0;
++}
++
++/* PSTATE.ZA = 1, set ZA state to active.  */
++static void
++start_za (void)
++{
++  asm volatile (
++    ".inst   0xd503457f  /* smstart za  */");
++}
++
++/* Load data into ZA byte by byte from p.  */
++static void __attribute__ ((noinline))
++load_za (const void *p)
++{
++  register unsigned long x15 asm ("x15") = 0;
++  register unsigned long x16 asm ("x16") = (unsigned long)p;
++  register unsigned long x17 asm ("x17") = svl;
++
++  asm volatile (
++    ".inst   0xd503437f  /* smstart sm  */\n"
++    ".L_ldr_loop:\n"
++    ".inst   0xe1006200  /* ldr     za[w15, 0], [x16]  */\n"
++    "add     w15, w15, 1\n"
++    ".inst   0x04305030  /* addvl   x16, x16, 1  */\n"
++    "cmp     w15, w17\n"
++    "bne     .L_ldr_loop\n"
++    ".inst   0xd503427f  /* smstop  sm  */\n"
++    : "+r"(x15), "+r"(x16), "+r"(x17));
++}
++
++/* Set tpidr2 to BLK.  */
++static void
++set_tpidr2 (struct blk *blk)
++{
++  register unsigned long x0 asm ("x0") = (unsigned long)blk;
++  asm volatile (
++    ".inst   0xd51bd0a0  /* msr     tpidr2_el0, x0  */\n"
++    :: "r"(x0) : "memory");
++}
+diff --git a/sysdeps/aarch64/tst-sme-jmp.c b/sysdeps/aarch64/tst-sme-jmp.c
+index 35769340e700e6a5..b9638c6a71f22cd2 100644
+--- a/sysdeps/aarch64/tst-sme-jmp.c
++++ b/sysdeps/aarch64/tst-sme-jmp.c
+@@ -27,87 +27,12 @@
+ #include <support/support.h>
+ #include <support/test-driver.h>
+ 
+-struct blk {
+-  void *za_save_buffer;
+-  uint16_t num_za_save_slices;
+-  char __reserved[6];
+-};
++#include "tst-sme-helper.h"
+ 
+-static unsigned long svl;
+ static uint8_t *za_orig;
+ static uint8_t *za_dump;
+ static uint8_t *za_save;
+ 
+-static unsigned long
+-get_svl (void)
+-{
+-  register unsigned long x0 asm ("x0");
+-  asm volatile (
+-    ".inst   0x04bf5820  /* rdsvl   x0, 1  */\n"
+-    : "=r" (x0));
+-  return x0;
+-}
+-
+-/* PSTATE.ZA = 1, set ZA state to active.  */
+-static void
+-start_za (void)
+-{
+-  asm volatile (
+-    ".inst   0xd503457f  /* smstart za  */");
+-}
+-
+-/* Read SVCR to get SM (bit0) and ZA (bit1) state.  */
+-static unsigned long
+-get_svcr (void)
+-{
+-  register unsigned long x0 asm ("x0");
+-  asm volatile (
+-    ".inst   0xd53b4240  /* mrs     x0, svcr  */\n"
+-    : "=r" (x0));
+-  return x0;
+-}
+-
+-/* Load data into ZA byte by byte from p.  */
+-static void __attribute__ ((noinline))
+-load_za (const void *p)
+-{
+-  register unsigned long x15 asm ("x15") = 0;
+-  register unsigned long x16 asm ("x16") = (unsigned long)p;
+-  register unsigned long x17 asm ("x17") = svl;
+-
+-  asm volatile (
+-    ".inst   0xd503437f  /* smstart sm  */\n"
+-    ".L_ldr_loop:\n"
+-    ".inst   0xe1006200  /* ldr     za[w15, 0], [x16]  */\n"
+-    "add     w15, w15, 1\n"
+-    ".inst   0x04305030  /* addvl   x16, x16, 1  */\n"
+-    "cmp     w15, w17\n"
+-    "bne     .L_ldr_loop\n"
+-    ".inst   0xd503427f  /* smstop  sm  */\n"
+-    : "+r"(x15), "+r"(x16), "+r"(x17));
+-}
+-
+-/* Set tpidr2 to BLK.  */
+-static void
+-set_tpidr2 (struct blk *blk)
+-{
+-  register unsigned long x0 asm ("x0") = (unsigned long)blk;
+-  asm volatile (
+-    ".inst   0xd51bd0a0  /* msr     tpidr2_el0, x0  */\n"
+-    :: "r"(x0) : "memory");
+-}
+-
+-/* Returns tpidr2.  */
+-static void *
+-get_tpidr2 (void)
+-{
+-  register unsigned long x0 asm ("x0");
+-  asm volatile (
+-    ".inst   0xd53bd0a0  /* mrs     x0, tpidr2_el0  */\n"
+-    : "=r"(x0) :: "memory");
+-  return (void *) x0;
+-}
+-
+ static void
+ print_data(const char *msg, void *p)
+ {
+@@ -168,8 +93,8 @@ longjmp_test (void)
+     {
+       p = get_tpidr2 ();
+       printf ("before longjmp: tp2 = %p\n", p);
+-      if (p != &blk)
+-	FAIL_EXIT1 ("tpidr2 is clobbered");
++      if (p != NULL)
++	FAIL_EXIT1 ("tpidr2 has not been reset to null");
+       do_longjmp (env);
+       FAIL_EXIT1 ("longjmp returned");
+     }
+diff --git a/sysdeps/aarch64/tst-sme-za-state.c b/sysdeps/aarch64/tst-sme-za-state.c
+new file mode 100644
+index 0000000000000000..63f6eebeb4f2aea7
+--- /dev/null
++++ b/sysdeps/aarch64/tst-sme-za-state.c
+@@ -0,0 +1,119 @@
++/* Test for SME ZA state being cleared on setjmp and longjmp.
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <stdio.h>
++#include <setjmp.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/auxv.h>
++
++#include <support/check.h>
++#include <support/support.h>
++#include <support/test-driver.h>
++
++#include "tst-sme-helper.h"
++
++static uint8_t *state;
++
++static void
++enable_sme_za_state (struct blk *ptr)
++{
++  set_tpidr2 (ptr);
++  start_za ();
++  load_za (state);
++}
++
++static void
++check_sme_za_state (const char msg[], bool clear)
++{
++  unsigned long svcr = get_svcr ();
++  void *tpidr2 = get_tpidr2 ();
++  printf ("[%s]\n", msg);
++  printf ("svcr = %016lx\n", svcr);
++  printf ("tpidr2 = %016lx\n", (unsigned long)tpidr2);
++  if (clear)
++    {
++      TEST_VERIFY (svcr == 0);
++      TEST_VERIFY (tpidr2 == NULL);
++    }
++  else
++    {
++      TEST_VERIFY (svcr != 0);
++      TEST_VERIFY (tpidr2 != NULL);
++    }
++}
++
++static void
++run (struct blk *ptr)
++{
++  jmp_buf buf;
++  int ret;
++
++  check_sme_za_state ("initial state", /* Clear.  */ true);
++
++  /* Enabled ZA state so that effect of disabling be observable.  */
++  enable_sme_za_state (ptr);
++  check_sme_za_state ("before setjmp", /* Clear.  */ false);
++
++  if ((ret = setjmp (buf)) == 0)
++    {
++      check_sme_za_state ("after setjmp", /* Clear.  */ true);
++
++      /* Enabled ZA state so that effect of disabling be observable.  */
++      enable_sme_za_state (ptr);
++      check_sme_za_state ("before longjmp", /* Clear.  */ false);
++
++      longjmp (buf, 42);
++
++      /* Unreachable.  */
++      TEST_VERIFY (false);
++      __builtin_unreachable ();
++    }
++
++  TEST_COMPARE (ret, 42);
++  check_sme_za_state ("after longjmp", /* Clear.  */ true);
++}
++
++static int
++do_test (void)
++{
++  unsigned long hwcap2 = getauxval (AT_HWCAP2);
++  if ((hwcap2 & HWCAP2_SME) == 0)
++    return EXIT_UNSUPPORTED;
++
++  /* Get current streaming SVE vector register size.  */
++  svl = get_svl ();
++  printf ("svl: %lu\n", svl);
++  TEST_VERIFY_EXIT (!(svl < 16 || svl % 16 != 0 || svl >= (1 << 16)));
++
++  /* Initialise buffer for ZA state of SME.  */
++  state = xmalloc (svl * svl);
++  memset (state, 1, svl * svl);
++  struct blk blk = {
++    .za_save_buffer = state,
++    .num_za_save_slices = svl,
++    .__reserved = {0},
++  };
++
++  run (&blk);
++
++  free (state);
++  return 0;
++}
++
++#include <support/test-driver.c>

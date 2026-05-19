@@ -1,0 +1,29 @@
+commit 15de57024611ed6e668acbc440c5e360b0543374
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Nov 27 14:20:03 2025 +0100
+
+    Linux: Ignore PIDFD_GET_INFO in tst-pidfd-consts
+    
+    The constant is expected to change between kernel releases.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+index 5ef63acdd1c8a98e..ba0d6a1e78f62c1d 100644
+--- a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+@@ -46,7 +46,13 @@ def main():
+                 '#include <linux/pidfd.h>\n',
+                 args.cc,
+                 'PIDFD_.*',
+-                None,
++                # Until at least Linux 6.17, the value of this
++                # constant depends on the size of struct pidfd_info,
++                # which is expected to get extended in future kernel
++                # versions.  As a result, the constant embedded in the
++                # glibc headers is expected not to match the UAPI
++                # constant.
++                '^PIDFD_GET_INFO$',
+                 linux_version_glibc > linux_version_headers,
+                 linux_version_headers > linux_version_glibc))
+ 

@@ -1,0 +1,495 @@
+commit 5bc100bd4b7e00db3009ae93d25d303341545d23
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Mon Sep 23 15:32:14 2024 +0100
+
+    AArch64: Improve codegen in users of AdvSIMD log1pf helper
+    
+    log1pf is quite register-intensive - use fewer registers for the
+    polynomial, and make various changes to shorten dependency chains in
+    parent routines.  There is now no spilling with GCC 14.  Accuracy moves
+    around a little - comments adjusted accordingly but does not require
+    regen-ulps.
+    
+    Use the helper in log1pf as well, instead of having separate
+    implementations.  The more accurate polynomial means special-casing can
+    be simplified, and the shorter dependency chain avoids the usual dance
+    around v0, which is otherwise difficult.
+    
+    There is a small duplication of vectors containing 1.0f (or 0x3f800000) -
+    GCC is not currently able to efficiently handle values which fit in FMOV
+    but not MOVI, and are reinterpreted to integer.  There may be potential
+    for more optimisation if this is fixed.
+    
+    Reviewed-by: Wilco Dijkstra  <Wilco.Dijkstra@arm.com>
+
+Conflicts:
+        sysdeps/aarch64/fpu/log1pf_advsimd.c
+          (Fixup context to apply without out-of-scope dependency 751a5502)
+
+diff --git a/sysdeps/aarch64/fpu/acoshf_advsimd.c b/sysdeps/aarch64/fpu/acoshf_advsimd.c
+index 8916dcbf409922a9..004474acf9e9322b 100644
+--- a/sysdeps/aarch64/fpu/acoshf_advsimd.c
++++ b/sysdeps/aarch64/fpu/acoshf_advsimd.c
+@@ -25,35 +25,32 @@ const static struct data
+ {
+   struct v_log1pf_data log1pf_consts;
+   uint32x4_t one;
+-  uint16x4_t thresh;
+-} data = {
+-  .log1pf_consts = V_LOG1PF_CONSTANTS_TABLE,
+-  .one = V4 (0x3f800000),
+-  .thresh = V4 (0x2000) /* top(asuint(SquareLim) - asuint(1)).  */
+-};
++} data = { .log1pf_consts = V_LOG1PF_CONSTANTS_TABLE, .one = V4 (0x3f800000) };
++
++#define Thresh vdup_n_u16 (0x2000) /* top(asuint(SquareLim) - asuint(1)).  */
+ 
+ static float32x4_t NOINLINE VPCS_ATTR
+ special_case (float32x4_t x, float32x4_t y, uint16x4_t special,
+-	      const struct v_log1pf_data d)
++	      const struct v_log1pf_data *d)
+ {
+   return v_call_f32 (acoshf, x, log1pf_inline (y, d), vmovl_u16 (special));
+ }
+ 
+ /* Vector approximation for single-precision acosh, based on log1p. Maximum
+    error depends on WANT_SIMD_EXCEPT. With SIMD fp exceptions enabled, it
+-   is 2.78 ULP:
+-   __v_acoshf(0x1.07887p+0) got 0x1.ef9e9cp-3
+-			   want 0x1.ef9ea2p-3.
++   is 3.00 ULP:
++   _ZGVnN4v_acoshf(0x1.01df3ap+0) got 0x1.ef0a82p-4
++				 want 0x1.ef0a7cp-4.
+    With exceptions disabled, we can compute u with a shorter dependency chain,
+-   which gives maximum error of 3.07 ULP:
+-  __v_acoshf(0x1.01f83ep+0) got 0x1.fbc7fap-4
+-			   want 0x1.fbc7f4p-4.  */
++   which gives maximum error of 3.22 ULP:
++   _ZGVnN4v_acoshf(0x1.007ef2p+0) got 0x1.fdcdccp-5
++				 want 0x1.fdcdd2p-5.  */
+ 
+ VPCS_ATTR float32x4_t NOINLINE V_NAME_F1 (acosh) (float32x4_t x)
+ {
+   const struct data *d = ptr_barrier (&data);
+   uint32x4_t ix = vreinterpretq_u32_f32 (x);
+-  uint16x4_t special = vcge_u16 (vsubhn_u32 (ix, d->one), d->thresh);
++  uint16x4_t special = vcge_u16 (vsubhn_u32 (ix, d->one), Thresh);
+ 
+ #if WANT_SIMD_EXCEPT
+   /* Mask special lanes with 1 to side-step spurious invalid or overflow. Use
+@@ -64,15 +61,16 @@ VPCS_ATTR float32x4_t NOINLINE V_NAME_F1 (acosh) (float32x4_t x)
+   float32x4_t xm1 = v_zerofy_f32 (vsubq_f32 (x, v_f32 (1)), p);
+   float32x4_t u = vfmaq_f32 (vaddq_f32 (xm1, xm1), xm1, xm1);
+ #else
+-  float32x4_t xm1 = vsubq_f32 (x, v_f32 (1));
+-  float32x4_t u = vmulq_f32 (xm1, vaddq_f32 (x, v_f32 (1.0f)));
++  float32x4_t xm1 = vsubq_f32 (x, vreinterpretq_f32_u32 (d->one));
++  float32x4_t u
++      = vmulq_f32 (xm1, vaddq_f32 (x, vreinterpretq_f32_u32 (d->one)));
+ #endif
+ 
+   float32x4_t y = vaddq_f32 (xm1, vsqrtq_f32 (u));
+ 
+   if (__glibc_unlikely (v_any_u16h (special)))
+-    return special_case (x, y, special, d->log1pf_consts);
+-  return log1pf_inline (y, d->log1pf_consts);
++    return special_case (x, y, special, &d->log1pf_consts);
++  return log1pf_inline (y, &d->log1pf_consts);
+ }
+ libmvec_hidden_def (V_NAME_F1 (acosh))
+ HALF_WIDTH_ALIAS_F1 (acosh)
+diff --git a/sysdeps/aarch64/fpu/asinhf_advsimd.c b/sysdeps/aarch64/fpu/asinhf_advsimd.c
+index 09fd8a614305563d..eb789b91b600af52 100644
+--- a/sysdeps/aarch64/fpu/asinhf_advsimd.c
++++ b/sysdeps/aarch64/fpu/asinhf_advsimd.c
+@@ -20,16 +20,16 @@
+ #include "v_math.h"
+ #include "v_log1pf_inline.h"
+ 
+-#define SignMask v_u32 (0x80000000)
+-
+ const static struct data
+ {
+   struct v_log1pf_data log1pf_consts;
++  float32x4_t one;
+   uint32x4_t big_bound;
+ #if WANT_SIMD_EXCEPT
+   uint32x4_t tiny_bound;
+ #endif
+ } data = {
++  .one = V4 (1),
+   .log1pf_consts = V_LOG1PF_CONSTANTS_TABLE,
+   .big_bound = V4 (0x5f800000), /* asuint(0x1p64).  */
+ #if WANT_SIMD_EXCEPT
+@@ -38,20 +38,27 @@ const static struct data
+ };
+ 
+ static float32x4_t NOINLINE VPCS_ATTR
+-special_case (float32x4_t x, float32x4_t y, uint32x4_t special)
++special_case (float32x4_t x, uint32x4_t sign, float32x4_t y,
++	      uint32x4_t special, const struct data *d)
+ {
+-  return v_call_f32 (asinhf, x, y, special);
++  return v_call_f32 (
++      asinhf, x,
++      vreinterpretq_f32_u32 (veorq_u32 (
++	  sign, vreinterpretq_u32_f32 (log1pf_inline (y, &d->log1pf_consts)))),
++      special);
+ }
+ 
+ /* Single-precision implementation of vector asinh(x), using vector log1p.
+-   Worst-case error is 2.66 ULP, at roughly +/-0.25:
+-   __v_asinhf(0x1.01b04p-2) got 0x1.fe163ep-3 want 0x1.fe1638p-3.  */
++   Worst-case error is 2.59 ULP:
++   _ZGVnN4v_asinhf(0x1.d86124p-3) got 0x1.d449bep-3
++				 want 0x1.d449c4p-3.  */
+ VPCS_ATTR float32x4_t NOINLINE V_NAME_F1 (asinh) (float32x4_t x)
+ {
+   const struct data *dat = ptr_barrier (&data);
+-  uint32x4_t iax = vbicq_u32 (vreinterpretq_u32_f32 (x), SignMask);
+-  float32x4_t ax = vreinterpretq_f32_u32 (iax);
++  float32x4_t ax = vabsq_f32 (x);
++  uint32x4_t iax = vreinterpretq_u32_f32 (ax);
+   uint32x4_t special = vcgeq_u32 (iax, dat->big_bound);
++  uint32x4_t sign = veorq_u32 (vreinterpretq_u32_f32 (x), iax);
+   float32x4_t special_arg = x;
+ 
+ #if WANT_SIMD_EXCEPT
+@@ -68,13 +75,13 @@ VPCS_ATTR float32x4_t NOINLINE V_NAME_F1 (asinh) (float32x4_t x)
+   /* asinh(x) = log(x + sqrt(x * x + 1)).
+      For positive x, asinh(x) = log1p(x + x * x / (1 + sqrt(x * x + 1))).  */
+   float32x4_t d
+-      = vaddq_f32 (v_f32 (1), vsqrtq_f32 (vfmaq_f32 (v_f32 (1), x, x)));
+-  float32x4_t y = log1pf_inline (
+-      vaddq_f32 (ax, vdivq_f32 (vmulq_f32 (ax, ax), d)), dat->log1pf_consts);
++      = vaddq_f32 (v_f32 (1), vsqrtq_f32 (vfmaq_f32 (dat->one, ax, ax)));
++  float32x4_t y = vaddq_f32 (ax, vdivq_f32 (vmulq_f32 (ax, ax), d));
+ 
+   if (__glibc_unlikely (v_any_u32 (special)))
+-    return special_case (special_arg, vbslq_f32 (SignMask, x, y), special);
+-  return vbslq_f32 (SignMask, x, y);
++    return special_case (special_arg, sign, y, special, dat);
++  return vreinterpretq_f32_u32 (veorq_u32 (
++      sign, vreinterpretq_u32_f32 (log1pf_inline (y, &dat->log1pf_consts))));
+ }
+ libmvec_hidden_def (V_NAME_F1 (asinh))
+ HALF_WIDTH_ALIAS_F1 (asinh)
+diff --git a/sysdeps/aarch64/fpu/atanhf_advsimd.c b/sysdeps/aarch64/fpu/atanhf_advsimd.c
+index ae488f7b54ddce26..818b6c92adcd48bb 100644
+--- a/sysdeps/aarch64/fpu/atanhf_advsimd.c
++++ b/sysdeps/aarch64/fpu/atanhf_advsimd.c
+@@ -40,15 +40,17 @@ const static struct data
+ #define Half v_u32 (0x3f000000)
+ 
+ static float32x4_t NOINLINE VPCS_ATTR
+-special_case (float32x4_t x, float32x4_t y, uint32x4_t special)
++special_case (float32x4_t x, float32x4_t halfsign, float32x4_t y,
++	      uint32x4_t special)
+ {
+-  return v_call_f32 (atanhf, x, y, special);
++  return v_call_f32 (atanhf, vbslq_f32 (AbsMask, x, halfsign),
++		     vmulq_f32 (halfsign, y), special);
+ }
+ 
+ /* Approximation for vector single-precision atanh(x) using modified log1p.
+-   The maximum error is 3.08 ULP:
+-   __v_atanhf(0x1.ff215p-5) got 0x1.ffcb7cp-5
+-			   want 0x1.ffcb82p-5.  */
++   The maximum error is 2.93 ULP:
++   _ZGVnN4v_atanhf(0x1.f43d7p-5) got 0x1.f4dcfep-5
++				want 0x1.f4dcf8p-5.  */
+ VPCS_ATTR float32x4_t NOINLINE V_NAME_F1 (atanh) (float32x4_t x)
+ {
+   const struct data *d = ptr_barrier (&data);
+@@ -68,11 +70,19 @@ VPCS_ATTR float32x4_t NOINLINE V_NAME_F1 (atanh) (float32x4_t x)
+   uint32x4_t special = vcgeq_u32 (iax, d->one);
+ #endif
+ 
+-  float32x4_t y = vdivq_f32 (vaddq_f32 (ax, ax), vsubq_f32 (v_f32 (1), ax));
+-  y = log1pf_inline (y, d->log1pf_consts);
++  float32x4_t y = vdivq_f32 (vaddq_f32 (ax, ax),
++			     vsubq_f32 (vreinterpretq_f32_u32 (d->one), ax));
++  y = log1pf_inline (y, &d->log1pf_consts);
+ 
++  /* If exceptions not required, pass ax to special-case for shorter dependency
++     chain. If exceptions are required ax will have been zerofied, so have to
++     pass x.  */
+   if (__glibc_unlikely (v_any_u32 (special)))
+-    return special_case (x, vmulq_f32 (halfsign, y), special);
++#if WANT_SIMD_EXCEPT
++    return special_case (x, halfsign, y, special);
++#else
++    return special_case (ax, halfsign, y, special);
++#endif
+   return vmulq_f32 (halfsign, y);
+ }
+ libmvec_hidden_def (V_NAME_F1 (atanh))
+diff --git a/sysdeps/aarch64/fpu/log1pf_advsimd.c b/sysdeps/aarch64/fpu/log1pf_advsimd.c
+index dc15334a8537b1fc..f2d47962fe13fbdd 100644
+--- a/sysdeps/aarch64/fpu/log1pf_advsimd.c
++++ b/sysdeps/aarch64/fpu/log1pf_advsimd.c
+@@ -18,113 +18,78 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include "v_math.h"
+-#include "poly_advsimd_f32.h"
++#include "v_log1pf_inline.h"
++
++#if WANT_SIMD_EXCEPT
+ 
+ const static struct data
+ {
+-  float32x4_t poly[8], ln2;
+-  uint32x4_t tiny_bound, minus_one, four, thresh;
+-  int32x4_t three_quarters;
++  uint32x4_t minus_one, thresh;
++  struct v_log1pf_data d;
+ } data = {
+-  .poly = { /* Generated using FPMinimax in [-0.25, 0.5]. First two coefficients
+-	       (1, -0.5) are not stored as they can be generated more
+-	       efficiently.  */
+-	    V4 (0x1.5555aap-2f), V4 (-0x1.000038p-2f), V4 (0x1.99675cp-3f),
+-	    V4 (-0x1.54ef78p-3f), V4 (0x1.28a1f4p-3f), V4 (-0x1.0da91p-3f),
+-	    V4 (0x1.abcb6p-4f), V4 (-0x1.6f0d5ep-5f) },
+-  .ln2 = V4 (0x1.62e43p-1f),
+-  .tiny_bound = V4 (0x34000000), /* asuint32(0x1p-23). ulp=0.5 at 0x1p-23.  */
+-  .thresh = V4 (0x4b800000), /* asuint32(INFINITY) - tiny_bound.  */
++  .d = V_LOG1PF_CONSTANTS_TABLE,
++  .thresh = V4 (0x4b800000), /* asuint32(INFINITY) - TinyBound.  */
+   .minus_one = V4 (0xbf800000),
+-  .four = V4 (0x40800000),
+-  .three_quarters = V4 (0x3f400000)
+ };
+ 
+-static inline float32x4_t
+-eval_poly (float32x4_t m, const float32x4_t *p)
+-{
+-  /* Approximate log(1+m) on [-0.25, 0.5] using split Estrin scheme.  */
+-  float32x4_t p_12 = vfmaq_f32 (v_f32 (-0.5), m, p[0]);
+-  float32x4_t p_34 = vfmaq_f32 (p[1], m, p[2]);
+-  float32x4_t p_56 = vfmaq_f32 (p[3], m, p[4]);
+-  float32x4_t p_78 = vfmaq_f32 (p[5], m, p[6]);
+-
+-  float32x4_t m2 = vmulq_f32 (m, m);
+-  float32x4_t p_02 = vfmaq_f32 (m, m2, p_12);
+-  float32x4_t p_36 = vfmaq_f32 (p_34, m2, p_56);
+-  float32x4_t p_79 = vfmaq_f32 (p_78, m2, p[7]);
+-
+-  float32x4_t m4 = vmulq_f32 (m2, m2);
+-  float32x4_t p_06 = vfmaq_f32 (p_02, m4, p_36);
+-  return vfmaq_f32 (p_06, m4, vmulq_f32 (m4, p_79));
+-}
++/* asuint32(0x1p-23). ulp=0.5 at 0x1p-23.  */
++#  define TinyBound v_u32 (0x34000000)
+ 
+ static float32x4_t NOINLINE VPCS_ATTR
+-special_case (float32x4_t x, float32x4_t y, uint32x4_t special)
++special_case (float32x4_t x, uint32x4_t cmp, const struct data *d)
+ {
+-  return v_call_f32 (log1pf, x, y, special);
++  /* Side-step special lanes so fenv exceptions are not triggered
++     inadvertently.  */
++  float32x4_t x_nospecial = v_zerofy_f32 (x, cmp);
++  return v_call_f32 (log1pf, x, log1pf_inline (x_nospecial, &d->d), cmp);
+ }
+ 
+-/* Vector log1pf approximation using polynomial on reduced interval. Accuracy
+-   is roughly 2.02 ULP:
+-   log1pf(0x1.21e13ap-2) got 0x1.fe8028p-3 want 0x1.fe802cp-3.  */
++/* Vector log1pf approximation using polynomial on reduced interval. Worst-case
++   error is 1.69 ULP:
++   _ZGVnN4v_log1pf(0x1.04418ap-2) got 0x1.cfcbd8p-3
++				 want 0x1.cfcbdcp-3.  */
+ VPCS_ATTR float32x4_t V_NAME_F1 (log1p) (float32x4_t x)
+ {
+   const struct data *d = ptr_barrier (&data);
+-
+   uint32x4_t ix = vreinterpretq_u32_f32 (x);
+   uint32x4_t ia = vreinterpretq_u32_f32 (vabsq_f32 (x));
++
+   uint32x4_t special_cases
+-      = vorrq_u32 (vcgeq_u32 (vsubq_u32 (ia, d->tiny_bound), d->thresh),
++      = vorrq_u32 (vcgeq_u32 (vsubq_u32 (ia, TinyBound), d->thresh),
+ 		   vcgeq_u32 (ix, d->minus_one));
+-  float32x4_t special_arg = x;
+ 
+-#if WANT_SIMD_EXCEPT
+   if (__glibc_unlikely (v_any_u32 (special_cases)))
+-    /* Side-step special lanes so fenv exceptions are not triggered
+-       inadvertently.  */
+-    x = v_zerofy_f32 (x, special_cases);
+-#endif
++    return special_case (x, special_cases, d);
+ 
+-  /* With x + 1 = t * 2^k (where t = m + 1 and k is chosen such that m
+-			   is in [-0.25, 0.5]):
+-     log1p(x) = log(t) + log(2^k) = log1p(m) + k*log(2).
+-
+-     We approximate log1p(m) with a polynomial, then scale by
+-     k*log(2). Instead of doing this directly, we use an intermediate
+-     scale factor s = 4*k*log(2) to ensure the scale is representable
+-     as a normalised fp32 number.  */
++  return log1pf_inline (x, &d->d);
++}
+ 
+-  float32x4_t m = vaddq_f32 (x, v_f32 (1.0f));
++#else
+ 
+-  /* Choose k to scale x to the range [-1/4, 1/2].  */
+-  int32x4_t k
+-      = vandq_s32 (vsubq_s32 (vreinterpretq_s32_f32 (m), d->three_quarters),
+-		   v_s32 (0xff800000));
+-  uint32x4_t ku = vreinterpretq_u32_s32 (k);
++const static struct v_log1pf_data data = V_LOG1PF_CONSTANTS_TABLE;
+ 
+-  /* Scale x by exponent manipulation.  */
+-  float32x4_t m_scale
+-      = vreinterpretq_f32_u32 (vsubq_u32 (vreinterpretq_u32_f32 (x), ku));
++static float32x4_t NOINLINE VPCS_ATTR
++special_case (float32x4_t x, uint32x4_t cmp)
++{
++  return v_call_f32 (log1pf, x, log1pf_inline (x, ptr_barrier (&data)), cmp);
++}
+ 
+-  /* Scale up to ensure that the scale factor is representable as normalised
+-     fp32 number, and scale m down accordingly.  */
+-  float32x4_t s = vreinterpretq_f32_u32 (vsubq_u32 (d->four, ku));
+-  m_scale = vaddq_f32 (m_scale, vfmaq_f32 (v_f32 (-1.0f), v_f32 (0.25f), s));
++/* Vector log1pf approximation using polynomial on reduced interval. Worst-case
++   error is 1.63 ULP:
++   _ZGVnN4v_log1pf(0x1.216d12p-2) got 0x1.fdcb12p-3
++				 want 0x1.fdcb16p-3.  */
++VPCS_ATTR float32x4_t V_NAME_F1 (log1p) (float32x4_t x)
++{
++  uint32x4_t special_cases = vornq_u32 (vcleq_f32 (x, v_f32 (-1)),
++					vcaleq_f32 (x, v_f32 (0x1p127f)));
+ 
+-  /* Evaluate polynomial on the reduced interval.  */
+-  float32x4_t p = eval_poly (m_scale, d->poly);
++  if (__glibc_unlikely (v_any_u32 (special_cases)))
++    return special_case (x, special_cases);
+ 
+-  /* The scale factor to be applied back at the end - by multiplying float(k)
+-     by 2^-23 we get the unbiased exponent of k.  */
+-  float32x4_t scale_back = vcvtq_f32_s32 (vshrq_n_s32 (k, 23));
++  return log1pf_inline (x, ptr_barrier (&data));
++}
+ 
+-  /* Apply the scaling back.  */
+-  float32x4_t y = vfmaq_f32 (p, scale_back, d->ln2);
++#endif
+ 
+-  if (__glibc_unlikely (v_any_u32 (special_cases)))
+-    return special_case (special_arg, y, special_cases);
+-  return y;
+-}
+ libmvec_hidden_def (V_NAME_F1 (log1p))
+ HALF_WIDTH_ALIAS_F1 (log1p)
+diff --git a/sysdeps/aarch64/fpu/v_log1pf_inline.h b/sysdeps/aarch64/fpu/v_log1pf_inline.h
+index 643a6cdcfc498970..73e45a942e24a26f 100644
+--- a/sysdeps/aarch64/fpu/v_log1pf_inline.h
++++ b/sysdeps/aarch64/fpu/v_log1pf_inline.h
+@@ -25,54 +25,81 @@
+ 
+ struct v_log1pf_data
+ {
+-  float32x4_t poly[8], ln2;
+   uint32x4_t four;
+   int32x4_t three_quarters;
++  float c0, c3, c5, c7;
++  float32x4_t c4, c6, c1, c2, ln2;
+ };
+ 
+ /* Polynomial generated using FPMinimax in [-0.25, 0.5]. First two coefficients
+    (1, -0.5) are not stored as they can be generated more efficiently.  */
+ #define V_LOG1PF_CONSTANTS_TABLE                                              \
+   {                                                                           \
+-    .poly                                                                     \
+-	= { V4 (0x1.5555aap-2f),  V4 (-0x1.000038p-2f), V4 (0x1.99675cp-3f),  \
+-	    V4 (-0x1.54ef78p-3f), V4 (0x1.28a1f4p-3f),	V4 (-0x1.0da91p-3f),  \
+-	    V4 (0x1.abcb6p-4f),	  V4 (-0x1.6f0d5ep-5f) },                     \
+-	.ln2 = V4 (0x1.62e43p-1f), .four = V4 (0x40800000),                   \
+-	.three_quarters = V4 (0x3f400000)                                     \
++    .c0 = 0x1.5555aap-2f, .c1 = V4 (-0x1.000038p-2f),                         \
++    .c2 = V4 (0x1.99675cp-3f), .c3 = -0x1.54ef78p-3f,                         \
++    .c4 = V4 (0x1.28a1f4p-3f), .c5 = -0x1.0da91p-3f,                          \
++    .c6 = V4 (0x1.abcb6p-4f), .c7 = -0x1.6f0d5ep-5f,                          \
++    .ln2 = V4 (0x1.62e43p-1f), .four = V4 (0x40800000),                       \
++    .three_quarters = V4 (0x3f400000)                                         \
+   }
+ 
+ static inline float32x4_t
+-eval_poly (float32x4_t m, const float32x4_t *c)
++eval_poly (float32x4_t m, const struct v_log1pf_data *d)
+ {
+-  /* Approximate log(1+m) on [-0.25, 0.5] using pairwise Horner (main routine
+-     uses split Estrin, but this way reduces register pressure in the calling
+-     routine).  */
+-  float32x4_t q = vfmaq_f32 (v_f32 (-0.5), m, c[0]);
++  /* Approximate log(1+m) on [-0.25, 0.5] using pairwise Horner.  */
++  float32x4_t c0357 = vld1q_f32 (&d->c0);
++  float32x4_t q = vfmaq_laneq_f32 (v_f32 (-0.5), m, c0357, 0);
+   float32x4_t m2 = vmulq_f32 (m, m);
+-  q = vfmaq_f32 (m, m2, q);
+-  float32x4_t p = v_pw_horner_6_f32 (m, m2, c + 1);
++  float32x4_t p67 = vfmaq_laneq_f32 (d->c6, m, c0357, 3);
++  float32x4_t p45 = vfmaq_laneq_f32 (d->c4, m, c0357, 2);
++  float32x4_t p23 = vfmaq_laneq_f32 (d->c2, m, c0357, 1);
++  float32x4_t p = vfmaq_f32 (p45, m2, p67);
++  p = vfmaq_f32 (p23, m2, p);
++  p = vfmaq_f32 (d->c1, m, p);
+   p = vmulq_f32 (m2, p);
+-  return vfmaq_f32 (q, m2, p);
++  p = vfmaq_f32 (m, m2, p);
++  return vfmaq_f32 (p, m2, q);
+ }
+ 
+ static inline float32x4_t
+-log1pf_inline (float32x4_t x, const struct v_log1pf_data d)
++log1pf_inline (float32x4_t x, const struct v_log1pf_data *d)
+ {
+-  /* Helper for calculating log(x + 1). Copied from log1pf_2u1.c, with no
+-     special-case handling. See that file for details of the algorithm.  */
++  /* Helper for calculating log(x + 1).  */
++
++  /* With x + 1 = t * 2^k (where t = m + 1 and k is chosen such that m
++			   is in [-0.25, 0.5]):
++     log1p(x) = log(t) + log(2^k) = log1p(m) + k*log(2).
++
++     We approximate log1p(m) with a polynomial, then scale by
++     k*log(2). Instead of doing this directly, we use an intermediate
++     scale factor s = 4*k*log(2) to ensure the scale is representable
++     as a normalised fp32 number.  */
+   float32x4_t m = vaddq_f32 (x, v_f32 (1.0f));
++
++  /* Choose k to scale x to the range [-1/4, 1/2].  */
+   int32x4_t k
+-      = vandq_s32 (vsubq_s32 (vreinterpretq_s32_f32 (m), d.three_quarters),
++      = vandq_s32 (vsubq_s32 (vreinterpretq_s32_f32 (m), d->three_quarters),
+ 		   v_s32 (0xff800000));
+   uint32x4_t ku = vreinterpretq_u32_s32 (k);
+-  float32x4_t s = vreinterpretq_f32_u32 (vsubq_u32 (d.four, ku));
++
++  /* Scale up to ensure that the scale factor is representable as normalised
++     fp32 number, and scale m down accordingly.  */
++  float32x4_t s = vreinterpretq_f32_u32 (vsubq_u32 (d->four, ku));
++
++  /* Scale x by exponent manipulation.  */
+   float32x4_t m_scale
+       = vreinterpretq_f32_u32 (vsubq_u32 (vreinterpretq_u32_f32 (x), ku));
+   m_scale = vaddq_f32 (m_scale, vfmaq_f32 (v_f32 (-1.0f), v_f32 (0.25f), s));
+-  float32x4_t p = eval_poly (m_scale, d.poly);
++
++  /* Evaluate polynomial on the reduced interval.  */
++  float32x4_t p = eval_poly (m_scale, d);
++
++  /* The scale factor to be applied back at the end - by multiplying float(k)
++     by 2^-23 we get the unbiased exponent of k.  */
+   float32x4_t scale_back = vmulq_f32 (vcvtq_f32_s32 (k), v_f32 (0x1.0p-23f));
+-  return vfmaq_f32 (p, scale_back, d.ln2);
++
++  /* Apply the scaling back.  */
++  return vfmaq_f32 (p, scale_back, d->ln2);
+ }
+ 
+ #endif

@@ -1,0 +1,43 @@
+commit ced745bcd3e0d58cfc38ebbbc36540b9dcdd29eb
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Tue Oct 8 08:46:45 2024 +0800
+
+    stdio-common/Makefile: Fix FAIL: lint-makefiles
+    
+    Fix stdio-common/Makefile:
+    
+    @@ -224,12 +224,12 @@
+       tst-freopen4 \
+       tst-freopen5 \
+       tst-freopen6 \
+    +  tst-freopen7 \
+       tst-freopen64-2 \
+       tst-freopen64-3 \
+       tst-freopen64-4 \
+       tst-freopen64-6 \
+       tst-freopen64-7 \
+    -  tst-freopen7 \
+       tst-fseek \
+       tst-fwrite \
+       tst-fwrite-memstrm \
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+
+diff --git a/stdio-common/Makefile b/stdio-common/Makefile
+index 4c39b9d9fb3d029f..d89c2aa31f47a363 100644
+--- a/stdio-common/Makefile
++++ b/stdio-common/Makefile
+@@ -229,12 +229,12 @@ tests := \
+   tst-freopen4 \
+   tst-freopen5 \
+   tst-freopen6 \
+-  tst-freopen7 \
+   tst-freopen64-2 \
+   tst-freopen64-3 \
+   tst-freopen64-4 \
+   tst-freopen64-6 \
+   tst-freopen64-7 \
++  tst-freopen7 \
+   tst-fseek \
+   tst-fseek-mmap \
+   tst-fwrite \

@@ -1,0 +1,35 @@
+commit 579f8668816b35f8302e89e5255aff60b81938df
+Author: DJ Delorie <dj@redhat.com>
+Date:   Thu May 15 16:38:11 2025 -0400
+
+    manual: add sched_getcpu()
+    
+    Reviewed-by: Collin Funk <collin.funk1@gmail.com>
+
+diff --git a/manual/resource.texi b/manual/resource.texi
+index 409277d064cc32e1..824db78a97b8f387 100644
+--- a/manual/resource.texi
++++ b/manual/resource.texi
+@@ -1653,6 +1653,22 @@ The operating system does not support this function.
+ This function is Linux-specific and is declared in @file{sched.h}.
+ @end deftypefun
+ 
++@deftypefun int sched_getcpu (void)
++@standards{Linux, <sched.h>}
++
++Similar to @code{getcpu} but with a simpler interface.  On success,
++returns a nonnegative number identifying the CPU on which the current
++thread is running.  Returns @code{-1} on failure.  The following
++@code{errno} error condition is defined for this function:
++
++@table @code
++@item ENOSYS
++The operating system does not support this function.
++@end table
++
++This function is Linux-specific and is declared in @file{sched.h}.
++@end deftypefun
++
+ Here's an example of how to use most of the above to limit the number
+ of CPUs a process runs on, not including error handling or good logic
+ on CPU choices:

@@ -1,0 +1,124 @@
+commit 1cf29fbc5be23db775d1dfa6b332ded6e6554252
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Mon Oct 28 14:58:35 2024 +0000
+
+    AArch64: Small optimisation in AdvSIMD erf and erfc
+    
+    In both routines, reduce register pressure such that GCC 14 emits no
+    spills for erf and fewer spills for erfc.  Also use more efficient
+    comparison for the special-case in erf.
+    
+    Benchtests show erf improves by 6.4%, erfc by 1.0%.
+
+diff --git a/sysdeps/aarch64/fpu/erf_advsimd.c b/sysdeps/aarch64/fpu/erf_advsimd.c
+index 19cbb7d0f42eb4e2..c0116735e408066d 100644
+--- a/sysdeps/aarch64/fpu/erf_advsimd.c
++++ b/sysdeps/aarch64/fpu/erf_advsimd.c
+@@ -22,19 +22,21 @@
+ static const struct data
+ {
+   float64x2_t third;
+-  float64x2_t tenth, two_over_five, two_over_fifteen;
+-  float64x2_t two_over_nine, two_over_fortyfive;
++  float64x2_t tenth, two_over_five, two_over_nine;
++  double two_over_fifteen, two_over_fortyfive;
+   float64x2_t max, shift;
++  uint64x2_t max_idx;
+ #if WANT_SIMD_EXCEPT
+   float64x2_t tiny_bound, huge_bound, scale_minus_one;
+ #endif
+ } data = {
++  .max_idx = V2 (768),
+   .third = V2 (0x1.5555555555556p-2), /* used to compute 2/3 and 1/6 too.  */
+-  .two_over_fifteen = V2 (0x1.1111111111111p-3),
++  .two_over_fifteen = 0x1.1111111111111p-3,
+   .tenth = V2 (-0x1.999999999999ap-4),
+   .two_over_five = V2 (-0x1.999999999999ap-2),
+   .two_over_nine = V2 (-0x1.c71c71c71c71cp-3),
+-  .two_over_fortyfive = V2 (0x1.6c16c16c16c17p-5),
++  .two_over_fortyfive = 0x1.6c16c16c16c17p-5,
+   .max = V2 (5.9921875), /* 6 - 1/128.  */
+   .shift = V2 (0x1p45),
+ #if WANT_SIMD_EXCEPT
+@@ -87,8 +89,8 @@ float64x2_t VPCS_ATTR V_NAME_D1 (erf) (float64x2_t x)
+   float64x2_t a = vabsq_f64 (x);
+   /* Reciprocal conditions that do not catch NaNs so they can be used in BSLs
+      to return expected results.  */
+-  uint64x2_t a_le_max = vcleq_f64 (a, dat->max);
+-  uint64x2_t a_gt_max = vcgtq_f64 (a, dat->max);
++  uint64x2_t a_le_max = vcaleq_f64 (x, dat->max);
++  uint64x2_t a_gt_max = vcagtq_f64 (x, dat->max);
+ 
+ #if WANT_SIMD_EXCEPT
+   /* |x| huge or tiny.  */
+@@ -115,7 +117,7 @@ float64x2_t VPCS_ATTR V_NAME_D1 (erf) (float64x2_t x)
+      segfault.  */
+   uint64x2_t i
+       = vsubq_u64 (vreinterpretq_u64_f64 (z), vreinterpretq_u64_f64 (shift));
+-  i = vbslq_u64 (a_le_max, i, v_u64 (768));
++  i = vbslq_u64 (a_le_max, i, dat->max_idx);
+   struct entry e = lookup (i);
+ 
+   float64x2_t r = vsubq_f64 (z, shift);
+@@ -125,14 +127,19 @@ float64x2_t VPCS_ATTR V_NAME_D1 (erf) (float64x2_t x)
+   float64x2_t d2 = vmulq_f64 (d, d);
+   float64x2_t r2 = vmulq_f64 (r, r);
+ 
++  float64x2_t two_over_fifteen_and_fortyfive
++      = vld1q_f64 (&dat->two_over_fifteen);
++
+   /* poly (d, r) = 1 + p1(r) * d + p2(r) * d^2 + ... + p5(r) * d^5.  */
+   float64x2_t p1 = r;
+   float64x2_t p2
+       = vfmsq_f64 (dat->third, r2, vaddq_f64 (dat->third, dat->third));
+   float64x2_t p3 = vmulq_f64 (r, vfmaq_f64 (v_f64 (-0.5), r2, dat->third));
+-  float64x2_t p4 = vfmaq_f64 (dat->two_over_five, r2, dat->two_over_fifteen);
++  float64x2_t p4 = vfmaq_laneq_f64 (dat->two_over_five, r2,
++				    two_over_fifteen_and_fortyfive, 0);
+   p4 = vfmsq_f64 (dat->tenth, r2, p4);
+-  float64x2_t p5 = vfmaq_f64 (dat->two_over_nine, r2, dat->two_over_fortyfive);
++  float64x2_t p5 = vfmaq_laneq_f64 (dat->two_over_nine, r2,
++				    two_over_fifteen_and_fortyfive, 1);
+   p5 = vmulq_f64 (r, vfmaq_f64 (vmulq_f64 (v_f64 (0.5), dat->third), r2, p5));
+ 
+   float64x2_t p34 = vfmaq_f64 (p3, d, p4);
+diff --git a/sysdeps/aarch64/fpu/erfc_advsimd.c b/sysdeps/aarch64/fpu/erfc_advsimd.c
+index f1b3bfe8304c73b5..2f2f755c46e71b58 100644
+--- a/sysdeps/aarch64/fpu/erfc_advsimd.c
++++ b/sysdeps/aarch64/fpu/erfc_advsimd.c
+@@ -24,8 +24,8 @@ static const struct data
+ {
+   uint64x2_t offset, table_scale;
+   float64x2_t max, shift;
+-  float64x2_t p20, p40, p41, p42;
+-  float64x2_t p51, p52;
++  float64x2_t p20, p40, p41, p51;
++  double p42, p52;
+   double qr5[2], qr6[2], qr7[2], qr8[2], qr9[2];
+ #if WANT_SIMD_EXCEPT
+   float64x2_t uflow_bound;
+@@ -41,9 +41,9 @@ static const struct data
+   .p20 = V2 (0x1.5555555555555p-2),  /* 1/3, used to compute 2/3 and 1/6.  */
+   .p40 = V2 (-0x1.999999999999ap-4), /* 1/10.  */
+   .p41 = V2 (-0x1.999999999999ap-2), /* 2/5.  */
+-  .p42 = V2 (0x1.1111111111111p-3),  /* 2/15.  */
++  .p42 = 0x1.1111111111111p-3,	     /* 2/15.  */
+   .p51 = V2 (-0x1.c71c71c71c71cp-3), /* 2/9.  */
+-  .p52 = V2 (0x1.6c16c16c16c17p-5),  /* 2/45.  */
++  .p52 = 0x1.6c16c16c16c17p-5,	     /* 2/45.  */
+   /* Qi = (i+1) / i, Ri = -2 * i / ((i+1)*(i+2)), for i = 5, ..., 9.  */
+   .qr5 = { 0x1.3333333333333p0, -0x1.e79e79e79e79ep-3 },
+   .qr6 = { 0x1.2aaaaaaaaaaabp0, -0x1.b6db6db6db6dbp-3 },
+@@ -157,9 +157,10 @@ float64x2_t V_NAME_D1 (erfc) (float64x2_t x)
+   float64x2_t p1 = r;
+   float64x2_t p2 = vfmsq_f64 (dat->p20, r2, vaddq_f64 (dat->p20, dat->p20));
+   float64x2_t p3 = vmulq_f64 (r, vfmaq_f64 (v_f64 (-0.5), r2, dat->p20));
+-  float64x2_t p4 = vfmaq_f64 (dat->p41, r2, dat->p42);
++  float64x2_t p42_p52 = vld1q_f64 (&dat->p42);
++  float64x2_t p4 = vfmaq_laneq_f64 (dat->p41, r2, p42_p52, 0);
+   p4 = vfmsq_f64 (dat->p40, r2, p4);
+-  float64x2_t p5 = vfmaq_f64 (dat->p51, r2, dat->p52);
++  float64x2_t p5 = vfmaq_laneq_f64 (dat->p51, r2, p42_p52, 1);
+   p5 = vmulq_f64 (r, vfmaq_f64 (vmulq_f64 (v_f64 (0.5), dat->p20), r2, p5));
+   /* Compute p_i using recurrence relation:
+      p_{i+2} = (p_i + r * Q_{i+1} * p_{i+1}) * R_{i+1}.  */

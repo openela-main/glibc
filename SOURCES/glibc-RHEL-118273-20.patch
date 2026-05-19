@@ -1,0 +1,359 @@
+commit ca0c0d0f26fbf75b9cacc65122b457e8fdec40b8
+Author: Pierre Blanchard <pierre.blanchard@arm.com>
+Date:   Mon Dec 9 15:55:39 2024 +0000
+
+    AArch64: Improve codegen in users of ADVSIMD log1p helper
+    
+    Add inline helper for log1p and rearrange operations so MOV
+    is not necessary in reduction or around the special-case handler.
+    Reduce memory access by using more indexed MLAs in polynomial.
+    Speedup on Neoverse V1 for log1p (3.5%), acosh (7.5%) and atanh (10%).
+
+Conflicts:
+        sysdeps/aarch64/fpu/log1p_advsimd.c
+          (Fixup context to apply without out-of-scope dependency 751a5502)
+
+diff --git a/sysdeps/aarch64/fpu/acosh_advsimd.c b/sysdeps/aarch64/fpu/acosh_advsimd.c
+index c88283cf1191f4eb..a98f4a2e4d8cbf42 100644
+--- a/sysdeps/aarch64/fpu/acosh_advsimd.c
++++ b/sysdeps/aarch64/fpu/acosh_advsimd.c
+@@ -54,9 +54,8 @@ VPCS_ATTR float64x2_t V_NAME_D1 (acosh) (float64x2_t x)
+     x = vbslq_f64 (special, vreinterpretq_f64_u64 (d->one), x);
+ #endif
+ 
+-  float64x2_t xm1 = vsubq_f64 (x, v_f64 (1));
+-  float64x2_t y;
+-  y = vaddq_f64 (x, v_f64 (1));
++  float64x2_t xm1 = vsubq_f64 (x, v_f64 (1.0));
++  float64x2_t y = vaddq_f64 (x, v_f64 (1.0));
+   y = vmulq_f64 (y, xm1);
+   y = vsqrtq_f64 (y);
+   y = vaddq_f64 (xm1, y);
+diff --git a/sysdeps/aarch64/fpu/atanh_advsimd.c b/sysdeps/aarch64/fpu/atanh_advsimd.c
+index 3c3d0bd6ad41396d..eb9769aeac29cf15 100644
+--- a/sysdeps/aarch64/fpu/atanh_advsimd.c
++++ b/sysdeps/aarch64/fpu/atanh_advsimd.c
+@@ -23,15 +23,19 @@
+ const static struct data
+ {
+   struct v_log1p_data log1p_consts;
+-  uint64x2_t one, half;
++  uint64x2_t one;
++  uint64x2_t sign_mask;
+ } data = { .log1p_consts = V_LOG1P_CONSTANTS_TABLE,
+ 	   .one = V2 (0x3ff0000000000000),
+-	   .half = V2 (0x3fe0000000000000) };
++	   .sign_mask = V2 (0x8000000000000000) };
+ 
+ static float64x2_t VPCS_ATTR NOINLINE
+-special_case (float64x2_t x, float64x2_t y, uint64x2_t special)
++special_case (float64x2_t x, float64x2_t halfsign, float64x2_t y,
++	      uint64x2_t special, const struct data *d)
+ {
+-  return v_call_f64 (atanh, x, y, special);
++  y = log1p_inline (y, &d->log1p_consts);
++  return v_call_f64 (atanh, vbslq_f64 (d->sign_mask, halfsign, x),
++		     vmulq_f64 (halfsign, y), special);
+ }
+ 
+ /* Approximation for vector double-precision atanh(x) using modified log1p.
+@@ -43,11 +47,10 @@ float64x2_t V_NAME_D1 (atanh) (float64x2_t x)
+ {
+   const struct data *d = ptr_barrier (&data);
+ 
++  float64x2_t halfsign = vbslq_f64 (d->sign_mask, x, v_f64 (0.5));
+   float64x2_t ax = vabsq_f64 (x);
+   uint64x2_t ia = vreinterpretq_u64_f64 (ax);
+-  uint64x2_t sign = veorq_u64 (vreinterpretq_u64_f64 (x), ia);
+   uint64x2_t special = vcgeq_u64 (ia, d->one);
+-  float64x2_t halfsign = vreinterpretq_f64_u64 (vorrq_u64 (sign, d->half));
+ 
+ #if WANT_SIMD_EXCEPT
+   ax = v_zerofy_f64 (ax, special);
+@@ -55,10 +58,15 @@ float64x2_t V_NAME_D1 (atanh) (float64x2_t x)
+ 
+   float64x2_t y;
+   y = vaddq_f64 (ax, ax);
+-  y = vdivq_f64 (y, vsubq_f64 (v_f64 (1), ax));
+-  y = log1p_inline (y, &d->log1p_consts);
++  y = vdivq_f64 (y, vsubq_f64 (vreinterpretq_f64_u64 (d->one), ax));
+ 
+   if (__glibc_unlikely (v_any_u64 (special)))
+-    return special_case (x, vmulq_f64 (y, halfsign), special);
++#if WANT_SIMD_EXCEPT
++    return special_case (x, halfsign, y, special, d);
++#else
++    return special_case (ax, halfsign, y, special, d);
++#endif
++
++  y = log1p_inline (y, &d->log1p_consts);
+   return vmulq_f64 (y, halfsign);
+ }
+diff --git a/sysdeps/aarch64/fpu/log1p_advsimd.c b/sysdeps/aarch64/fpu/log1p_advsimd.c
+index ffc418fc9c24be28..9d18578ce6497787 100644
+--- a/sysdeps/aarch64/fpu/log1p_advsimd.c
++++ b/sysdeps/aarch64/fpu/log1p_advsimd.c
+@@ -17,43 +17,26 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
+-#include "v_math.h"
+-#include "poly_advsimd_f64.h"
++#define WANT_V_LOG1P_K0_SHORTCUT 0
++#include "v_log1p_inline.h"
+ 
+ const static struct data
+ {
+-  float64x2_t poly[19], ln2[2];
+-  uint64x2_t hf_rt2_top, one_m_hf_rt2_top, umask, inf, minus_one;
+-  int64x2_t one_top;
+-} data = {
+-  /* Generated using Remez, deg=20, in [sqrt(2)/2-1, sqrt(2)-1].  */
+-  .poly = { V2 (-0x1.ffffffffffffbp-2), V2 (0x1.55555555551a9p-2),
+-	    V2 (-0x1.00000000008e3p-2), V2 (0x1.9999999a32797p-3),
+-	    V2 (-0x1.555555552fecfp-3), V2 (0x1.249248e071e5ap-3),
+-	    V2 (-0x1.ffffff8bf8482p-4), V2 (0x1.c71c8f07da57ap-4),
+-	    V2 (-0x1.9999ca4ccb617p-4), V2 (0x1.7459ad2e1dfa3p-4),
+-	    V2 (-0x1.554d2680a3ff2p-4), V2 (0x1.3b4c54d487455p-4),
+-	    V2 (-0x1.2548a9ffe80e6p-4), V2 (0x1.0f389a24b2e07p-4),
+-	    V2 (-0x1.eee4db15db335p-5), V2 (0x1.e95b494d4a5ddp-5),
+-	    V2 (-0x1.15fdf07cb7c73p-4), V2 (0x1.0310b70800fcfp-4),
+-	    V2 (-0x1.cfa7385bdb37ep-6) },
+-  .ln2 = { V2 (0x1.62e42fefa3800p-1), V2 (0x1.ef35793c76730p-45) },
+-  /* top32(asuint64(sqrt(2)/2)) << 32.  */
+-  .hf_rt2_top = V2 (0x3fe6a09e00000000),
+-  /* (top32(asuint64(1)) - top32(asuint64(sqrt(2)/2))) << 32.  */
+-  .one_m_hf_rt2_top = V2 (0x00095f6200000000),
+-  .umask = V2 (0x000fffff00000000),
+-  .one_top = V2 (0x3ff),
+-  .inf = V2 (0x7ff0000000000000),
+-  .minus_one = V2 (0xbff0000000000000)
+-};
++  struct v_log1p_data d;
++  uint64x2_t inf, minus_one;
++} data = { .d = V_LOG1P_CONSTANTS_TABLE,
++	   .inf = V2 (0x7ff0000000000000),
++	   .minus_one = V2 (0xbff0000000000000) };
+ 
+ #define BottomMask v_u64 (0xffffffff)
+ 
+-static float64x2_t VPCS_ATTR NOINLINE
+-special_case (float64x2_t x, float64x2_t y, uint64x2_t special)
++static float64x2_t NOINLINE VPCS_ATTR
++special_case (float64x2_t x, uint64x2_t cmp, const struct data *d)
+ {
+-  return v_call_f64 (log1p, x, y, special);
++  /* Side-step special lanes so fenv exceptions are not triggered
++     inadvertently.  */
++  float64x2_t x_nospecial = v_zerofy_f64 (x, cmp);
++  return v_call_f64 (log1p, x, log1p_inline (x_nospecial, &d->d), cmp);
+ }
+ 
+ /* Vector log1p approximation using polynomial on reduced interval. Routine is
+@@ -66,64 +49,12 @@ VPCS_ATTR float64x2_t V_NAME_D1 (log1p) (float64x2_t x)
+   const struct data *d = ptr_barrier (&data);
+   uint64x2_t ix = vreinterpretq_u64_f64 (x);
+   uint64x2_t ia = vreinterpretq_u64_f64 (vabsq_f64 (x));
+-  uint64x2_t special = vcgeq_u64 (ia, d->inf);
+ 
+-#if WANT_SIMD_EXCEPT
+-  special = vorrq_u64 (special,
+-		       vcgeq_u64 (ix, vreinterpretq_u64_f64 (v_f64 (-1))));
+-  if (__glibc_unlikely (v_any_u64 (special)))
+-    x = v_zerofy_f64 (x, special);
+-#else
+-  special = vorrq_u64 (special, vcleq_f64 (x, v_f64 (-1)));
+-#endif
++  uint64x2_t special_cases
++      = vorrq_u64 (vcgeq_u64 (ia, d->inf), vcgeq_u64 (ix, d->minus_one));
+ 
+-  /* With x + 1 = t * 2^k (where t = f + 1 and k is chosen such that f
+-			   is in [sqrt(2)/2, sqrt(2)]):
+-     log1p(x) = k*log(2) + log1p(f).
++  if (__glibc_unlikely (v_any_u64 (special_cases)))
++    return special_case (x, special_cases, d);
+ 
+-     f may not be representable exactly, so we need a correction term:
+-     let m = round(1 + x), c = (1 + x) - m.
+-     c << m: at very small x, log1p(x) ~ x, hence:
+-     log(1+x) - log(m) ~ c/m.
+-
+-     We therefore calculate log1p(x) by k*log2 + log1p(f) + c/m.  */
+-
+-  /* Obtain correctly scaled k by manipulation in the exponent.
+-     The scalar algorithm casts down to 32-bit at this point to calculate k and
+-     u_red. We stay in double-width to obtain f and k, using the same constants
+-     as the scalar algorithm but shifted left by 32.  */
+-  float64x2_t m = vaddq_f64 (x, v_f64 (1));
+-  uint64x2_t mi = vreinterpretq_u64_f64 (m);
+-  uint64x2_t u = vaddq_u64 (mi, d->one_m_hf_rt2_top);
+-
+-  int64x2_t ki
+-      = vsubq_s64 (vreinterpretq_s64_u64 (vshrq_n_u64 (u, 52)), d->one_top);
+-  float64x2_t k = vcvtq_f64_s64 (ki);
+-
+-  /* Reduce x to f in [sqrt(2)/2, sqrt(2)].  */
+-  uint64x2_t utop = vaddq_u64 (vandq_u64 (u, d->umask), d->hf_rt2_top);
+-  uint64x2_t u_red = vorrq_u64 (utop, vandq_u64 (mi, BottomMask));
+-  float64x2_t f = vsubq_f64 (vreinterpretq_f64_u64 (u_red), v_f64 (1));
+-
+-  /* Correction term c/m.  */
+-  float64x2_t cm = vdivq_f64 (vsubq_f64 (x, vsubq_f64 (m, v_f64 (1))), m);
+-
+-  /* Approximate log1p(x) on the reduced input using a polynomial. Because
+-     log1p(0)=0 we choose an approximation of the form:
+-       x + C0*x^2 + C1*x^3 + C2x^4 + ...
+-     Hence approximation has the form f + f^2 * P(f)
+-      where P(x) = C0 + C1*x + C2x^2 + ...
+-     Assembling this all correctly is dealt with at the final step.  */
+-  float64x2_t f2 = vmulq_f64 (f, f);
+-  float64x2_t p = v_pw_horner_18_f64 (f, f2, d->poly);
+-
+-  float64x2_t ylo = vfmaq_f64 (cm, k, d->ln2[1]);
+-  float64x2_t yhi = vfmaq_f64 (f, k, d->ln2[0]);
+-  float64x2_t y = vaddq_f64 (ylo, yhi);
+-
+-  if (__glibc_unlikely (v_any_u64 (special)))
+-    return special_case (vreinterpretq_f64_u64 (ix), vfmaq_f64 (y, f2, p),
+-			 special);
+-
+-  return vfmaq_f64 (y, f2, p);
++  return log1p_inline (x, &d->d);
+ }
+diff --git a/sysdeps/aarch64/fpu/v_log1p_inline.h b/sysdeps/aarch64/fpu/v_log1p_inline.h
+index 242e43b6eecc0b6e..834ff65adf34ed4a 100644
+--- a/sysdeps/aarch64/fpu/v_log1p_inline.h
++++ b/sysdeps/aarch64/fpu/v_log1p_inline.h
+@@ -21,29 +21,30 @@
+ #define AARCH64_FPU_V_LOG1P_INLINE_H
+ 
+ #include "v_math.h"
+-#include "poly_advsimd_f64.h"
+ 
+ struct v_log1p_data
+ {
+-  float64x2_t poly[19], ln2[2];
++  float64x2_t c0, c2, c4, c6, c8, c10, c12, c14, c16;
+   uint64x2_t hf_rt2_top, one_m_hf_rt2_top, umask;
+   int64x2_t one_top;
++  double c1, c3, c5, c7, c9, c11, c13, c15, c17, c18;
++  double ln2[2];
+ };
+ 
+ /* Coefficients generated using Remez, deg=20, in [sqrt(2)/2-1, sqrt(2)-1].  */
+ #define V_LOG1P_CONSTANTS_TABLE                                               \
+   {                                                                           \
+-    .poly = { V2 (-0x1.ffffffffffffbp-2), V2 (0x1.55555555551a9p-2),          \
+-	      V2 (-0x1.00000000008e3p-2), V2 (0x1.9999999a32797p-3),          \
+-	      V2 (-0x1.555555552fecfp-3), V2 (0x1.249248e071e5ap-3),          \
+-	      V2 (-0x1.ffffff8bf8482p-4), V2 (0x1.c71c8f07da57ap-4),          \
+-	      V2 (-0x1.9999ca4ccb617p-4), V2 (0x1.7459ad2e1dfa3p-4),          \
+-	      V2 (-0x1.554d2680a3ff2p-4), V2 (0x1.3b4c54d487455p-4),          \
+-	      V2 (-0x1.2548a9ffe80e6p-4), V2 (0x1.0f389a24b2e07p-4),          \
+-	      V2 (-0x1.eee4db15db335p-5), V2 (0x1.e95b494d4a5ddp-5),          \
+-	      V2 (-0x1.15fdf07cb7c73p-4), V2 (0x1.0310b70800fcfp-4),          \
+-	      V2 (-0x1.cfa7385bdb37ep-6) },                                   \
+-    .ln2 = { V2 (0x1.62e42fefa3800p-1), V2 (0x1.ef35793c76730p-45) },         \
++    .c0 = V2 (-0x1.ffffffffffffbp-2), .c1 = 0x1.55555555551a9p-2,             \
++    .c2 = V2 (-0x1.00000000008e3p-2), .c3 = 0x1.9999999a32797p-3,             \
++    .c4 = V2 (-0x1.555555552fecfp-3), .c5 = 0x1.249248e071e5ap-3,             \
++    .c6 = V2 (-0x1.ffffff8bf8482p-4), .c7 = 0x1.c71c8f07da57ap-4,             \
++    .c8 = V2 (-0x1.9999ca4ccb617p-4), .c9 = 0x1.7459ad2e1dfa3p-4,             \
++    .c10 = V2 (-0x1.554d2680a3ff2p-4), .c11 = 0x1.3b4c54d487455p-4,           \
++    .c12 = V2 (-0x1.2548a9ffe80e6p-4), .c13 = 0x1.0f389a24b2e07p-4,           \
++    .c14 = V2 (-0x1.eee4db15db335p-5), .c15 = 0x1.e95b494d4a5ddp-5,           \
++    .c16 = V2 (-0x1.15fdf07cb7c73p-4), .c17 = 0x1.0310b70800fcfp-4,           \
++    .c18 = -0x1.cfa7385bdb37ep-6,                                             \
++    .ln2 = { 0x1.62e42fefa3800p-1, 0x1.ef35793c76730p-45 },                   \
+     .hf_rt2_top = V2 (0x3fe6a09e00000000),                                    \
+     .one_m_hf_rt2_top = V2 (0x00095f6200000000),                              \
+     .umask = V2 (0x000fffff00000000), .one_top = V2 (0x3ff)                   \
+@@ -51,19 +52,45 @@ struct v_log1p_data
+ 
+ #define BottomMask v_u64 (0xffffffff)
+ 
++static inline float64x2_t
++eval_poly (float64x2_t m, float64x2_t m2, const struct v_log1p_data *d)
++{
++  /* Approximate log(1+m) on [-0.25, 0.5] using pairwise Horner.  */
++  float64x2_t c13 = vld1q_f64 (&d->c1);
++  float64x2_t c57 = vld1q_f64 (&d->c5);
++  float64x2_t c911 = vld1q_f64 (&d->c9);
++  float64x2_t c1315 = vld1q_f64 (&d->c13);
++  float64x2_t c1718 = vld1q_f64 (&d->c17);
++  float64x2_t p1617 = vfmaq_laneq_f64 (d->c16, m, c1718, 0);
++  float64x2_t p1415 = vfmaq_laneq_f64 (d->c14, m, c1315, 1);
++  float64x2_t p1213 = vfmaq_laneq_f64 (d->c12, m, c1315, 0);
++  float64x2_t p1011 = vfmaq_laneq_f64 (d->c10, m, c911, 1);
++  float64x2_t p89 = vfmaq_laneq_f64 (d->c8, m, c911, 0);
++  float64x2_t p67 = vfmaq_laneq_f64 (d->c6, m, c57, 1);
++  float64x2_t p45 = vfmaq_laneq_f64 (d->c4, m, c57, 0);
++  float64x2_t p23 = vfmaq_laneq_f64 (d->c2, m, c13, 1);
++  float64x2_t p01 = vfmaq_laneq_f64 (d->c0, m, c13, 0);
++  float64x2_t p = vfmaq_laneq_f64 (p1617, m2, c1718, 1);
++  p = vfmaq_f64 (p1415, m2, p);
++  p = vfmaq_f64 (p1213, m2, p);
++  p = vfmaq_f64 (p1011, m2, p);
++  p = vfmaq_f64 (p89, m2, p);
++  p = vfmaq_f64 (p67, m2, p);
++  p = vfmaq_f64 (p45, m2, p);
++  p = vfmaq_f64 (p23, m2, p);
++  return vfmaq_f64 (p01, m2, p);
++}
++
+ static inline float64x2_t
+ log1p_inline (float64x2_t x, const struct v_log1p_data *d)
+ {
+-  /* Helper for calculating log(x + 1). Copied from v_log1p_2u5.c, with several
+-     modifications:
++  /* Helper for calculating log(x + 1):
+      - No special-case handling - this should be dealt with by the caller.
+-     - Pairwise Horner polynomial evaluation for improved accuracy.
+      - Optionally simulate the shortcut for k=0, used in the scalar routine,
+-       using v_sel, for improved accuracy when the argument to log1p is close to
+-       0. This feature is enabled by defining WANT_V_LOG1P_K0_SHORTCUT as 1 in
+-       the source of the caller before including this file.
+-     See v_log1pf_2u1.c for details of the algorithm.  */
+-  float64x2_t m = vaddq_f64 (x, v_f64 (1));
++       using v_sel, for improved accuracy when the argument to log1p is close
++       to 0. This feature is enabled by defining WANT_V_LOG1P_K0_SHORTCUT as 1
++       in the source of the caller before including this file.  */
++  float64x2_t m = vaddq_f64 (x, v_f64 (1.0));
+   uint64x2_t mi = vreinterpretq_u64_f64 (m);
+   uint64x2_t u = vaddq_u64 (mi, d->one_m_hf_rt2_top);
+ 
+@@ -74,14 +101,14 @@ log1p_inline (float64x2_t x, const struct v_log1p_data *d)
+   /* Reduce x to f in [sqrt(2)/2, sqrt(2)].  */
+   uint64x2_t utop = vaddq_u64 (vandq_u64 (u, d->umask), d->hf_rt2_top);
+   uint64x2_t u_red = vorrq_u64 (utop, vandq_u64 (mi, BottomMask));
+-  float64x2_t f = vsubq_f64 (vreinterpretq_f64_u64 (u_red), v_f64 (1));
++  float64x2_t f = vsubq_f64 (vreinterpretq_f64_u64 (u_red), v_f64 (1.0));
+ 
+   /* Correction term c/m.  */
+-  float64x2_t cm = vdivq_f64 (vsubq_f64 (x, vsubq_f64 (m, v_f64 (1))), m);
++  float64x2_t cm = vdivq_f64 (vsubq_f64 (x, vsubq_f64 (m, v_f64 (1.0))), m);
+ 
+ #ifndef WANT_V_LOG1P_K0_SHORTCUT
+-#error                                                                         \
+-  "Cannot use v_log1p_inline.h without specifying whether you need the k0 shortcut for greater accuracy close to 0"
++# error                                                                       \
++      "Cannot use v_log1p_inline.h without specifying whether you need the k0 shortcut for greater accuracy close to 0"
+ #elif WANT_V_LOG1P_K0_SHORTCUT
+   /* Shortcut if k is 0 - set correction term to 0 and f to x. The result is
+      that the approximation is solely the polynomial.  */
+@@ -92,11 +119,12 @@ log1p_inline (float64x2_t x, const struct v_log1p_data *d)
+ 
+   /* Approximate log1p(f) on the reduced input using a polynomial.  */
+   float64x2_t f2 = vmulq_f64 (f, f);
+-  float64x2_t p = v_pw_horner_18_f64 (f, f2, d->poly);
++  float64x2_t p = eval_poly (f, f2, d);
+ 
+   /* Assemble log1p(x) = k * log2 + log1p(f) + c/m.  */
+-  float64x2_t ylo = vfmaq_f64 (cm, k, d->ln2[1]);
+-  float64x2_t yhi = vfmaq_f64 (f, k, d->ln2[0]);
++  float64x2_t ln2 = vld1q_f64 (&d->ln2[0]);
++  float64x2_t ylo = vfmaq_laneq_f64 (cm, k, ln2, 1);
++  float64x2_t yhi = vfmaq_laneq_f64 (f, k, ln2, 0);
+   return vfmaq_f64 (vaddq_f64 (ylo, yhi), f2, p);
+ }
+ 

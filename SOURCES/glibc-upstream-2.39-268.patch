@@ -1,0 +1,48 @@
+commit 1b3bd9a9a6913c5a17cd2aca9b897406405a95d2
+Author: Yury Khrustalev <yury.khrustalev@arm.com>
+Date:   Mon Apr 28 15:12:04 2025 +0100
+
+    aarch64: Disable ZA state of SME in setjmp and sigsetjmp
+    
+    Due to the nature of the ZA state, setjmp() should clear it in the
+    same manner as it is already done by longjmp.
+    
+    Reviewed-by: Wilco Dijkstra  <Wilco.Dijkstra@arm.com>
+    (cherry picked from commit a7f6fd976c17b82dc198290b4ab7087f35855a0e)
+    (cherry picked from commit 1f57ffdf35334ab245544cbb88f3abf2e6c77c54)
+    (cherry picked from commit cdc1665bb188319b5f16ee05c04de7f2ba580e27)
+
+diff --git a/sysdeps/aarch64/setjmp.S b/sysdeps/aarch64/setjmp.S
+index 92dc34e3e9a2650c..b2addd44ed7604b7 100644
+--- a/sysdeps/aarch64/setjmp.S
++++ b/sysdeps/aarch64/setjmp.S
+@@ -35,6 +35,29 @@ libc_hidden_def (_setjmp)
+ 
+ ENTRY (__sigsetjmp)
+ 1:
++
++#if IS_IN(libc)
++	/* Disable ZA state of SME in libc.a and libc.so, but not in ld.so.  */
++# if HAVE_AARCH64_PAC_RET
++	PACIASP
++	cfi_window_save
++# endif
++	stp	x29, x30, [sp, -16]!
++	cfi_adjust_cfa_offset (16)
++	cfi_rel_offset (x29, 0)
++	cfi_rel_offset (x30, 8)
++	mov	x29, sp
++	bl	__libc_arm_za_disable
++	ldp	x29, x30, [sp], 16
++	cfi_adjust_cfa_offset (-16)
++	cfi_restore (x29)
++	cfi_restore (x30)
++# if HAVE_AARCH64_PAC_RET
++	AUTIASP
++	cfi_window_save
++# endif
++#endif
++
+ 	stp	x19, x20, [x0, #JB_X19<<3]
+ 	stp	x21, x22, [x0, #JB_X21<<3]
+ 	stp	x23, x24, [x0, #JB_X23<<3]

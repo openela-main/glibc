@@ -1,0 +1,42 @@
+commit 1b2f868fb4958fd59875695c1828d9804b116dc2
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Tue Apr 7 10:49:13 2026 +0200
+
+    resolv: Run tst-getaddrinfo-eai-again in a network namespace
+    
+    This ensures that the test does not accidentally use a name server
+    running on 127.0.0.1.
+    
+    Tested-by:  Frédéric Bérat <fberat@redhat.com>
+    Reviewed-by: Frédéric Bérat <fberat@redhat.com>
+
+diff --git a/resolv/tst-getaddrinfo-eai-again.c b/resolv/tst-getaddrinfo-eai-again.c
+index 21daa6c1682d1156..8a9c2dda1c471435 100644
+--- a/resolv/tst-getaddrinfo-eai-again.c
++++ b/resolv/tst-getaddrinfo-eai-again.c
+@@ -20,6 +20,7 @@
+ 
+ #include <netdb.h>
+ #include <support/check.h>
++#include <support/namespace.h>
+ 
+ /* Query getaddrinfo with various address families and verify that
+    it returns EAI_AGAIN when DNS resolution fails.  */
+@@ -49,6 +50,9 @@ query_host (const char *host_name)
+ static int
+ do_test (void)
+ {
++  /* Hide any name server that might be running on 127.0.0.1.  */
++  support_enter_network_namespace ();
++
+   query_host ("site.example");
+   return 0;
+ }
+diff --git a/resolv/tst-getaddrinfo-eai-again.root/tst-getaddrinfo-eai-again.script b/resolv/tst-getaddrinfo-eai-again.root/tst-getaddrinfo-eai-again.script
+new file mode 100644
+index 0000000000000000..383f92b5b0ae7edd
+--- /dev/null
++++ b/resolv/tst-getaddrinfo-eai-again.root/tst-getaddrinfo-eai-again.script
+@@ -0,0 +1,2 @@
++# Enable entering a network namespace.
++su

@@ -16,6 +16,10 @@ Date:   Thu Jan 15 22:29:46 2026 +0100
     
     Reviewed-by: Carlos O'Donell <carlos@redhat.com>
 
+Conflicts:
+	elf/tst-env-setuid.c
+	  (Downstream is missing commit 5d23dfb289174d73b8907b86d2bef7a3ca889840)
+
 diff --git a/elf/rtld.c b/elf/rtld.c
 index cd790e37f2a323a4..8b189a87f76e7e08 100644
 --- a/elf/rtld.c
@@ -45,23 +49,23 @@ index cd790e37f2a323a4..8b189a87f76e7e08 100644
       LD_DEBUG_OUTPUT environment variable is given, we write the debug
       messages to this file.  */
 diff --git a/elf/tst-env-setuid.c b/elf/tst-env-setuid.c
-index 479087f0e738a4d0..7336ccc4e0c01084 100644
+index c084aa4c1a382152..ff4acd07e5e8b986 100644
 --- a/elf/tst-env-setuid.c
 +++ b/elf/tst-env-setuid.c
-@@ -40,7 +40,11 @@ static char SETGID_CHILD[] = "setgid-child";
+@@ -40,6 +40,12 @@ static char SETGID_CHILD[] = "setgid-child";
  # define PROFILE_LIB      "tst-sonamemove-runmod2.so"
  #endif
  
--#define LD_DEBUG_OUTPUT   "/tmp/some-file"
 +/* Computed path for LD_DEBUG_OUTPUT.  */
 +static char *debugoutputpath;
 +
 +/* Expected file name for erroneous LD_PROFILE output.  */
 +static char *profilepath;
- 
++
  struct envvar_t
  {
-@@ -58,13 +62,14 @@ static const struct envvar_t filtered_envvars[] =
+   const char *env;
+@@ -56,13 +62,14 @@ static const struct envvar_t filtered_envvars[] =
    { "LD_LIBRARY_PATH",         FILTERED_VALUE },
    { "LD_PRELOAD",              FILTERED_VALUE },
    { "LD_PROFILE",              PROFILE_LIB },
@@ -72,21 +76,12 @@ index 479087f0e738a4d0..7336ccc4e0c01084 100644
    { "MALLOC_TRIM_THRESHOLD_",  FILTERED_VALUE },
    { "RES_OPTIONS",             FILTERED_VALUE },
    { "LD_DEBUG",                "all" },
--  { "LD_DEBUG_OUTPUT",         LD_DEBUG_OUTPUT },
+-  { "LD_DEBUG_OUTPUT",         "/tmp/some-file" },
 +  { "LD_DEBUG_OUTPUT",         "overwritten" },   /* Not actually used.  */
    { "LD_WARN",                 FILTERED_VALUE },
    { "LD_VERBOSE",              FILTERED_VALUE },
    { "LD_BIND_NOW",             "0" },
-@@ -80,7 +85,7 @@ static const struct envvar_t unfiltered_envvars[] =
- static void
- unlink_ld_debug_output (pid_t pid)
- {
--  char *output = xasprintf ("%s.%d", LD_DEBUG_OUTPUT, pid);
-+  char *output = xasprintf ("%s.%d", debugoutputpath, pid);
-   unlink (output);
-   free (output);
- }
-@@ -122,18 +127,12 @@ test_child (void)
+@@ -112,18 +119,12 @@ test_child (void)
      }
  
    /* Also check if no profile file was created.
@@ -110,7 +105,7 @@ index 479087f0e738a4d0..7336ccc4e0c01084 100644
  
    return ret;
  }
-@@ -146,6 +145,11 @@ do_test (int argc, char **argv)
+@@ -136,6 +137,11 @@ do_test (int argc, char **argv)
    if (argc >= 2 && strstr (argv[1], LD_SO) != 0)
      FAIL_UNSUPPORTED ("dynamic test requires --enable-hardcoded-path-in-tests");
  
@@ -122,7 +117,7 @@ index 479087f0e738a4d0..7336ccc4e0c01084 100644
    /* Setgid child process.  */
    if (argc == 2 && strcmp (argv[1], SETGID_CHILD) == 0)
      {
-@@ -166,7 +170,6 @@ do_test (int argc, char **argv)
+@@ -148,7 +154,6 @@ do_test (int argc, char **argv)
  
        if (ret != 0)
  	exit (1);
@@ -130,7 +125,7 @@ index 479087f0e738a4d0..7336ccc4e0c01084 100644
      }
    else
      {
-@@ -180,20 +183,25 @@ do_test (int argc, char **argv)
+@@ -162,20 +167,25 @@ do_test (int argc, char **argv)
  	   e++)
  	setenv (e->env, e->value, 1);
  

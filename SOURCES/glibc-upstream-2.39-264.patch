@@ -1,0 +1,50 @@
+commit 58cbbd43fe82910cf8ae9008351b0b0665104500
+Author: Sunil K Pandey <sunil.k.pandey@intel.com>
+Date:   Wed Sep 24 09:38:17 2025 -0700
+
+    x86: Detect Intel Nova Lake Processor
+    
+    Detect Intel Nova Lake Processor and tune it similar to Intel Panther
+    Lake.  https://cdrdv2.intel.com/v1/dl/getContent/671368 Section 1.2.
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    (cherry picked from commit a114e29ddd530962d2b44aa9d89f1f6075abe7fa)
+
+diff --git a/sysdeps/x86/cpu-features.c b/sysdeps/x86/cpu-features.c
+index c00502328fbcb839..f87d6d354924f3d9 100644
+--- a/sysdeps/x86/cpu-features.c
++++ b/sysdeps/x86/cpu-features.c
+@@ -547,6 +547,7 @@ enum intel_microarch
+   INTEL_BIGCORE_GRANITERAPIDS,
+   INTEL_BIGCORE_DIAMONDRAPIDS,
+   INTEL_BIGCORE_WILDCATLAKE,
++  INTEL_BIGCORE_NOVALAKE,
+ 
+   /* Mixed (bigcore + atom SOC).  */
+   INTEL_MIXED_LAKEFIELD,
+@@ -824,6 +825,17 @@ disable_tsx:
+ 	      break;
+ 	    }
+ 	}
++      else if (family == 18)
++	switch (model)
++	  {
++	  case 0x01:
++	  case 0x03:
++	    microarch = INTEL_BIGCORE_NOVALAKE;
++	    break;
++
++	  default:
++	    break;
++	  }
+       else if (family == 19)
+ 	switch (model)
+ 	  {
+@@ -941,6 +953,7 @@ disable_tsx:
+ 	case INTEL_BIGCORE_ARROWLAKE:
+ 	case INTEL_BIGCORE_PANTHERLAKE:
+ 	case INTEL_BIGCORE_WILDCATLAKE:
++	case INTEL_BIGCORE_NOVALAKE:
+ 	case INTEL_BIGCORE_SAPPHIRERAPIDS:
+ 	case INTEL_BIGCORE_EMERALDRAPIDS:
+ 	case INTEL_BIGCORE_GRANITERAPIDS:

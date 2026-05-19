@@ -1,0 +1,27 @@
+commit d30f41d2c9031b0540641af692e56002eab5599f
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Jun 26 11:38:00 2025 +0200
+
+    elf: Add missing DSO dependencies for tst-rtld-no-malloc-{audit,preload}
+    
+    Fixes commit c1560f3f75c0e892b5522c16f91b4e303f677094
+    ("elf: Switch to main malloc after final ld.so self-relocation").
+    
+    Reviewed-by: Frédéric Bérat <fberat@redhat.com>
+
+diff --git a/elf/Makefile b/elf/Makefile
+index 13ef1205667abcd4..cf54ea084489b9cf 100644
+--- a/elf/Makefile
++++ b/elf/Makefile
+@@ -3245,9 +3245,11 @@ $(objpfx)tst-dlopen-auditdup.out: \
+ 
+ # Reuse an audit module which provides ample debug logging.
+ tst-rtld-no-malloc-audit-ENV = LD_AUDIT=$(objpfx)tst-auditmod1.so
++$(objpfx)tst-rtld-no-malloc-audit.out: $(objpfx)tst-auditmod1.so
+ 
+ # Any shared object should do.
+ tst-rtld-no-malloc-preload-ENV = LD_PRELOAD=$(objpfx)tst-auditmod1.so
++$(objpfx)tst-rtld-no-malloc-preload.out: $(objpfx)tst-auditmod1.so
+ 
+ LDFLAGS-tst-hash-collision1-mod.so = -Wl,--hash-style=both
+ $(objpfx)tst-hash-collision1: $(objpfx)tst-hash-collision1-mod.so

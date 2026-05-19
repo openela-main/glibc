@@ -535,8 +535,8 @@ local function generate_files()
    -- patch depth sorting below).  To include committer dates, use
    -- --pretty=fuller.
    check_git(
-      'log --first-parent --no-renames --raw --pretty=fuller --date=default > '
-      .. git_log_file)
+      'log --first-parent --no-decorate --no-renames --raw --pretty=fuller'
+      .. ' --date=default > ' .. git_log_file)
 
    -- Atomically replace the contents of git_commit_file, confirming that
    -- the new Git log has been written.
@@ -644,7 +644,7 @@ local function parse_commits()
             break
          end
          local l = string.match(line, remove_indent)
-         if not l then break
+         if not l then
             -- No longer the commit message.
             break
          end
@@ -1681,9 +1681,7 @@ local function parse_commit_messages()
       -- A Patch-Git-Version commit on its own does not tell us how to
       -- interpret previous history.  The first commit setting version/release
       -- must also set the patch-git version.
-      if patchgit_version
-         and patchgit_version and release_known and changelog_known
-      then
+      if patchgit_version and release_known and changelog_known then
          start_commit = i
          break
       end
@@ -1717,14 +1715,16 @@ do
       Dec=12,
    }
    function git_date_to_rpm_date(s)
-   local wd, mon, d, y = string.match(
-      s, '^([A-z][a-z][a-z]) ([A-Z][a-z][a-z]) (%d+) %d%d:%d%d:%d%d (%d+)')
-   assert(y, s)
-   local m = assert(months[mon], s)
-   local rpmdate = string.format('%s %s %02d %04d', wd, mon, d, y)
-   local ymd = string.format('%04d-%02d-%02d', y, m, d)
-   return rpmdate, ymd
+      local wd, mon, d, y = string.match(
+	 s, '^([A-Z][a-z][a-z]) ([A-Z][a-z][a-z]) (%d+) %d%d:%d%d:%d%d (%d+)')
+      assert(y, s)
+      local m = assert(months[mon], s)
+      local rpmdate = string.format('%s %s %02d %04d', wd, mon, d, y)
+      local ymd = string.format('%04d-%02d-%02d', y, m, d)
+      return rpmdate, ymd
    end
+   assert_eq({git_date_to_rpm_date('Fri Dec 5 14:39:48 2025 +0100')},
+	     {'Fri Dec 05 2025', '2025-12-05'})
 end
 -- Tests for git_date_to_rpm_date.
 do
@@ -2028,7 +2028,7 @@ else
             print('FAIL: term=' .. term .. ', status=' .. status)
          end
       end
-      if fail then
+      if failure then
          os.exit(1)
       end
    end

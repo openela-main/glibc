@@ -1,0 +1,362 @@
+commit 91c1fadba338752bf514cd4cca057b27b1b10eed
+Author: Yat Long Poon <yatlong.poon@arm.com>
+Date:   Fri Jan 3 19:09:05 2025 +0000
+
+    AArch64: Improve codegen for SVE log1pf users
+    
+    Reduce memory access by using lanewise MLA and reduce number of MOVPRFXs.
+    Move log1pf implementation to inline helper function.
+    Speedup on Neoverse V1 for log1pf (10%), acoshf (-1%), atanhf (2%), asinhf (2%).
+
+Conflicts:
+        sysdeps/aarch64/fpu/log1pf_sve.c
+          (Fixup context to apply without out-of-scope dependency 751a5502)
+
+diff --git a/sysdeps/aarch64/fpu/acoshf_sve.c b/sysdeps/aarch64/fpu/acoshf_sve.c
+index 2110894e629500be..491365e24d692f0f 100644
+--- a/sysdeps/aarch64/fpu/acoshf_sve.c
++++ b/sysdeps/aarch64/fpu/acoshf_sve.c
+@@ -17,23 +17,26 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
++#include "sv_math.h"
++#include "sv_log1pf_inline.h"
++
+ #define One 0x3f800000
+ #define Thres 0x20000000 /* asuint(0x1p64) - One.  */
+ 
+-#include "sv_log1pf_inline.h"
+-
+ static svfloat32_t NOINLINE
+-special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
++special_case (svfloat32_t xm1, svfloat32_t tmp, svbool_t special)
+ {
++  svfloat32_t x = svadd_x (svptrue_b32 (), xm1, 1.0f);
++  svfloat32_t y = sv_log1pf_inline (tmp, svptrue_b32 ());
+   return sv_call_f32 (acoshf, x, y, special);
+ }
+ 
+ /* Single-precision SVE acosh(x) routine. Implements the same algorithm as
+    vector acoshf and log1p.
+ 
+-   Maximum error is 2.78 ULPs:
+-   SV_NAME_F1 (acosh) (0x1.01e996p+0) got 0x1.f45b42p-4
+-				     want 0x1.f45b3cp-4.  */
++   Maximum error is 2.47 ULPs:
++   SV_NAME_F1 (acosh) (0x1.01ca76p+0) got 0x1.e435a6p-4
++				     want 0x1.e435a2p-4.  */
+ svfloat32_t SV_NAME_F1 (acosh) (svfloat32_t x, const svbool_t pg)
+ {
+   svuint32_t ix = svreinterpret_u32 (x);
+@@ -41,9 +44,9 @@ svfloat32_t SV_NAME_F1 (acosh) (svfloat32_t x, const svbool_t pg)
+ 
+   svfloat32_t xm1 = svsub_x (pg, x, 1.0f);
+   svfloat32_t u = svmul_x (pg, xm1, svadd_x (pg, x, 1.0f));
+-  svfloat32_t y = sv_log1pf_inline (svadd_x (pg, xm1, svsqrt_x (pg, u)), pg);
++  svfloat32_t tmp = svadd_x (pg, xm1, svsqrt_x (pg, u));
+ 
+   if (__glibc_unlikely (svptest_any (pg, special)))
+-    return special_case (x, y, special);
+-  return y;
++    return special_case (xm1, tmp, special);
++  return sv_log1pf_inline (tmp, pg);
+ }
+diff --git a/sysdeps/aarch64/fpu/asinhf_sve.c b/sysdeps/aarch64/fpu/asinhf_sve.c
+index d85c3a685c0b83ff..b7f253bf32fb9478 100644
+--- a/sysdeps/aarch64/fpu/asinhf_sve.c
++++ b/sysdeps/aarch64/fpu/asinhf_sve.c
+@@ -20,20 +20,23 @@
+ #include "sv_math.h"
+ #include "sv_log1pf_inline.h"
+ 
+-#define BigBound (0x5f800000)  /* asuint(0x1p64).  */
++#define BigBound 0x5f800000 /* asuint(0x1p64).  */
+ 
+ static svfloat32_t NOINLINE
+-special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
++special_case (svuint32_t iax, svuint32_t sign, svfloat32_t y, svbool_t special)
+ {
++  svfloat32_t x = svreinterpret_f32 (sveor_x (svptrue_b32 (), iax, sign));
++  y = svreinterpret_f32 (
++      svorr_x (svptrue_b32 (), sign, svreinterpret_u32 (y)));
+   return sv_call_f32 (asinhf, x, y, special);
+ }
+ 
+ /* Single-precision SVE asinh(x) routine. Implements the same algorithm as
+    vector asinhf and log1p.
+ 
+-   Maximum error is 2.48 ULPs:
+-   SV_NAME_F1 (asinh) (0x1.008864p-3) got 0x1.ffbbbcp-4
+-				     want 0x1.ffbbb8p-4.  */
++   Maximum error is 1.92 ULPs:
++   SV_NAME_F1 (asinh) (-0x1.0922ecp-1) got -0x1.fd0bccp-2
++				      want -0x1.fd0bc8p-2.  */
+ svfloat32_t SV_NAME_F1 (asinh) (svfloat32_t x, const svbool_t pg)
+ {
+   svfloat32_t ax = svabs_x (pg, x);
+@@ -49,8 +52,6 @@ svfloat32_t SV_NAME_F1 (asinh) (svfloat32_t x, const svbool_t pg)
+       = sv_log1pf_inline (svadd_x (pg, ax, svdiv_x (pg, ax2, d)), pg);
+ 
+   if (__glibc_unlikely (svptest_any (pg, special)))
+-    return special_case (
+-	x, svreinterpret_f32 (svorr_x (pg, sign, svreinterpret_u32 (y))),
+-	special);
++    return special_case (iax, sign, y, special);
+   return svreinterpret_f32 (svorr_x (pg, sign, svreinterpret_u32 (y)));
+ }
+diff --git a/sysdeps/aarch64/fpu/atanhf_sve.c b/sysdeps/aarch64/fpu/atanhf_sve.c
+index dae83041ef7157f0..2d3005bbc88393ec 100644
+--- a/sysdeps/aarch64/fpu/atanhf_sve.c
++++ b/sysdeps/aarch64/fpu/atanhf_sve.c
+@@ -17,21 +17,25 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
++#include "sv_math.h"
+ #include "sv_log1pf_inline.h"
+ 
+ #define One (0x3f800000)
+ #define Half (0x3f000000)
+ 
+ static svfloat32_t NOINLINE
+-special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
++special_case (svuint32_t iax, svuint32_t sign, svfloat32_t halfsign,
++	      svfloat32_t y, svbool_t special)
+ {
++  svfloat32_t x = svreinterpret_f32 (sveor_x (svptrue_b32 (), iax, sign));
++  y = svmul_x (svptrue_b32 (), halfsign, y);
+   return sv_call_f32 (atanhf, x, y, special);
+ }
+ 
+ /* Approximation for vector single-precision atanh(x) using modified log1p.
+-   The maximum error is 2.28 ULP:
+-   _ZGVsMxv_atanhf(0x1.ff1194p-5) got 0x1.ffbbbcp-5
+-				 want 0x1.ffbbb6p-5.  */
++   The maximum error is 1.99 ULP:
++   _ZGVsMxv_atanhf(0x1.f1583p-5) got 0x1.f1f4fap-5
++				want 0x1.f1f4f6p-5.  */
+ svfloat32_t SV_NAME_F1 (atanh) (svfloat32_t x, const svbool_t pg)
+ {
+   svfloat32_t ax = svabs_x (pg, x);
+@@ -48,7 +52,7 @@ svfloat32_t SV_NAME_F1 (atanh) (svfloat32_t x, const svbool_t pg)
+   y = sv_log1pf_inline (y, pg);
+ 
+   if (__glibc_unlikely (svptest_any (pg, special)))
+-    return special_case (x, svmul_x (pg, halfsign, y), special);
++    return special_case (iax, sign, halfsign, y, special);
+ 
+   return svmul_x (pg, halfsign, y);
+ }
+diff --git a/sysdeps/aarch64/fpu/log1pf_sve.c b/sysdeps/aarch64/fpu/log1pf_sve.c
+index f645cc997e430bcb..4f17c44e2d96039a 100644
+--- a/sysdeps/aarch64/fpu/log1pf_sve.c
++++ b/sysdeps/aarch64/fpu/log1pf_sve.c
+@@ -18,30 +18,13 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include "sv_math.h"
+-#include "poly_sve_f32.h"
+-
+-static const struct data
+-{
+-  float poly[8];
+-  float ln2, exp_bias;
+-  uint32_t four, three_quarters;
+-} data = {.poly = {/* Do not store first term of polynomial, which is -0.5, as
+-                      this can be fmov-ed directly instead of including it in
+-                      the main load-and-mla polynomial schedule.  */
+-		   0x1.5555aap-2f, -0x1.000038p-2f, 0x1.99675cp-3f,
+-		   -0x1.54ef78p-3f, 0x1.28a1f4p-3f, -0x1.0da91p-3f,
+-		   0x1.abcb6p-4f, -0x1.6f0d5ep-5f},
+-	  .ln2 = 0x1.62e43p-1f,
+-	  .exp_bias = 0x1p-23f,
+-	  .four = 0x40800000,
+-	  .three_quarters = 0x3f400000};
+-
+-#define SignExponentMask 0xff800000
++#include "sv_log1pf_inline.h"
+ 
+ static svfloat32_t NOINLINE
+-special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
++special_case (svfloat32_t x, svbool_t special)
+ {
+-  return sv_call_f32 (log1pf, x, y, special);
++  return sv_call_f32 (log1pf, x, sv_log1pf_inline (x, svptrue_b32 ()),
++		      special);
+ }
+ 
+ /* Vector log1pf approximation using polynomial on reduced interval. Worst-case
+@@ -50,51 +33,12 @@ special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
+ 				 want 0x1.9f323ep-2.  */
+ svfloat32_t SV_NAME_F1 (log1p) (svfloat32_t x, svbool_t pg)
+ {
+-  const struct data *d = ptr_barrier (&data);
+   /* x < -1, Inf/Nan.  */
+   svbool_t special = svcmpeq (pg, svreinterpret_u32 (x), 0x7f800000);
+   special = svorn_z (pg, special, svcmpge (pg, x, -1));
+ 
+-  /* With x + 1 = t * 2^k (where t = m + 1 and k is chosen such that m
+-			   is in [-0.25, 0.5]):
+-     log1p(x) = log(t) + log(2^k) = log1p(m) + k*log(2).
+-
+-     We approximate log1p(m) with a polynomial, then scale by
+-     k*log(2). Instead of doing this directly, we use an intermediate
+-     scale factor s = 4*k*log(2) to ensure the scale is representable
+-     as a normalised fp32 number.  */
+-  svfloat32_t m = svadd_x (pg, x, 1);
+-
+-  /* Choose k to scale x to the range [-1/4, 1/2].  */
+-  svint32_t k
+-      = svand_x (pg, svsub_x (pg, svreinterpret_s32 (m), d->three_quarters),
+-		 sv_s32 (SignExponentMask));
+-
+-  /* Scale x by exponent manipulation.  */
+-  svfloat32_t m_scale = svreinterpret_f32 (
+-      svsub_x (pg, svreinterpret_u32 (x), svreinterpret_u32 (k)));
+-
+-  /* Scale up to ensure that the scale factor is representable as normalised
+-     fp32 number, and scale m down accordingly.  */
+-  svfloat32_t s = svreinterpret_f32 (svsubr_x (pg, k, d->four));
+-  m_scale = svadd_x (pg, m_scale, svmla_x (pg, sv_f32 (-1), s, 0.25));
+-
+-  /* Evaluate polynomial on reduced interval.  */
+-  svfloat32_t ms2 = svmul_x (pg, m_scale, m_scale),
+-	      ms4 = svmul_x (pg, ms2, ms2);
+-  svfloat32_t p = sv_estrin_7_f32_x (pg, m_scale, ms2, ms4, d->poly);
+-  p = svmad_x (pg, m_scale, p, -0.5);
+-  p = svmla_x (pg, m_scale, m_scale, svmul_x (pg, m_scale, p));
+-
+-  /* The scale factor to be applied back at the end - by multiplying float(k)
+-     by 2^-23 we get the unbiased exponent of k.  */
+-  svfloat32_t scale_back = svmul_x (pg, svcvt_f32_x (pg, k), d->exp_bias);
+-
+-  /* Apply the scaling back.  */
+-  svfloat32_t y = svmla_x (pg, p, scale_back, d->ln2);
+-
+   if (__glibc_unlikely (svptest_any (pg, special)))
+-    return special_case (x, y, special);
++    return special_case (x, special);
+ 
+-  return y;
++  return sv_log1pf_inline (x, pg);
+ }
+diff --git a/sysdeps/aarch64/fpu/sv_log1pf_inline.h b/sysdeps/aarch64/fpu/sv_log1pf_inline.h
+index b94b2da055a6c59b..850297d61556740c 100644
+--- a/sysdeps/aarch64/fpu/sv_log1pf_inline.h
++++ b/sysdeps/aarch64/fpu/sv_log1pf_inline.h
+@@ -22,55 +22,76 @@
+ 
+ #include "sv_math.h"
+ #include "vecmath_config.h"
+-#include "poly_sve_f32.h"
++
++#define SignExponentMask 0xff800000
+ 
+ static const struct sv_log1pf_data
+ {
+-  float32_t poly[9];
+-  float32_t ln2;
+-  float32_t scale_back;
++  float c0, c2, c4, c6;
++  float c1, c3, c5, c7;
++  float ln2, exp_bias, quarter;
++  uint32_t four, three_quarters;
+ } sv_log1pf_data = {
+-  /* Polynomial generated using FPMinimax in [-0.25, 0.5].  */
+-  .poly = { -0x1p-1f, 0x1.5555aap-2f, -0x1.000038p-2f, 0x1.99675cp-3f,
+-	    -0x1.54ef78p-3f, 0x1.28a1f4p-3f, -0x1.0da91p-3f, 0x1.abcb6p-4f,
+-	    -0x1.6f0d5ep-5f },
+-  .scale_back = 0x1.0p-23f,
+-  .ln2 = 0x1.62e43p-1f,
++  /* Do not store first term of polynomial, which is -0.5, as
++     this can be fmov-ed directly instead of including it in
++     the main load-and-mla polynomial schedule.  */
++  .c0 = 0x1.5555aap-2f,		.c1 = -0x1.000038p-2f, .c2 = 0x1.99675cp-3f,
++  .c3 = -0x1.54ef78p-3f,	.c4 = 0x1.28a1f4p-3f,  .c5 = -0x1.0da91p-3f,
++  .c6 = 0x1.abcb6p-4f,		.c7 = -0x1.6f0d5ep-5f, .ln2 = 0x1.62e43p-1f,
++  .exp_bias = 0x1p-23f,		.quarter = 0x1p-2f,    .four = 0x40800000,
++  .three_quarters = 0x3f400000,
+ };
+ 
+-static inline svfloat32_t
+-eval_poly (svfloat32_t m, const float32_t *c, svbool_t pg)
+-{
+-  svfloat32_t p_12 = svmla_x (pg, sv_f32 (c[0]), m, sv_f32 (c[1]));
+-  svfloat32_t m2 = svmul_x (pg, m, m);
+-  svfloat32_t q = svmla_x (pg, m, m2, p_12);
+-  svfloat32_t p = sv_pw_horner_6_f32_x (pg, m, m2, c + 2);
+-  p = svmul_x (pg, m2, p);
+-
+-  return svmla_x (pg, q, m2, p);
+-}
+-
+ static inline svfloat32_t
+ sv_log1pf_inline (svfloat32_t x, svbool_t pg)
+ {
+   const struct sv_log1pf_data *d = ptr_barrier (&sv_log1pf_data);
+ 
+-  svfloat32_t m = svadd_x (pg, x, 1.0f);
+-
+-  svint32_t ks = svsub_x (pg, svreinterpret_s32 (m),
+-			  svreinterpret_s32 (svdup_f32 (0.75f)));
+-  ks = svand_x (pg, ks, 0xff800000);
+-  svuint32_t k = svreinterpret_u32 (ks);
+-  svfloat32_t s = svreinterpret_f32 (
+-      svsub_x (pg, svreinterpret_u32 (svdup_f32 (4.0f)), k));
+-
+-  svfloat32_t m_scale
+-      = svreinterpret_f32 (svsub_x (pg, svreinterpret_u32 (x), k));
+-  m_scale
+-      = svadd_x (pg, m_scale, svmla_x (pg, sv_f32 (-1.0f), sv_f32 (0.25f), s));
+-  svfloat32_t p = eval_poly (m_scale, d->poly, pg);
+-  svfloat32_t scale_back = svmul_x (pg, svcvt_f32_x (pg, k), d->scale_back);
+-  return svmla_x (pg, p, scale_back, d->ln2);
++  /* With x + 1 = t * 2^k (where t = m + 1 and k is chosen such that m
++			 is in [-0.25, 0.5]):
++   log1p(x) = log(t) + log(2^k) = log1p(m) + k*log(2).
++
++   We approximate log1p(m) with a polynomial, then scale by
++   k*log(2). Instead of doing this directly, we use an intermediate
++   scale factor s = 4*k*log(2) to ensure the scale is representable
++   as a normalised fp32 number.  */
++  svfloat32_t m = svadd_x (pg, x, 1);
++
++  /* Choose k to scale x to the range [-1/4, 1/2].  */
++  svint32_t k
++      = svand_x (pg, svsub_x (pg, svreinterpret_s32 (m), d->three_quarters),
++		 sv_s32 (SignExponentMask));
++
++  /* Scale x by exponent manipulation.  */
++  svfloat32_t m_scale = svreinterpret_f32 (
++      svsub_x (pg, svreinterpret_u32 (x), svreinterpret_u32 (k)));
++
++  /* Scale up to ensure that the scale factor is representable as normalised
++     fp32 number, and scale m down accordingly.  */
++  svfloat32_t s = svreinterpret_f32 (svsubr_x (pg, k, d->four));
++  svfloat32_t fconst = svld1rq_f32 (svptrue_b32 (), &d->ln2);
++  m_scale = svadd_x (pg, m_scale, svmla_lane_f32 (sv_f32 (-1), s, fconst, 2));
++
++  /* Evaluate polynomial on reduced interval.  */
++  svfloat32_t ms2 = svmul_x (svptrue_b32 (), m_scale, m_scale);
++
++  svfloat32_t c1357 = svld1rq_f32 (svptrue_b32 (), &d->c1);
++  svfloat32_t p01 = svmla_lane_f32 (sv_f32 (d->c0), m_scale, c1357, 0);
++  svfloat32_t p23 = svmla_lane_f32 (sv_f32 (d->c2), m_scale, c1357, 1);
++  svfloat32_t p45 = svmla_lane_f32 (sv_f32 (d->c4), m_scale, c1357, 2);
++  svfloat32_t p67 = svmla_lane_f32 (sv_f32 (d->c6), m_scale, c1357, 3);
++
++  svfloat32_t p = svmla_x (pg, p45, p67, ms2);
++  p = svmla_x (pg, p23, p, ms2);
++  p = svmla_x (pg, p01, p, ms2);
++
++  p = svmad_x (pg, m_scale, p, -0.5);
++  p = svmla_x (pg, m_scale, m_scale, svmul_x (pg, m_scale, p));
++
++  /* The scale factor to be applied back at the end - by multiplying float(k)
++   by 2^-23 we get the unbiased exponent of k.  */
++  svfloat32_t scale_back = svmul_lane_f32 (svcvt_f32_x (pg, k), fconst, 1);
++  return svmla_lane_f32 (p, scale_back, fconst, 0);
+ }
+ 
+ #endif

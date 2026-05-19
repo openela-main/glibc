@@ -1,0 +1,24 @@
+commit 9c0903fb7388f645d23b26160ed3669a116189fe
+Author: Joseph Myers <josmyers@redhat.com>
+Date:   Thu Oct 31 17:43:52 2024 +0000
+
+    Link tst-clock_gettime with $(librt)
+    
+    This is needed to avoid link failures for the timer_* functions on
+    Hurd.
+    
+    Tested with build-many-glibcs.py for i686-gnu.
+
+diff --git a/time/Makefile b/time/Makefile
+index b57963c1c6443770..77a6ded3a5028746 100644
+--- a/time/Makefile
++++ b/time/Makefile
+@@ -126,6 +126,8 @@ $(objpfx)tst-strftime2.out: $(gen-locales)
+ $(objpfx)tst-strftime3.out: $(gen-locales)
+ endif
+ 
++$(objpfx)tst-clock_gettime: $(librt)
++$(objpfx)tst-clock_gettime-time64: $(librt)
+ $(objpfx)tst-clock_nanosleep: $(librt)
+ $(objpfx)tst-clock_nanosleep-time64: $(librt)
+ 

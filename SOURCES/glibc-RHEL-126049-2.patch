@@ -1,0 +1,29 @@
+commit 265e13d33c470446043a3d2033984a1197151e09
+Author: H.J. Lu <hjl.tools@gmail.com>
+Date:   Sun Dec 22 05:55:39 2024 +0800
+
+    assert: Sort tests in Makefile
+    
+    Signed-off-by: H.J. Lu <hjl.tools@gmail.com>
+
+Conflicts:
+	assert/Makefile
+	  (fixup context)
+
+diff --git a/assert/Makefile b/assert/Makefile
+index d2c6943e6e28dda0..ffd9024a4c7058cc 100644
+--- a/assert/Makefile
++++ b/assert/Makefile
+@@ -35,11 +35,11 @@ routines := \
+ 
+ tests := \
+   test-assert \
++  test-assert-2 \
+   test-assert-perr \
+   tst-assert-c++ \
+   tst-assert-g++ \
+   tst-assert-sa-2025-0001 \
+-  test-assert-2 \
+   # tests
+ 
+ ifeq ($(have-cxx-thread_local),yes)

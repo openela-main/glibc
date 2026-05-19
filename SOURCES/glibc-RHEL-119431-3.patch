@@ -1,0 +1,28 @@
+commit 3a9c1497e320d77b2453ee88d7d6b40e162e85d4
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Jul 18 19:58:56 2025 +0200
+
+    debug: Do not link tst-sprintf-fortify-rdonly against the dlopen module
+    
+    The test intends to load tst-sprintf-fortify-rdonly-dlopen.so via
+    dlopen, and directly linking against it prevents that.
+    
+    Reviewed-by: Adhemerval Zanella Netto  <adhemerval.zanella@linaro.org>
+
+diff --git a/debug/Makefile b/debug/Makefile
+index f29bd20b97..13f638e344 100644
+--- a/debug/Makefile
++++ b/debug/Makefile
+@@ -189,9 +189,9 @@ CFLAGS-tst-sprintf-fortify-rdonly-dlopen.c += $(no-fortify-source) -D_FORTIFY_SO
+ CFLAGS-tst-fortify-syslog.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
+ CFLAGS-tst-fortify-wide.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
+ 
+-$(objpfx)tst-sprintf-fortify-rdonly: \
+-	$(objpfx)tst-sprintf-fortify-rdonly-mod.so \
+-	$(objpfx)tst-sprintf-fortify-rdonly-dlopen.so
++$(objpfx)tst-sprintf-fortify-rdonly: $(objpfx)tst-sprintf-fortify-rdonly-mod.so
++$(objpfx)tst-sprintf-fortify-rdonly.out: \
++  $(objpfx)tst-sprintf-fortify-rdonly-dlopen.so
+ 
+ # _FORTIFY_SOURCE tests.
+ # Auto-generate tests for _FORTIFY_SOURCE for different levels, compilers and

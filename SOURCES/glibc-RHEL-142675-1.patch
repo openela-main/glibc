@@ -1,0 +1,249 @@
+commit 8ca2fe7e96c0ccf04d32d7002d7a6d9edcb9f8ee
+Author: Sergey Kolosov <skolosov@redhat.com>
+Date:   Fri Oct 10 17:15:27 2025 +0200
+
+    resolv: Add tests for getaddrinfo returning EAI_AGAIN [BZ #16849]
+    
+    This patch adds two tests that verify correct behavior of getaddrinfo
+    when DNS resolution fails with a temporary error. Both tests ensure
+    that getaddrinfo returns EAI_AGAIN in cases where no valid address can
+    be resolved due to network or resolver failure.
+    
+    * tst-getaddrinfo-eai-again.c
+      Runs inside the glibc test-container without any DNS server
+      configured. The test performs queries using AF_INET, AF_INET6,
+      and AF_UNSPEC and verifies that getaddrinfo returns EAI_AGAIN
+      when resolution fails.
+    
+    * tst-getaddrinfo-eai-again-timeout.c
+      Runs outside of the container but uses the resolv_test framework
+      to simulate network failures. The test covers two failure modes:
+      - No response from the server (resolv_response_drop)
+      - Zero-length reply from the server
+      In both cases, getaddrinfo is expected to return EAI_AGAIN.
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+
+diff --git a/resolv/Makefile b/resolv/Makefile
+index 87a5c1ccc6dabc8a..dfe04d9efffcb8c3 100644
+--- a/resolv/Makefile
++++ b/resolv/Makefile
+@@ -80,7 +80,10 @@ routines_no_fortify += \
+   # routines_no_fortify
+ 
+ tests = tst-aton tst-leaks tst-inet_ntop
+-tests-container = tst-leaks2
++tests-container += \
++  tst-getaddrinfo-eai-again \
++  tst-leaks2 \
++  # tests-container
+ 
+ tests-internal += tst-inet_aton_exact
+ 
+@@ -139,6 +142,7 @@ tests-static += tst-ns_rr_cursor
+ # These tests need libdl.
+ ifeq (yes,$(build-shared))
+ tests += \
++  tst-getaddrinfo-eai-again-timeout \
+   tst-resolv-ai_idn \
+   tst-resolv-ai_idn-latin1 \
+   tst-resolv-ai_idn-nolibidn2 \
+@@ -282,6 +286,8 @@ $(objpfx)mtrace-tst-resolv-res_ninit.out: $(objpfx)tst-resolv-res_ninit.out
+ 
+ $(objpfx)tst-bug18665-tcp: $(objpfx)libresolv.so $(shared-thread-library)
+ $(objpfx)tst-bug18665: $(objpfx)libresolv.so $(shared-thread-library)
++$(objpfx)tst-getaddrinfo-eai-again-timeout: \
++  $(objpfx)libresolv.so $(shared-thread-library)
+ $(objpfx)tst-resolv-ai_idn: $(objpfx)libresolv.so $(shared-thread-library)
+ $(objpfx)tst-resolv-ai_idn-latin1: \
+   $(objpfx)libresolv.so $(shared-thread-library)
+diff --git a/resolv/tst-getaddrinfo-eai-again-timeout.c b/resolv/tst-getaddrinfo-eai-again-timeout.c
+new file mode 100644
+index 0000000000000000..ec4a6563b7b5ae51
+--- /dev/null
++++ b/resolv/tst-getaddrinfo-eai-again-timeout.c
+@@ -0,0 +1,122 @@
++/* Test for BZ #16849. Verify that getaddrinfo correctly returns
++   EAI_AGAIN when DNS resolution fails due to timeout or malformed
++   responses.
++
++   This test uses two simulated failure modes:
++   - The DNS server does not respond at all (resolv_response_drop).
++   - The DNS server responds with a zero-length packet.
++
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <netdb.h>
++#include <resolv.h>
++#include <stdbool.h>
++#include <support/check.h>
++#include <support/resolv_test.h>
++
++/* Track whether the callbacks were actually invoked.  */
++static volatile bool response_called_drop = false;
++static volatile bool response_called_zero_len = false;
++
++/* Simulate a DNS server that sends a zero-length response.  */
++static void
++response_zero_len (const struct resolv_response_context *ctx,
++                   struct resolv_response_builder *b,
++                   const char *qname, uint16_t qclass, uint16_t qtype)
++{
++  response_called_zero_len = true;
++  /* Do nothing — zero-length reply.  */
++}
++
++/* Simulate a DNS server that drops the request.  */
++static void
++response_drop (const struct resolv_response_context *ctx,
++               struct resolv_response_builder *b,
++               const char *qname, uint16_t qclass, uint16_t qtype)
++{
++  response_called_drop = true;
++  resolv_response_drop (b);
++}
++
++/* Query getaddrinfo for multiple families and expect EAI_AGAIN.  */
++static void
++query_host (const char *host_name)
++{
++  int family[] = { AF_INET, AF_INET6, AF_UNSPEC };
++  const char *family_names[] = { "AF_INET", "AF_INET6", "AF_UNSPEC" };
++
++  for (int i = 0; i < 3; i++)
++    {
++      struct addrinfo hints =
++        {
++          .ai_socktype = 0,
++          .ai_protocol = 0,
++          .ai_family = family[i],
++          .ai_flags = 0,
++        };
++      struct addrinfo *result;
++      int res = getaddrinfo (host_name, NULL, &hints, &result);
++      if (res != EAI_AGAIN)
++        FAIL_EXIT1 ("getaddrinfo (%s, %s) returned %s, expected EAI_AGAIN",
++                    host_name, family_names[i], gai_strerror (res));
++    }
++}
++
++/* Simulate DNS server dropping all queries.  */
++static void
++test_drop (void)
++{
++  struct resolv_test *aux = resolv_test_start
++    ((struct resolv_redirect_config)
++     {
++       .response_callback = response_drop,
++     });
++  /* Reduce default timeout to make the test run faster.  */
++  _res.retrans = 1;
++  _res.retry = 1;
++  query_host ("site.example");
++  resolv_test_end (aux);
++}
++
++/* Simulate DNS server sending zero-length responses.  */
++static void
++test_zero_len_packet (void)
++{
++  struct resolv_test *aux = resolv_test_start
++    ((struct resolv_redirect_config)
++     {
++       .response_callback = response_zero_len,
++     });
++  query_host ("site.example");
++  resolv_test_end (aux);
++}
++
++static int
++do_test (void)
++{
++  test_drop ();
++  test_zero_len_packet ();
++
++  if (!response_called_drop)
++    FAIL_EXIT1 ("response_drop callback was not called");
++  if (!response_called_zero_len)
++    FAIL_EXIT1 ("response_zero_len callback was not called");
++  return 0;
++}
++
++#include <support/test-driver.c>
+diff --git a/resolv/tst-getaddrinfo-eai-again.c b/resolv/tst-getaddrinfo-eai-again.c
+new file mode 100644
+index 0000000000000000..21daa6c1682d1156
+--- /dev/null
++++ b/resolv/tst-getaddrinfo-eai-again.c
+@@ -0,0 +1,56 @@
++/* Test for BZ #16849. Verify that getaddrinfo correctly returns
++   EAI_AGAIN error code if DNS query fails due to a network failure.
++
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <netdb.h>
++#include <support/check.h>
++
++/* Query getaddrinfo with various address families and verify that
++   it returns EAI_AGAIN when DNS resolution fails.  */
++static void
++query_host (const char *host_name)
++{
++  int family[] = { AF_INET, AF_INET6, AF_UNSPEC };
++  const char *family_names[] = { "AF_INET", "AF_INET6", "AF_UNSPEC" };
++
++  for (int i = 0; i < 3; i++)
++    {
++      struct addrinfo hints =
++        {
++          .ai_socktype = 0,
++          .ai_protocol = 0,
++          .ai_family = family[i],
++          .ai_flags = 0,
++        };
++      struct addrinfo *result;
++      int res = getaddrinfo (host_name, NULL, &hints, &result);
++      if (res != EAI_AGAIN)
++        FAIL_EXIT1 ("getaddrinfo (%s, %s) returned %s, expected EAI_AGAIN",
++                    host_name, family_names[i], gai_strerror (res));
++    }
++}
++
++static int
++do_test (void)
++{
++  query_host ("site.example");
++  return 0;
++}
++
++#include <support/test-driver.c>

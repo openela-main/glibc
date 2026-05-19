@@ -1,0 +1,467 @@
+commit 7b8c134b5460ed933d610fa92ed1227372b68fdc
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Mon Sep 23 15:26:12 2024 +0100
+
+    AArch64: Improve codegen in SVE expf & related routines
+    
+    Reduce MOV and MOVPRFX by improving special-case handling.  Use inline
+    helper to duplicate the entire computation between the special- and
+    non-special case branches, removing the contention for z0 between x
+    and the return value.
+    
+    Also rearrange some MLAs and MLSs - by making the multiplicand the
+    destination we can avoid a MOVPRFX in several cases.  Also change which
+    constants go in the vector used for lanewise ops - the last lane is no
+    longer wasted.
+    
+    Spotted that shift was incorrect in exp2f and exp10f, w.r.t. to the
+    comment that explains it.  Fixed - worst-case ULP for exp2f moves
+    around but it doesn't change significantly for either routine.
+    
+    Worst-case error for coshf increases due to passing x to exp rather
+    than abs(x) - updated the comment, but does not require regen-ulps.
+    
+    Reviewed-by: Wilco Dijkstra  <Wilco.Dijkstra@arm.com>
+
+diff --git a/sysdeps/aarch64/fpu/coshf_sve.c b/sysdeps/aarch64/fpu/coshf_sve.c
+index e5d8a299c6aa7ceb..7ad6efa0fc218278 100644
+--- a/sysdeps/aarch64/fpu/coshf_sve.c
++++ b/sysdeps/aarch64/fpu/coshf_sve.c
+@@ -23,37 +23,42 @@
+ static const struct data
+ {
+   struct sv_expf_data expf_consts;
+-  uint32_t special_bound;
++  float special_bound;
+ } data = {
+   .expf_consts = SV_EXPF_DATA,
+   /* 0x1.5a92d8p+6: expf overflows above this, so have to use special case.  */
+-  .special_bound = 0x42ad496c,
++  .special_bound = 0x1.5a92d8p+6,
+ };
+ 
+ static svfloat32_t NOINLINE
+-special_case (svfloat32_t x, svfloat32_t y, svbool_t pg)
++special_case (svfloat32_t x, svfloat32_t half_e, svfloat32_t half_over_e,
++	      svbool_t pg)
+ {
+-  return sv_call_f32 (coshf, x, y, pg);
++  return sv_call_f32 (coshf, x, svadd_x (svptrue_b32 (), half_e, half_over_e),
++		      pg);
+ }
+ 
+ /* Single-precision vector cosh, using vector expf.
+-   Maximum error is 1.89 ULP:
+-   _ZGVsMxv_coshf (-0x1.65898cp+6) got 0x1.f00aep+127
+-				  want 0x1.f00adcp+127.  */
++   Maximum error is 2.77 ULP:
++   _ZGVsMxv_coshf(-0x1.5b38f4p+1) got 0x1.e45946p+2
++				 want 0x1.e4594cp+2.  */
+ svfloat32_t SV_NAME_F1 (cosh) (svfloat32_t x, svbool_t pg)
+ {
+   const struct data *d = ptr_barrier (&data);
+ 
+-  svfloat32_t ax = svabs_x (pg, x);
+-  svbool_t special = svcmpge (pg, svreinterpret_u32 (ax), d->special_bound);
++  svbool_t special = svacge (pg, x, d->special_bound);
+ 
+-  /* Calculate cosh by exp(x) / 2 + exp(-x) / 2.  */
+-  svfloat32_t t = expf_inline (ax, pg, &d->expf_consts);
+-  svfloat32_t half_t = svmul_x (pg, t, 0.5);
+-  svfloat32_t half_over_t = svdivr_x (pg, t, 0.5);
++  /* Calculate cosh by exp(x) / 2 + exp(-x) / 2.
++     Note that x is passed to exp here, rather than |x|. This is to avoid using
++     destructive unary ABS for better register usage. However it means the
++     routine is not exactly symmetrical, as the exp helper is slightly less
++     accurate in the negative range.  */
++  svfloat32_t e = expf_inline (x, pg, &d->expf_consts);
++  svfloat32_t half_e = svmul_x (svptrue_b32 (), e, 0.5);
++  svfloat32_t half_over_e = svdivr_x (pg, e, 0.5);
+ 
+   if (__glibc_unlikely (svptest_any (pg, special)))
+-    return special_case (x, svadd_x (pg, half_t, half_over_t), special);
++    return special_case (x, half_e, half_over_e, special);
+ 
+-  return svadd_x (pg, half_t, half_over_t);
++  return svadd_x (svptrue_b32 (), half_e, half_over_e);
+ }
+diff --git a/sysdeps/aarch64/fpu/exp10f_sve.c b/sysdeps/aarch64/fpu/exp10f_sve.c
+index e09b2f3b2705515a..8aa3fa9c4335cfb8 100644
+--- a/sysdeps/aarch64/fpu/exp10f_sve.c
++++ b/sysdeps/aarch64/fpu/exp10f_sve.c
+@@ -18,74 +18,83 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include "sv_math.h"
+-#include "poly_sve_f32.h"
+ 
+-/* For x < -SpecialBound, the result is subnormal and not handled correctly by
++/* For x < -Thres, the result is subnormal and not handled correctly by
+    FEXPA.  */
+-#define SpecialBound 37.9
++#define Thres 37.9
+ 
+ static const struct data
+ {
+-  float poly[5];
+-  float shift, log10_2, log2_10_hi, log2_10_lo, special_bound;
++  float log2_10_lo, c0, c2, c4;
++  float c1, c3, log10_2;
++  float shift, log2_10_hi, thres;
+ } data = {
+   /* Coefficients generated using Remez algorithm with minimisation of relative
+      error.
+      rel error: 0x1.89dafa3p-24
+      abs error: 0x1.167d55p-23 in [-log10(2)/2, log10(2)/2]
+      maxerr: 0.52 +0.5 ulp.  */
+-  .poly = { 0x1.26bb16p+1f, 0x1.5350d2p+1f, 0x1.04744ap+1f, 0x1.2d8176p+0f,
+-	    0x1.12b41ap-1f },
++  .c0 = 0x1.26bb16p+1f,
++  .c1 = 0x1.5350d2p+1f,
++  .c2 = 0x1.04744ap+1f,
++  .c3 = 0x1.2d8176p+0f,
++  .c4 = 0x1.12b41ap-1f,
+   /* 1.5*2^17 + 127, a shift value suitable for FEXPA.  */
+-  .shift = 0x1.903f8p17f,
++  .shift = 0x1.803f8p17f,
+   .log10_2 = 0x1.a934fp+1,
+   .log2_10_hi = 0x1.344136p-2,
+   .log2_10_lo = -0x1.ec10cp-27,
+-  .special_bound = SpecialBound,
++  .thres = Thres,
+ };
+ 
+-static svfloat32_t NOINLINE
+-special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
++static inline svfloat32_t
++sv_exp10f_inline (svfloat32_t x, const svbool_t pg, const struct data *d)
+ {
+-  return sv_call_f32 (exp10f, x, y, special);
+-}
+-
+-/* Single-precision SVE exp10f routine. Implements the same algorithm
+-   as AdvSIMD exp10f.
+-   Worst case error is 1.02 ULPs.
+-   _ZGVsMxv_exp10f(-0x1.040488p-4) got 0x1.ba5f9ep-1
+-				  want 0x1.ba5f9cp-1.  */
+-svfloat32_t SV_NAME_F1 (exp10) (svfloat32_t x, const svbool_t pg)
+-{
+-  const struct data *d = ptr_barrier (&data);
+   /* exp10(x) = 2^(n/N) * 10^r = 2^n * (1 + poly (r)),
+      with poly(r) in [1/sqrt(2), sqrt(2)] and
+      x = r + n * log10(2) / N, with r in [-log10(2)/2N, log10(2)/2N].  */
+ 
+-  /* Load some constants in quad-word chunks to minimise memory access (last
+-     lane is wasted).  */
+-  svfloat32_t log10_2_and_inv = svld1rq (svptrue_b32 (), &d->log10_2);
++  svfloat32_t lane_consts = svld1rq (svptrue_b32 (), &d->log2_10_lo);
+ 
+   /* n = round(x/(log10(2)/N)).  */
+   svfloat32_t shift = sv_f32 (d->shift);
+-  svfloat32_t z = svmla_lane (shift, x, log10_2_and_inv, 0);
+-  svfloat32_t n = svsub_x (pg, z, shift);
++  svfloat32_t z = svmad_x (pg, sv_f32 (d->log10_2), x, shift);
++  svfloat32_t n = svsub_x (svptrue_b32 (), z, shift);
+ 
+   /* r = x - n*log10(2)/N.  */
+-  svfloat32_t r = svmls_lane (x, n, log10_2_and_inv, 1);
+-  r = svmls_lane (r, n, log10_2_and_inv, 2);
++  svfloat32_t r = svmsb_x (pg, sv_f32 (d->log2_10_hi), n, x);
++  r = svmls_lane (r, n, lane_consts, 0);
+ 
+-  svbool_t special = svacgt (pg, x, d->special_bound);
+   svfloat32_t scale = svexpa (svreinterpret_u32 (z));
+ 
+   /* Polynomial evaluation: poly(r) ~ exp10(r)-1.  */
+-  svfloat32_t r2 = svmul_x (pg, r, r);
+-  svfloat32_t poly
+-      = svmla_x (pg, svmul_x (pg, r, d->poly[0]),
+-		 sv_pairwise_poly_3_f32_x (pg, r, r2, d->poly + 1), r2);
+-
+-  if (__glibc_unlikely (svptest_any (pg, special)))
+-    return special_case (x, svmla_x (pg, scale, scale, poly), special);
++  svfloat32_t p12 = svmla_lane (sv_f32 (d->c1), r, lane_consts, 2);
++  svfloat32_t p34 = svmla_lane (sv_f32 (d->c3), r, lane_consts, 3);
++  svfloat32_t r2 = svmul_x (svptrue_b32 (), r, r);
++  svfloat32_t p14 = svmla_x (pg, p12, p34, r2);
++  svfloat32_t p0 = svmul_lane (r, lane_consts, 1);
++  svfloat32_t poly = svmla_x (pg, p0, r2, p14);
+ 
+   return svmla_x (pg, scale, scale, poly);
+ }
++
++static svfloat32_t NOINLINE
++special_case (svfloat32_t x, svbool_t special, const struct data *d)
++{
++  return sv_call_f32 (exp10f, x, sv_exp10f_inline (x, svptrue_b32 (), d),
++		      special);
++}
++
++/* Single-precision SVE exp10f routine. Implements the same algorithm
++   as AdvSIMD exp10f.
++   Worst case error is 1.02 ULPs.
++   _ZGVsMxv_exp10f(-0x1.040488p-4) got 0x1.ba5f9ep-1
++				  want 0x1.ba5f9cp-1.  */
++svfloat32_t SV_NAME_F1 (exp10) (svfloat32_t x, const svbool_t pg)
++{
++  const struct data *d = ptr_barrier (&data);
++  svbool_t special = svacgt (pg, x, d->thres);
++  if (__glibc_unlikely (svptest_any (special, special)))
++    return special_case (x, special, d);
++  return sv_exp10f_inline (x, pg, d);
++}
+diff --git a/sysdeps/aarch64/fpu/exp2f_sve.c b/sysdeps/aarch64/fpu/exp2f_sve.c
+index 8a686e3e054cb7f5..c6216bed9e9e7538 100644
+--- a/sysdeps/aarch64/fpu/exp2f_sve.c
++++ b/sysdeps/aarch64/fpu/exp2f_sve.c
+@@ -24,54 +24,64 @@
+ 
+ static const struct data
+ {
+-  float poly[5];
++  float c0, c2, c4, c1, c3;
+   float shift, thres;
+ } data = {
+-  /* Coefficients copied from the polynomial in AdvSIMD variant, reversed for
+-     compatibility with polynomial helpers.  */
+-  .poly = { 0x1.62e422p-1f, 0x1.ebf9bcp-3f, 0x1.c6bd32p-5f, 0x1.3ce9e4p-7f,
+-	    0x1.59977ap-10f },
++  /* Coefficients copied from the polynomial in AdvSIMD variant.  */
++  .c0 = 0x1.62e422p-1f,
++  .c1 = 0x1.ebf9bcp-3f,
++  .c2 = 0x1.c6bd32p-5f,
++  .c3 = 0x1.3ce9e4p-7f,
++  .c4 = 0x1.59977ap-10f,
+   /* 1.5*2^17 + 127.  */
+-  .shift = 0x1.903f8p17f,
++  .shift = 0x1.803f8p17f,
+   /* Roughly 87.3. For x < -Thres, the result is subnormal and not handled
+      correctly by FEXPA.  */
+   .thres = Thres,
+ };
+ 
+-static svfloat32_t NOINLINE
+-special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
+-{
+-  return sv_call_f32 (exp2f, x, y, special);
+-}
+-
+-/* Single-precision SVE exp2f routine. Implements the same algorithm
+-   as AdvSIMD exp2f.
+-   Worst case error is 1.04 ULPs.
+-   SV_NAME_F1 (exp2)(0x1.943b9p-1) got 0x1.ba7eb2p+0
+-				  want 0x1.ba7ebp+0.  */
+-svfloat32_t SV_NAME_F1 (exp2) (svfloat32_t x, const svbool_t pg)
++static inline svfloat32_t
++sv_exp2f_inline (svfloat32_t x, const svbool_t pg, const struct data *d)
+ {
+-  const struct data *d = ptr_barrier (&data);
+   /* exp2(x) = 2^n (1 + poly(r)), with 1 + poly(r) in [1/sqrt(2),sqrt(2)]
+     x = n + r, with r in [-1/2, 1/2].  */
+-  svfloat32_t shift = sv_f32 (d->shift);
+-  svfloat32_t z = svadd_x (pg, x, shift);
+-  svfloat32_t n = svsub_x (pg, z, shift);
+-  svfloat32_t r = svsub_x (pg, x, n);
++  svfloat32_t z = svadd_x (svptrue_b32 (), x, d->shift);
++  svfloat32_t n = svsub_x (svptrue_b32 (), z, d->shift);
++  svfloat32_t r = svsub_x (svptrue_b32 (), x, n);
+ 
+-  svbool_t special = svacgt (pg, x, d->thres);
+   svfloat32_t scale = svexpa (svreinterpret_u32 (z));
+ 
+   /* Polynomial evaluation: poly(r) ~ exp2(r)-1.
+      Evaluate polynomial use hybrid scheme - offset ESTRIN by 1 for
+      coefficients 1 to 4, and apply most significant coefficient directly.  */
+-  svfloat32_t r2 = svmul_x (pg, r, r);
+-  svfloat32_t p14 = sv_pairwise_poly_3_f32_x (pg, r, r2, d->poly + 1);
+-  svfloat32_t p0 = svmul_x (pg, r, d->poly[0]);
++  svfloat32_t even_coeffs = svld1rq (svptrue_b32 (), &d->c0);
++  svfloat32_t r2 = svmul_x (svptrue_b32 (), r, r);
++  svfloat32_t p12 = svmla_lane (sv_f32 (d->c1), r, even_coeffs, 1);
++  svfloat32_t p34 = svmla_lane (sv_f32 (d->c3), r, even_coeffs, 2);
++  svfloat32_t p14 = svmla_x (pg, p12, r2, p34);
++  svfloat32_t p0 = svmul_lane (r, even_coeffs, 0);
+   svfloat32_t poly = svmla_x (pg, p0, r2, p14);
+ 
+-  if (__glibc_unlikely (svptest_any (pg, special)))
+-    return special_case (x, svmla_x (pg, scale, scale, poly), special);
+-
+   return svmla_x (pg, scale, scale, poly);
+ }
++
++static svfloat32_t NOINLINE
++special_case (svfloat32_t x, svbool_t special, const struct data *d)
++{
++  return sv_call_f32 (exp2f, x, sv_exp2f_inline (x, svptrue_b32 (), d),
++		      special);
++}
++
++/* Single-precision SVE exp2f routine. Implements the same algorithm
++   as AdvSIMD exp2f.
++   Worst case error is 1.04 ULPs.
++   _ZGVsMxv_exp2f(-0x1.af994ap-3) got 0x1.ba6a66p-1
++				 want 0x1.ba6a64p-1.  */
++svfloat32_t SV_NAME_F1 (exp2) (svfloat32_t x, const svbool_t pg)
++{
++  const struct data *d = ptr_barrier (&data);
++  svbool_t special = svacgt (pg, x, d->thres);
++  if (__glibc_unlikely (svptest_any (special, special)))
++    return special_case (x, special, d);
++  return sv_exp2f_inline (x, pg, d);
++}
+diff --git a/sysdeps/aarch64/fpu/expf_sve.c b/sysdeps/aarch64/fpu/expf_sve.c
+index 3ba79bc4f11a05f9..da93e01b87e0e890 100644
+--- a/sysdeps/aarch64/fpu/expf_sve.c
++++ b/sysdeps/aarch64/fpu/expf_sve.c
+@@ -18,33 +18,25 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include "sv_math.h"
++#include "sv_expf_inline.h"
++
++/* Roughly 87.3. For x < -Thres, the result is subnormal and not handled
++   correctly by FEXPA.  */
++#define Thres 0x1.5d5e2ap+6f
+ 
+ static const struct data
+ {
+-  float poly[5];
+-  float inv_ln2, ln2_hi, ln2_lo, shift, thres;
++  struct sv_expf_data d;
++  float thres;
+ } data = {
+-  /* Coefficients copied from the polynomial in AdvSIMD variant, reversed for
+-     compatibility with polynomial helpers.  */
+-  .poly = { 0x1.ffffecp-1f, 0x1.fffdb6p-2f, 0x1.555e66p-3f, 0x1.573e2ep-5f,
+-	    0x1.0e4020p-7f },
+-  .inv_ln2 = 0x1.715476p+0f,
+-  .ln2_hi = 0x1.62e4p-1f,
+-  .ln2_lo = 0x1.7f7d1cp-20f,
+-  /* 1.5*2^17 + 127.  */
+-  .shift = 0x1.903f8p17f,
+-  /* Roughly 87.3. For x < -Thres, the result is subnormal and not handled
+-     correctly by FEXPA.  */
+-  .thres = 0x1.5d5e2ap+6f,
++  .d = SV_EXPF_DATA,
++  .thres = Thres,
+ };
+ 
+-#define C(i) sv_f32 (d->poly[i])
+-#define ExponentBias 0x3f800000
+-
+ static svfloat32_t NOINLINE
+-special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
++special_case (svfloat32_t x, svbool_t special, const struct sv_expf_data *d)
+ {
+-  return sv_call_f32 (expf, x, y, special);
++  return sv_call_f32 (expf, x, expf_inline (x, svptrue_b32 (), d), special);
+ }
+ 
+ /* Optimised single-precision SVE exp function.
+@@ -54,36 +46,8 @@ special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
+ svfloat32_t SV_NAME_F1 (exp) (svfloat32_t x, const svbool_t pg)
+ {
+   const struct data *d = ptr_barrier (&data);
+-
+-  /* exp(x) = 2^n (1 + poly(r)), with 1 + poly(r) in [1/sqrt(2),sqrt(2)]
+-     x = ln2*n + r, with r in [-ln2/2, ln2/2].  */
+-
+-  /* Load some constants in quad-word chunks to minimise memory access (last
+-     lane is wasted).  */
+-  svfloat32_t invln2_and_ln2 = svld1rq (svptrue_b32 (), &d->inv_ln2);
+-
+-  /* n = round(x/(ln2/N)).  */
+-  svfloat32_t z = svmla_lane (sv_f32 (d->shift), x, invln2_and_ln2, 0);
+-  svfloat32_t n = svsub_x (pg, z, d->shift);
+-
+-  /* r = x - n*ln2/N.  */
+-  svfloat32_t r = svmls_lane (x, n, invln2_and_ln2, 1);
+-  r = svmls_lane (r, n, invln2_and_ln2, 2);
+-
+-  /* scale = 2^(n/N).  */
+   svbool_t is_special_case = svacgt (pg, x, d->thres);
+-  svfloat32_t scale = svexpa (svreinterpret_u32 (z));
+-
+-  /* y = exp(r) - 1 ~= r + C0 r^2 + C1 r^3 + C2 r^4 + C3 r^5 + C4 r^6.  */
+-  svfloat32_t p12 = svmla_x (pg, C (1), C (2), r);
+-  svfloat32_t p34 = svmla_x (pg, C (3), C (4), r);
+-  svfloat32_t r2 = svmul_x (pg, r, r);
+-  svfloat32_t p14 = svmla_x (pg, p12, p34, r2);
+-  svfloat32_t p0 = svmul_x (pg, r, C (0));
+-  svfloat32_t poly = svmla_x (pg, p0, r2, p14);
+-
+   if (__glibc_unlikely (svptest_any (pg, is_special_case)))
+-    return special_case (x, svmla_x (pg, scale, scale, poly), is_special_case);
+-
+-  return svmla_x (pg, scale, scale, poly);
++    return special_case (x, is_special_case, &d->d);
++  return expf_inline (x, pg, &d->d);
+ }
+diff --git a/sysdeps/aarch64/fpu/sv_expf_inline.h b/sysdeps/aarch64/fpu/sv_expf_inline.h
+index 23963b5f8ec89ead..6166df65533555a6 100644
+--- a/sysdeps/aarch64/fpu/sv_expf_inline.h
++++ b/sysdeps/aarch64/fpu/sv_expf_inline.h
+@@ -24,19 +24,20 @@
+ 
+ struct sv_expf_data
+ {
+-  float poly[5];
+-  float inv_ln2, ln2_hi, ln2_lo, shift;
++  float c1, c3, inv_ln2;
++  float ln2_lo, c0, c2, c4;
++  float ln2_hi, shift;
+ };
+ 
+ /* Coefficients copied from the polynomial in AdvSIMD variant, reversed for
+    compatibility with polynomial helpers. Shift is 1.5*2^17 + 127.  */
+ #define SV_EXPF_DATA                                                          \
+   {                                                                           \
+-    .poly = { 0x1.ffffecp-1f, 0x1.fffdb6p-2f, 0x1.555e66p-3f, 0x1.573e2ep-5f, \
+-	      0x1.0e4020p-7f },                                               \
+-                                                                              \
+-    .inv_ln2 = 0x1.715476p+0f, .ln2_hi = 0x1.62e4p-1f,                        \
+-    .ln2_lo = 0x1.7f7d1cp-20f, .shift = 0x1.803f8p17f,                        \
++    /* Coefficients copied from the polynomial in AdvSIMD variant.  */        \
++    .c0 = 0x1.ffffecp-1f, .c1 = 0x1.fffdb6p-2f, .c2 = 0x1.555e66p-3f,         \
++    .c3 = 0x1.573e2ep-5f, .c4 = 0x1.0e4020p-7f, .inv_ln2 = 0x1.715476p+0f,    \
++    .ln2_hi = 0x1.62e4p-1f, .ln2_lo = 0x1.7f7d1cp-20f,                        \
++    .shift = 0x1.803f8p17f,                                                   \
+   }
+ 
+ #define C(i) sv_f32 (d->poly[i])
+@@ -47,26 +48,25 @@ expf_inline (svfloat32_t x, const svbool_t pg, const struct sv_expf_data *d)
+   /* exp(x) = 2^n (1 + poly(r)), with 1 + poly(r) in [1/sqrt(2),sqrt(2)]
+      x = ln2*n + r, with r in [-ln2/2, ln2/2].  */
+ 
+-  /* Load some constants in quad-word chunks to minimise memory access.  */
+-  svfloat32_t c4_invln2_and_ln2 = svld1rq (svptrue_b32 (), &d->poly[4]);
++  svfloat32_t lane_consts = svld1rq (svptrue_b32 (), &d->ln2_lo);
+ 
+   /* n = round(x/(ln2/N)).  */
+-  svfloat32_t z = svmla_lane (sv_f32 (d->shift), x, c4_invln2_and_ln2, 1);
++  svfloat32_t z = svmad_x (pg, sv_f32 (d->inv_ln2), x, d->shift);
+   svfloat32_t n = svsub_x (pg, z, d->shift);
+ 
+   /* r = x - n*ln2/N.  */
+-  svfloat32_t r = svmls_lane (x, n, c4_invln2_and_ln2, 2);
+-  r = svmls_lane (r, n, c4_invln2_and_ln2, 3);
++  svfloat32_t r = svmsb_x (pg, sv_f32 (d->ln2_hi), n, x);
++  r = svmls_lane (r, n, lane_consts, 0);
+ 
+   /* scale = 2^(n/N).  */
+-  svfloat32_t scale = svexpa (svreinterpret_u32_f32 (z));
++  svfloat32_t scale = svexpa (svreinterpret_u32 (z));
+ 
+   /* y = exp(r) - 1 ~= r + C0 r^2 + C1 r^3 + C2 r^4 + C3 r^5 + C4 r^6.  */
+-  svfloat32_t p12 = svmla_x (pg, C (1), C (2), r);
+-  svfloat32_t p34 = svmla_lane (C (3), r, c4_invln2_and_ln2, 0);
+-  svfloat32_t r2 = svmul_f32_x (pg, r, r);
++  svfloat32_t p12 = svmla_lane (sv_f32 (d->c1), r, lane_consts, 2);
++  svfloat32_t p34 = svmla_lane (sv_f32 (d->c3), r, lane_consts, 3);
++  svfloat32_t r2 = svmul_x (svptrue_b32 (), r, r);
+   svfloat32_t p14 = svmla_x (pg, p12, p34, r2);
+-  svfloat32_t p0 = svmul_f32_x (pg, r, C (0));
++  svfloat32_t p0 = svmul_lane (r, lane_consts, 1);
+   svfloat32_t poly = svmla_x (pg, p0, r2, p14);
+ 
+   return svmla_x (pg, scale, scale, poly);

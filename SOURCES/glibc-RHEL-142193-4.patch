@@ -1,0 +1,52 @@
+commit e8502182f09211663c1583960442eb6ff502a33e
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Sat Jan 24 10:29:22 2026 +0100
+
+    support: Add support_hardcoded_paths_in_test
+    
+    It indicates whether glibc was configured with
+    --enable-hardcoded-path-in-tests.
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+diff --git a/support/Makefile b/support/Makefile
+index aee37b9c82e94499..18051532e628b887 100644
+--- a/support/Makefile
++++ b/support/Makefile
+@@ -250,6 +250,12 @@ CFLAGS-support_paths.c = \
+ 		-DCOMPLOCALEDIR_PATH=\"$(complocaledir)\" \
+ 		-DSYSCONFDIR_PATH=\"$(sysconfdir)\"
+ 
++ifeq ($(build-hardcoded-path-in-tests),yes)
++CFLAGS-support_paths.c += -DHARDCODED_PATHS_IN_TEST=true
++else
++CFLAGS-support_paths.c += -DHARDCODED_PATHS_IN_TEST=false
++endif
++
+ # Build with exception handling and asynchronous unwind table support.
+ CFLAGS-.oS += -fexceptions -fasynchronous-unwind-tables
+ 
+diff --git a/support/support.h b/support/support.h
+index 2717e5583add690b..df80c81e4178bc9e 100644
+--- a/support/support.h
++++ b/support/support.h
+@@ -147,6 +147,9 @@ extern const char support_complocaledir_prefix[];
+ /* Corresponds to the install's etc/ directory.  */
+ extern const char support_sysconfdir_prefix[];
+ 
++/* If true, glibc was configured with --enable-hardcoded-path-in-tests.  */
++extern const bool support_hardcoded_paths_in_test;
++
+ /* Copies the file at the path FROM to TO.  If TO does not exist, it
+    is created.  If TO is a regular file, it is truncated before
+    copying.  The file mode is copied, but the permissions are not.  */
+diff --git a/support/support_paths.c b/support/support_paths.c
+index 3cad09abd2244a3d..1ad605b6e2273525 100644
+--- a/support/support_paths.c
++++ b/support/support_paths.c
+@@ -99,3 +99,5 @@ const char support_sysconfdir_prefix[] = SYSCONFDIR_PATH;
+ #else
+ # error please -DSYSCONFDIR_PATH=something in the Makefile
+ #endif
++
++const bool support_hardcoded_paths_in_test = HARDCODED_PATHS_IN_TEST;

@@ -1,9 +1,9 @@
-commit c9188d333717d3ceb7e3020011651f424f749f93
+commit fb22fd3f5b415dd4cd6f7b5741c2f0412374e242
 Author: Siddhesh Poyarekar <siddhesh@gotplt.org>
 Date:   Thu Jan 15 06:06:40 2026 -0500
 
     memalign: reinstate alignment overflow check (CVE-2026-0861)
-
+    
     The change to cap valid sizes to PTRDIFF_MAX inadvertently dropped the
     overflow check for alignment in memalign functions, _mid_memalign and
     _int_memalign.  Reinstate the overflow check in _int_memalign, aligned
@@ -11,20 +11,17 @@ Date:   Thu Jan 15 06:06:40 2026 -0500
     CVE.  The missing _mid_memalign check is not relevant (and does not have
     a security impact) and may need a different approach to fully resolve,
     so it has been omitted.
-
+    
     CVE-Id: CVE-2026-0861
     Vulnerable-Commit: 9bf8e29ca136094f73f69f725f15c51facc97206
     Reported-by: Igor Morgenstern, Aisle Research
     Fixes: BZ #33796
     Reviewed-by: Wilco Dijkstra <Wilco.Dijkstra@arm.com>
     Signed-off-by: Siddhesh Poyarekar <siddhesh@gotplt.org>
-
-Conflicts:
-	malloc/malloc.c
-	  (checked_request2size is still used downstream)
+    (cherry picked from commit c9188d333717d3ceb7e3020011651f424f749f93)
 
 diff --git a/malloc/malloc.c b/malloc/malloc.c
-index 9e577ab90010a0f1..db06d9708a1ee397 100644
+index 09dc60bf74c59945..e1aacde4ac94f53b 100644
 --- a/malloc/malloc.c
 +++ b/malloc/malloc.c
 @@ -5049,7 +5049,7 @@ _int_memalign (mstate av, size_t alignment, size_t bytes)
@@ -47,7 +44,7 @@ index 9e577ab90010a0f1..db06d9708a1ee397 100644
 +     get NB.  Consequently, total below also does not overflow.  */
    m = (char *) (_int_malloc (av, nb + alignment + MINSIZE));
  
-   if (m == 0)
+   if (m == NULL)
 diff --git a/malloc/tst-malloc-too-large.c b/malloc/tst-malloc-too-large.c
 index 2b91377e54cdc485..15b25cf01d482951 100644
 --- a/malloc/tst-malloc-too-large.c

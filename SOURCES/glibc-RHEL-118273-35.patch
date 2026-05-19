@@ -1,0 +1,76 @@
+commit 691edbdf7727466ba87e27a8eeae1c3bc5824ef5
+Author: Yury Khrustalev <yury.khrustalev@arm.com>
+Date:   Thu May 8 13:53:38 2025 +0100
+
+    aarch64: fix unwinding in longjmp
+    
+    Previously, longjmp() on aarch64 was using CFI directives around the
+    call to __libc_arm_za_disable() after CFA was redefined at the start
+    of longjmp(). This may result in unwinding issues. Move the call and
+    surrounding CFI directives to the beginning of longjmp().
+    
+    Suggested-by: Wilco Dijkstra <wilco.dijkstra@arm.com>
+
+diff --git a/sysdeps/aarch64/__longjmp.S b/sysdeps/aarch64/__longjmp.S
+index 452ba0da6d788ce8..30b36cb25d921795 100644
+--- a/sysdeps/aarch64/__longjmp.S
++++ b/sysdeps/aarch64/__longjmp.S
+@@ -24,28 +24,6 @@
+ /* __longjmp(jmpbuf, val) */
+ 
+ ENTRY (__longjmp)
+-	cfi_def_cfa(x0, 0)
+-	cfi_offset(x19, JB_X19<<3)
+-	cfi_offset(x20, JB_X20<<3)
+-	cfi_offset(x21, JB_X21<<3)
+-	cfi_offset(x22, JB_X22<<3)
+-	cfi_offset(x23, JB_X23<<3)
+-	cfi_offset(x24, JB_X24<<3)
+-	cfi_offset(x25, JB_X25<<3)
+-	cfi_offset(x26, JB_X26<<3)
+-	cfi_offset(x27, JB_X27<<3)
+-	cfi_offset(x28, JB_X28<<3)
+-	cfi_offset(x29, JB_X29<<3)
+-	cfi_offset(x30, JB_LR<<3)
+-
+-	cfi_offset( d8, JB_D8<<3)
+-	cfi_offset( d9, JB_D9<<3)
+-	cfi_offset(d10, JB_D10<<3)
+-	cfi_offset(d11, JB_D11<<3)
+-	cfi_offset(d12, JB_D12<<3)
+-	cfi_offset(d13, JB_D13<<3)
+-	cfi_offset(d14, JB_D14<<3)
+-	cfi_offset(d15, JB_D15<<3)
+ 
+ #if IS_IN(libc)
+ 	/* Disable ZA state of SME in libc.a and libc.so, but not in ld.so.  */
+@@ -69,6 +47,29 @@ ENTRY (__longjmp)
+ # endif
+ #endif
+ 
++	cfi_def_cfa (x0, 0)
++	cfi_offset (x19, JB_X19<<3)
++	cfi_offset (x20, JB_X20<<3)
++	cfi_offset (x21, JB_X21<<3)
++	cfi_offset (x22, JB_X22<<3)
++	cfi_offset (x23, JB_X23<<3)
++	cfi_offset (x24, JB_X24<<3)
++	cfi_offset (x25, JB_X25<<3)
++	cfi_offset (x26, JB_X26<<3)
++	cfi_offset (x27, JB_X27<<3)
++	cfi_offset (x28, JB_X28<<3)
++	cfi_offset (x29, JB_X29<<3)
++	cfi_offset (x30, JB_LR<<3)
++
++	cfi_offset ( d8, JB_D8<<3)
++	cfi_offset ( d9, JB_D9<<3)
++	cfi_offset (d10, JB_D10<<3)
++	cfi_offset (d11, JB_D11<<3)
++	cfi_offset (d12, JB_D12<<3)
++	cfi_offset (d13, JB_D13<<3)
++	cfi_offset (d14, JB_D14<<3)
++	cfi_offset (d15, JB_D15<<3)
++
+ 	ldp	x19, x20, [x0, #JB_X19<<3]
+ 	ldp	x21, x22, [x0, #JB_X21<<3]
+ 	ldp	x23, x24, [x0, #JB_X23<<3]

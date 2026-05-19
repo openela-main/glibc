@@ -1,0 +1,36 @@
+commit c74d59a656f8f98ee48b501a0d0653f4d9b3b59d
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Nov 6 11:14:53 2025 +0100
+
+    aarch64: Do not link conform tests with -Wl,-z,force-bti (bug 33601)
+    
+    If the toolchain does not default to generate BTI markers in GCC,
+    the main program for conform runtime tests will not have the
+    BTI marker that -Wl,-z,force-bti requires.  Without -Wl,-z,force-bti,
+    the link editor will not tell the dynamic linker to enable BTI,
+    and the missing BTI marker is harmless.
+    
+    Reviewed-by: Yury Khrustalev <yury.khrustalev@arm.com>
+    (cherry picked from commit 75b6b263e928eaca01d836f6bb8b539346b6bb2d)
+
+diff --git a/sysdeps/aarch64/Makefile b/sysdeps/aarch64/Makefile
+index 141d7d9cc2bbbce7..eb34f4541e9710ba 100644
+--- a/sysdeps/aarch64/Makefile
++++ b/sysdeps/aarch64/Makefile
+@@ -2,11 +2,15 @@ long-double-fcts = yes
+ 
+ ifeq (yes,$(aarch64-bti))
+ # Mark linker output BTI compatible, it warns on non-BTI inputs.
++# Do not do this for conform tests because they may not be compiled
++# with the appropriate compiler flags.
++ifneq ($(subdir),conform)
+ sysdep-LDFLAGS += -Wl,-z,force-bti
+ # Make warnings fatal outside the test system.
+ LDFLAGS-lib.so += -Wl,--fatal-warnings
+ LDFLAGS-rtld += -Wl,-z,force-bti,--fatal-warnings
+-endif
++endif # $(subdir) != conform
++endif # $(aarch64-bit)
+ 
+ ifeq ($(subdir),elf)
+ sysdep-dl-routines += dl-bti

@@ -1,0 +1,30 @@
+commit 855a67c3cc81be4fc806c66e3e01b53e352a4e9f
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Thu Sep 18 19:11:38 2025 +0200
+
+    stdlib: Use support_accept_oom in test-bz22786
+    
+    The realpath call may trigger OOM termination of the test process
+    under difficult-to-predict circumstances.  (It depends on available
+    RAM and swap.)  Therefore, instruct the test driver to ignore
+    an OOM process termination during the realpath call.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/stdlib/test-bz22786.c b/stdlib/test-bz22786.c
+index 37bd63ec7141c61c..16a8f2edf22deefa 100644
+--- a/stdlib/test-bz22786.c
++++ b/stdlib/test-bz22786.c
+@@ -60,8 +60,11 @@ do_test (void)
+   *(p++) = '/';
+   p[path_len - (p - path) - 1] = '\0';
+ 
+-  /* This call crashes before the fix for bz22786 on 32-bit platforms.  */
++  /* This call crashes before the fix for bz22786 on 32-bit platforms.
++     It may trigger an OOM event. */
++  support_accept_oom (true);
+   p = realpath (path, NULL);
++  support_accept_oom (false);
+   TEST_VERIFY (p == NULL);
+   /* For 64-bit platforms readlink return ENAMETOOLONG, while for 32-bit
+      realpath will try to allocate a buffer larger than PTRDIFF_MAX.  */

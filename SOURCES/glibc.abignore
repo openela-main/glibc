@@ -1,0 +1,34 @@
+[suppress_type]
+  # From glibc-2.39-58 related to RHEL-119409, RHEL-119428.
+  # Multiple changes related to _short_backupbuf, _total_written.
+  type_kind = struct
+  name = _IO_FILE
+  accessed_through = pointer
+[suppress_function]
+  # From glibc-2.39-98.
+  name = _dl_readonly_area
+  parameter = '0 void *
+  parameter = '1 size_t
+
+# Changes due to RHEL-118273 (glibc-2.39-103.el10).
+[suppress_function]
+  soname = libc.so.6
+  # strcspn, strspn are now implemented in assembler and lack type information.
+  name_regexp = ^strc?spn$
+[suppress_function]
+  soname = libmvec.so.1
+  # 2 * 9 * 2 = 36 functions in libmvec.
+  name_regexp = ^_ZGV(nN2|sMx)v_(acosh|asinh|atanh|cbrt|erf|erfc|cosh|sinh|tanh)(|f)$
+[suppress_function]
+  soname = libmvec.so.1
+  # 9 functions in libmvec.
+  name_regexp = ^_ZGVnN4v_(acosh|asinh|atanh|cbrt|cosh|erfc|erf|sinh|tanh)f$
+[suppress_function]
+  soname = libmvec.so.1
+  # 2 * 2 * 2 = 8 functions in libmvec.
+  name_regexp = ^_ZGV(nN2|sMx)vv_(hypot|pow)(|f)$
+[suppress_function]
+  soname = libmvec.so.1
+  # 2 functions in libmvec.
+  name_regexp = ^_ZGVnN4vv_(hypot|pow)f$
+# Total: 36 + 9 + 8 + 2 = 55 functions in libmvec.

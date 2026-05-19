@@ -162,6 +162,14 @@ Release: %{lua:patchgit.release()}
 #
 # * GFDL is used for the documentation.
 #
+# * GPLv3+ is used for scripts/move-if-change.
+#
+# * Autoconf-related files are licensed as GPL-3.0-or-later WITH
+#   Autoconf-exception-generic-3.0.
+#
+# * Texinfo-related files are licensed as GPL-3.0-or-later WITH
+#   Texinfo-exception.
+#
 # * Some other licenses are used in various places (BSD, Inner-Net,
 #   ISC, Public Domain, etc.).
 #
@@ -194,7 +202,7 @@ Release: %{lua:patchgit.release()}
 # SPDX license string based on evaluation of glibc-2.39 sources by
 # ScanCode toolkit (https://github.com/nexB/scancode-toolkit),
 # and accounting for exceptions listed above:
-License: LGPL-2.1-or-later AND SunPro AND LGPL-2.1-or-later WITH GCC-exception-2.0 AND BSD-3-Clause AND GPL-2.0-or-later AND LGPL-2.1-or-later WITH GNU-compiler-exception AND GPL-2.0-only AND ISC AND LicenseRef-Fedora-Public-Domain AND HPND AND CMU-Mach AND LGPL-2.1-only AND LGPL-2.0-or-later AND Unicode-DFS-2015 AND GFDL-1.1-or-later AND GPL-1.0-or-later AND FSFUL AND MIT AND Inner-Net-2.0 AND X11 AND GPL-2.0-or-later WITH GCC-exception-2.0 AND GFDL-1.3-only AND GFDL-1.1-only
+License: LGPL-2.1-or-later AND SunPro AND LGPL-2.1-or-later WITH GCC-exception-2.0 AND BSD-3-Clause AND GPL-2.0-or-later AND LGPL-2.1-or-later WITH GNU-compiler-exception AND GPL-2.0-only AND ISC AND LicenseRef-Fedora-Public-Domain AND HPND AND CMU-Mach AND LGPL-2.1-only AND LGPL-2.0-or-later AND Unicode-DFS-2015 AND GFDL-1.1-or-later AND GPL-1.0-or-later AND FSFUL AND MIT AND Inner-Net-2.0 AND X11 AND GPL-2.0-or-later WITH GCC-exception-2.0 AND GFDL-1.3-only AND GFDL-1.1-only AND GPL-3.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GPL-3.0-or-later WITH Texinfo-exception
 
 URL: http://www.gnu.org/software/glibc/
 Source0: %{?glibc_release_url}%{glibcsrcdir}.tar.xz
@@ -212,6 +220,7 @@ Source15: ld-so-abi-ppc64le.baseline
 Source16: ld-so-abi-riscv64.baseline
 Source17: ld-so-abi-s390x.baseline
 Source18: ld-so-abi-x86_64.baseline
+Source19: glibc.abignore
 %{lua:patchgit.patches()}
 
 # glibc_ldso: ABI-specific program interpreter name.  Used for debuginfo
@@ -604,6 +613,9 @@ call_ldconfig()
 Summary: The sources for the locales
 Requires: %{name} = %{version}-%{release}
 Requires: %{name}-common = %{version}-%{release}
+
+# This subpackage contains gzip compressed charmaps
+Requires: gzip
 
 %description locale-source
 The sources for all locales provided in the language packs.
@@ -2343,11 +2355,9 @@ update_gconv_modules_cache ()
 
 %changelog
 %{lua:patchgit.changelog()}
-* Tue Sep 23 2025 Frédéric Bérat <fberat@redhat.com> - 2.39-58.2
-- x86-64: Unconditionally run elf/check-dt-x86-64-plt ABI test (RHEL-113196)
-
-* Mon Sep 22 2025 Arjun Shankar <arjun@redhat.com> - 2.39-58.1
-- nss: Fix incorrect/empty results when merging groups (RHEL-114264)
+* Tue Aug 26 2025 Arjun Shankar <arjun@redhat.com> - 2.39-59
+- glibc-locale-source: Require gzip to handle compressed charmaps
+  (RHEL-102553)
 
 * Thu Aug 21 2025 Florian Weimer  <fweimer@redhat.com> - 2.39-58
 - Use Requires(pre): libgcc%{_isa} to break libgcc cycle (RHEL-110559)

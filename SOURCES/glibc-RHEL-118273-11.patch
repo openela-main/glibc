@@ -1,0 +1,715 @@
+commit 75207bde6870eb4b258e16fbb41252b2e6377675
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Tue Apr 30 13:49:59 2024 +0100
+
+    aarch64/fpu: Add vector variants of cbrt
+    
+    Reviewed-by: Szabolcs Nagy <szabolcs.nagy@arm.com>
+
+diff --git a/sysdeps/aarch64/fpu/Makefile b/sysdeps/aarch64/fpu/Makefile
+index 06657782a1ee7106..990d1135b93485c5 100644
+--- a/sysdeps/aarch64/fpu/Makefile
++++ b/sysdeps/aarch64/fpu/Makefile
+@@ -5,6 +5,7 @@ libmvec-supported-funcs = acos \
+                           atan \
+                           atanh \
+                           atan2 \
++                          cbrt \
+                           cos \
+                           cosh \
+                           erf \
+diff --git a/sysdeps/aarch64/fpu/Versions b/sysdeps/aarch64/fpu/Versions
+index aedae9457b148983..36a9e4df1e058c46 100644
+--- a/sysdeps/aarch64/fpu/Versions
++++ b/sysdeps/aarch64/fpu/Versions
+@@ -94,6 +94,11 @@ libmvec {
+     _ZGVnN4v_atanhf;
+     _ZGVsMxv_atanh;
+     _ZGVsMxv_atanhf;
++    _ZGVnN2v_cbrt;
++    _ZGVnN2v_cbrtf;
++    _ZGVnN4v_cbrtf;
++    _ZGVsMxv_cbrt;
++    _ZGVsMxv_cbrtf;
+     _ZGVnN2v_cosh;
+     _ZGVnN2v_coshf;
+     _ZGVnN4v_coshf;
+diff --git a/sysdeps/aarch64/fpu/advsimd_f32_protos.h b/sysdeps/aarch64/fpu/advsimd_f32_protos.h
+index a8889a92fd041585..54858efd8aa0ff82 100644
+--- a/sysdeps/aarch64/fpu/advsimd_f32_protos.h
++++ b/sysdeps/aarch64/fpu/advsimd_f32_protos.h
+@@ -23,6 +23,7 @@ libmvec_hidden_proto (V_NAME_F1(asin));
+ libmvec_hidden_proto (V_NAME_F1(asinh));
+ libmvec_hidden_proto (V_NAME_F1(atan));
+ libmvec_hidden_proto (V_NAME_F1(atanh));
++libmvec_hidden_proto (V_NAME_F1(cbrt));
+ libmvec_hidden_proto (V_NAME_F1(cos));
+ libmvec_hidden_proto (V_NAME_F1(cosh));
+ libmvec_hidden_proto (V_NAME_F1(erf));
+diff --git a/sysdeps/aarch64/fpu/bits/math-vector.h b/sysdeps/aarch64/fpu/bits/math-vector.h
+index ca3017733959702f..b1c024fe13a7dc32 100644
+--- a/sysdeps/aarch64/fpu/bits/math-vector.h
++++ b/sysdeps/aarch64/fpu/bits/math-vector.h
+@@ -57,6 +57,10 @@
+ # define __DECL_SIMD_atan2 __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_atan2f
+ # define __DECL_SIMD_atan2f __DECL_SIMD_aarch64
++# undef __DECL_SIMD_cbrt
++# define __DECL_SIMD_cbrt __DECL_SIMD_aarch64
++# undef __DECL_SIMD_cbrtf
++# define __DECL_SIMD_cbrtf __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_cos
+ # define __DECL_SIMD_cos __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_cosf
+@@ -158,6 +162,7 @@ __vpcs __f32x4_t _ZGVnN4v_asinf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_asinhf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_atanf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_atanhf (__f32x4_t);
++__vpcs __f32x4_t _ZGVnN4v_cbrtf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_cosf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_coshf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_erff (__f32x4_t);
+@@ -183,6 +188,7 @@ __vpcs __f64x2_t _ZGVnN2v_asin (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_asinh (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_atan (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_atanh (__f64x2_t);
++__vpcs __f64x2_t _ZGVnN2v_cbrt (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_cos (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_cosh (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_erf (__f64x2_t);
+@@ -213,6 +219,7 @@ __sv_f32_t _ZGVsMxv_asinf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_asinhf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_atanf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_atanhf (__sv_f32_t, __sv_bool_t);
++__sv_f32_t _ZGVsMxv_cbrtf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_cosf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_coshf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_erff (__sv_f32_t, __sv_bool_t);
+@@ -238,6 +245,7 @@ __sv_f64_t _ZGVsMxv_asin (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_asinh (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_atan (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_atanh (__sv_f64_t, __sv_bool_t);
++__sv_f64_t _ZGVsMxv_cbrt (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_cos (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_cosh (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_erf (__sv_f64_t, __sv_bool_t);
+diff --git a/sysdeps/aarch64/fpu/cbrt_advsimd.c b/sysdeps/aarch64/fpu/cbrt_advsimd.c
+new file mode 100644
+index 0000000000000000..adfbb60cd3918c95
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/cbrt_advsimd.c
+@@ -0,0 +1,121 @@
++/* Double-precision vector (AdvSIMD) cbrt function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "v_math.h"
++#include "poly_advsimd_f64.h"
++
++const static struct data
++{
++  float64x2_t poly[4], one_third, shift;
++  int64x2_t exp_bias;
++  uint64x2_t abs_mask, tiny_bound;
++  uint32x4_t thresh;
++  double table[5];
++} data = {
++  .shift = V2 (0x1.8p52),
++  .poly = { /* Generated with fpminimax in [0.5, 1].  */
++            V2 (0x1.c14e8ee44767p-2), V2 (0x1.dd2d3f99e4c0ep-1),
++	    V2 (-0x1.08e83026b7e74p-1), V2 (0x1.2c74eaa3ba428p-3) },
++  .exp_bias = V2 (1022),
++  .abs_mask = V2(0x7fffffffffffffff),
++  .tiny_bound = V2(0x0010000000000000), /* Smallest normal.  */
++  .thresh = V4(0x7fe00000),   /* asuint64 (infinity) - tiny_bound.  */
++  .one_third = V2(0x1.5555555555555p-2),
++  .table = { /* table[i] = 2^((i - 2) / 3).  */
++             0x1.428a2f98d728bp-1, 0x1.965fea53d6e3dp-1, 0x1p0,
++	     0x1.428a2f98d728bp0, 0x1.965fea53d6e3dp0 }
++};
++
++#define MantissaMask v_u64 (0x000fffffffffffff)
++
++static float64x2_t NOINLINE VPCS_ATTR
++special_case (float64x2_t x, float64x2_t y, uint32x2_t special)
++{
++  return v_call_f64 (cbrt, x, y, vmovl_u32 (special));
++}
++
++/* Approximation for double-precision vector cbrt(x), using low-order polynomial
++   and two Newton iterations. Greatest observed error is 1.79 ULP. Errors repeat
++   according to the exponent, for instance an error observed for double value
++   m * 2^e will be observed for any input m * 2^(e + 3*i), where i is an
++   integer.
++   __v_cbrt(0x1.fffff403f0bc6p+1) got 0x1.965fe72821e9bp+0
++				 want 0x1.965fe72821e99p+0.  */
++VPCS_ATTR float64x2_t V_NAME_D1 (cbrt) (float64x2_t x)
++{
++  const struct data *d = ptr_barrier (&data);
++  uint64x2_t iax = vreinterpretq_u64_f64 (vabsq_f64 (x));
++
++  /* Subnormal, +/-0 and special values.  */
++  uint32x2_t special
++      = vcge_u32 (vsubhn_u64 (iax, d->tiny_bound), vget_low_u32 (d->thresh));
++
++  /* Decompose |x| into m * 2^e, where m is in [0.5, 1.0]. This is a vector
++     version of frexp, which gets subnormal values wrong - these have to be
++     special-cased as a result.  */
++  float64x2_t m = vbslq_f64 (MantissaMask, x, v_f64 (0.5));
++  int64x2_t exp_bias = d->exp_bias;
++  uint64x2_t ia12 = vshrq_n_u64 (iax, 52);
++  int64x2_t e = vsubq_s64 (vreinterpretq_s64_u64 (ia12), exp_bias);
++
++  /* Calculate rough approximation for cbrt(m) in [0.5, 1.0], starting point for
++     Newton iterations.  */
++  float64x2_t p = v_pairwise_poly_3_f64 (m, vmulq_f64 (m, m), d->poly);
++  float64x2_t one_third = d->one_third;
++  /* Two iterations of Newton's method for iteratively approximating cbrt.  */
++  float64x2_t m_by_3 = vmulq_f64 (m, one_third);
++  float64x2_t two_thirds = vaddq_f64 (one_third, one_third);
++  float64x2_t a
++      = vfmaq_f64 (vdivq_f64 (m_by_3, vmulq_f64 (p, p)), two_thirds, p);
++  a = vfmaq_f64 (vdivq_f64 (m_by_3, vmulq_f64 (a, a)), two_thirds, a);
++
++  /* Assemble the result by the following:
++
++     cbrt(x) = cbrt(m) * 2 ^ (e / 3).
++
++     We can get 2 ^ round(e / 3) using ldexp and integer divide, but since e is
++     not necessarily a multiple of 3 we lose some information.
++
++     Let q = 2 ^ round(e / 3), then t = 2 ^ (e / 3) / q.
++
++     Then we know t = 2 ^ (i / 3), where i is the remainder from e / 3, which is
++     an integer in [-2, 2], and can be looked up in the table T. Hence the
++     result is assembled as:
++
++     cbrt(x) = cbrt(m) * t * 2 ^ round(e / 3) * sign.  */
++
++  float64x2_t ef = vcvtq_f64_s64 (e);
++  float64x2_t eb3f = vrndnq_f64 (vmulq_f64 (ef, one_third));
++  int64x2_t em3 = vcvtq_s64_f64 (vfmsq_f64 (ef, eb3f, v_f64 (3)));
++  int64x2_t ey = vcvtq_s64_f64 (eb3f);
++
++  float64x2_t my = (float64x2_t){ d->table[em3[0] + 2], d->table[em3[1] + 2] };
++  my = vmulq_f64 (my, a);
++
++  /* Vector version of ldexp.  */
++  float64x2_t y = vreinterpretq_f64_s64 (
++      vshlq_n_s64 (vaddq_s64 (ey, vaddq_s64 (exp_bias, v_s64 (1))), 52));
++  y = vmulq_f64 (y, my);
++
++  if (__glibc_unlikely (v_any_u32h (special)))
++    return special_case (x, vbslq_f64 (d->abs_mask, y, x), special);
++
++  /* Copy sign.  */
++  return vbslq_f64 (d->abs_mask, y, x);
++}
+diff --git a/sysdeps/aarch64/fpu/cbrt_sve.c b/sysdeps/aarch64/fpu/cbrt_sve.c
+new file mode 100644
+index 0000000000000000..fc976eda2a6018f7
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/cbrt_sve.c
+@@ -0,0 +1,128 @@
++/* Double-precision vector (SVE) cbrt function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "sv_math.h"
++#include "poly_sve_f64.h"
++
++const static struct data
++{
++  float64_t poly[4];
++  float64_t table[5];
++  float64_t one_third, two_thirds, shift;
++  int64_t exp_bias;
++  uint64_t tiny_bound, thresh;
++} data = {
++  /* Generated with FPMinimax in [0.5, 1].  */
++  .poly = { 0x1.c14e8ee44767p-2, 0x1.dd2d3f99e4c0ep-1, -0x1.08e83026b7e74p-1,
++	    0x1.2c74eaa3ba428p-3, },
++  /* table[i] = 2^((i - 2) / 3).  */
++  .table = { 0x1.428a2f98d728bp-1, 0x1.965fea53d6e3dp-1, 0x1p0,
++	     0x1.428a2f98d728bp0, 0x1.965fea53d6e3dp0, },
++  .one_third = 0x1.5555555555555p-2,
++  .two_thirds = 0x1.5555555555555p-1,
++  .shift = 0x1.8p52,
++  .exp_bias = 1022,
++  .tiny_bound = 0x0010000000000000, /* Smallest normal.  */
++  .thresh = 0x7fe0000000000000, /* asuint64 (infinity) - tiny_bound.  */
++};
++
++#define MantissaMask 0x000fffffffffffff
++#define HalfExp 0x3fe0000000000000
++
++static svfloat64_t NOINLINE
++special_case (svfloat64_t x, svfloat64_t y, svbool_t special)
++{
++  return sv_call_f64 (cbrt, x, y, special);
++}
++
++static inline svfloat64_t
++shifted_lookup (const svbool_t pg, const float64_t *table, svint64_t i)
++{
++  return svld1_gather_index (pg, table, svadd_x (pg, i, 2));
++}
++
++/* Approximation for double-precision vector cbrt(x), using low-order
++   polynomial and two Newton iterations. Greatest observed error is 1.79 ULP.
++   Errors repeat according to the exponent, for instance an error observed for
++   double value m * 2^e will be observed for any input m * 2^(e + 3*i), where i
++   is an integer.
++   _ZGVsMxv_cbrt (0x0.3fffb8d4413f3p-1022) got 0x1.965f53b0e5d97p-342
++					  want 0x1.965f53b0e5d95p-342.  */
++svfloat64_t SV_NAME_D1 (cbrt) (svfloat64_t x, const svbool_t pg)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  svfloat64_t ax = svabs_x (pg, x);
++  svuint64_t iax = svreinterpret_u64 (ax);
++  svuint64_t sign = sveor_x (pg, svreinterpret_u64 (x), iax);
++
++  /* Subnormal, +/-0 and special values.  */
++  svbool_t special = svcmpge (pg, svsub_x (pg, iax, d->tiny_bound), d->thresh);
++
++  /* Decompose |x| into m * 2^e, where m is in [0.5, 1.0]. This is a vector
++     version of frexp, which gets subnormal values wrong - these have to be
++     special-cased as a result.  */
++  svfloat64_t m = svreinterpret_f64 (svorr_x (
++      pg, svand_x (pg, svreinterpret_u64 (x), MantissaMask), HalfExp));
++  svint64_t e
++      = svsub_x (pg, svreinterpret_s64 (svlsr_x (pg, iax, 52)), d->exp_bias);
++
++  /* Calculate rough approximation for cbrt(m) in [0.5, 1.0], starting point
++     for Newton iterations.  */
++  svfloat64_t p
++      = sv_pairwise_poly_3_f64_x (pg, m, svmul_x (pg, m, m), d->poly);
++
++  /* Two iterations of Newton's method for iteratively approximating cbrt.  */
++  svfloat64_t m_by_3 = svmul_x (pg, m, d->one_third);
++  svfloat64_t a = svmla_x (pg, svdiv_x (pg, m_by_3, svmul_x (pg, p, p)), p,
++			   d->two_thirds);
++  a = svmla_x (pg, svdiv_x (pg, m_by_3, svmul_x (pg, a, a)), a, d->two_thirds);
++
++  /* Assemble the result by the following:
++
++     cbrt(x) = cbrt(m) * 2 ^ (e / 3).
++
++     We can get 2 ^ round(e / 3) using ldexp and integer divide, but since e is
++     not necessarily a multiple of 3 we lose some information.
++
++     Let q = 2 ^ round(e / 3), then t = 2 ^ (e / 3) / q.
++
++     Then we know t = 2 ^ (i / 3), where i is the remainder from e / 3, which
++     is an integer in [-2, 2], and can be looked up in the table T. Hence the
++     result is assembled as:
++
++     cbrt(x) = cbrt(m) * t * 2 ^ round(e / 3) * sign.  */
++  svfloat64_t eb3f = svmul_x (pg, svcvt_f64_x (pg, e), d->one_third);
++  svint64_t ey = svcvt_s64_x (pg, eb3f);
++  svint64_t em3 = svmls_x (pg, e, ey, 3);
++
++  svfloat64_t my = shifted_lookup (pg, d->table, em3);
++  my = svmul_x (pg, my, a);
++
++  /* Vector version of ldexp.  */
++  svfloat64_t y = svscale_x (pg, my, ey);
++
++  if (__glibc_unlikely (svptest_any (pg, special)))
++    return special_case (
++	x, svreinterpret_f64 (svorr_x (pg, svreinterpret_u64 (y), sign)),
++	special);
++
++  /* Copy sign.  */
++  return svreinterpret_f64 (svorr_x (pg, svreinterpret_u64 (y), sign));
++}
+diff --git a/sysdeps/aarch64/fpu/cbrtf_advsimd.c b/sysdeps/aarch64/fpu/cbrtf_advsimd.c
+new file mode 100644
+index 0000000000000000..27debb8b57c8c3e2
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/cbrtf_advsimd.c
+@@ -0,0 +1,123 @@
++/* Single-precision vector (AdvSIMD) cbrt function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "v_math.h"
++#include "poly_advsimd_f32.h"
++
++const static struct data
++{
++  float32x4_t poly[4], one_third;
++  float table[5];
++} data = {
++  .poly = { /* Very rough approximation of cbrt(x) in [0.5, 1], generated with
++               FPMinimax.  */
++	    V4 (0x1.c14e96p-2), V4 (0x1.dd2d3p-1), V4 (-0x1.08e81ap-1),
++	    V4 (0x1.2c74c2p-3) },
++  .table = { /* table[i] = 2^((i - 2) / 3).  */
++	    0x1.428a3p-1, 0x1.965feap-1, 0x1p0, 0x1.428a3p0, 0x1.965feap0 },
++  .one_third = V4 (0x1.555556p-2f),
++};
++
++#define SignMask v_u32 (0x80000000)
++#define SmallestNormal v_u32 (0x00800000)
++#define Thresh vdup_n_u16 (0x7f00) /* asuint(INFINITY) - SmallestNormal.  */
++#define MantissaMask v_u32 (0x007fffff)
++#define HalfExp v_u32 (0x3f000000)
++
++static float32x4_t VPCS_ATTR NOINLINE
++special_case (float32x4_t x, float32x4_t y, uint16x4_t special)
++{
++  return v_call_f32 (cbrtf, x, y, vmovl_u16 (special));
++}
++
++static inline float32x4_t
++shifted_lookup (const float *table, int32x4_t i)
++{
++  return (float32x4_t){ table[i[0] + 2], table[i[1] + 2], table[i[2] + 2],
++			table[i[3] + 2] };
++}
++
++/* Approximation for vector single-precision cbrt(x) using Newton iteration
++   with initial guess obtained by a low-order polynomial. Greatest error
++   is 1.64 ULP. This is observed for every value where the mantissa is
++   0x1.85a2aa and the exponent is a multiple of 3, for example:
++   _ZGVnN4v_cbrtf(0x1.85a2aap+3) got 0x1.267936p+1
++				want 0x1.267932p+1.  */
++VPCS_ATTR float32x4_t V_NAME_F1 (cbrt) (float32x4_t x)
++{
++  const struct data *d = ptr_barrier (&data);
++  uint32x4_t iax = vreinterpretq_u32_f32 (vabsq_f32 (x));
++
++  /* Subnormal, +/-0 and special values.  */
++  uint16x4_t special = vcge_u16 (vsubhn_u32 (iax, SmallestNormal), Thresh);
++
++  /* Decompose |x| into m * 2^e, where m is in [0.5, 1.0]. This is a vector
++     version of frexpf, which gets subnormal values wrong - these have to be
++     special-cased as a result.  */
++  float32x4_t m = vbslq_f32 (MantissaMask, x, v_f32 (0.5));
++  int32x4_t e
++      = vsubq_s32 (vreinterpretq_s32_u32 (vshrq_n_u32 (iax, 23)), v_s32 (126));
++
++  /* p is a rough approximation for cbrt(m) in [0.5, 1.0]. The better this is,
++     the less accurate the next stage of the algorithm needs to be. An order-4
++     polynomial is enough for one Newton iteration.  */
++  float32x4_t p = v_pairwise_poly_3_f32 (m, vmulq_f32 (m, m), d->poly);
++
++  float32x4_t one_third = d->one_third;
++  float32x4_t two_thirds = vaddq_f32 (one_third, one_third);
++
++  /* One iteration of Newton's method for iteratively approximating cbrt.  */
++  float32x4_t m_by_3 = vmulq_f32 (m, one_third);
++  float32x4_t a
++      = vfmaq_f32 (vdivq_f32 (m_by_3, vmulq_f32 (p, p)), two_thirds, p);
++
++  /* Assemble the result by the following:
++
++     cbrt(x) = cbrt(m) * 2 ^ (e / 3).
++
++     We can get 2 ^ round(e / 3) using ldexp and integer divide, but since e is
++     not necessarily a multiple of 3 we lose some information.
++
++     Let q = 2 ^ round(e / 3), then t = 2 ^ (e / 3) / q.
++
++     Then we know t = 2 ^ (i / 3), where i is the remainder from e / 3, which
++     is an integer in [-2, 2], and can be looked up in the table T. Hence the
++     result is assembled as:
++
++     cbrt(x) = cbrt(m) * t * 2 ^ round(e / 3) * sign.  */
++  float32x4_t ef = vmulq_f32 (vcvtq_f32_s32 (e), one_third);
++  int32x4_t ey = vcvtq_s32_f32 (ef);
++  int32x4_t em3 = vsubq_s32 (e, vmulq_s32 (ey, v_s32 (3)));
++
++  float32x4_t my = shifted_lookup (d->table, em3);
++  my = vmulq_f32 (my, a);
++
++  /* Vector version of ldexpf.  */
++  float32x4_t y
++      = vreinterpretq_f32_s32 (vshlq_n_s32 (vaddq_s32 (ey, v_s32 (127)), 23));
++  y = vmulq_f32 (y, my);
++
++  if (__glibc_unlikely (v_any_u16h (special)))
++    return special_case (x, vbslq_f32 (SignMask, x, y), special);
++
++  /* Copy sign.  */
++  return vbslq_f32 (SignMask, x, y);
++}
++libmvec_hidden_def (V_NAME_F1 (cbrt))
++HALF_WIDTH_ALIAS_F1 (cbrt)
+diff --git a/sysdeps/aarch64/fpu/cbrtf_sve.c b/sysdeps/aarch64/fpu/cbrtf_sve.c
+new file mode 100644
+index 0000000000000000..23c220c202244c1f
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/cbrtf_sve.c
+@@ -0,0 +1,122 @@
++/* Single-precision vector (SVE) cbrt function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "sv_math.h"
++#include "poly_sve_f32.h"
++
++const static struct data
++{
++  float32_t poly[4];
++  float32_t table[5];
++  float32_t one_third, two_thirds;
++} data = {
++  /* Very rough approximation of cbrt(x) in [0.5, 1], generated with FPMinimax.
++   */
++  .poly = { 0x1.c14e96p-2, 0x1.dd2d3p-1, -0x1.08e81ap-1,
++	    0x1.2c74c2p-3, },
++  /* table[i] = 2^((i - 2) / 3).  */
++  .table = { 0x1.428a3p-1, 0x1.965feap-1, 0x1p0, 0x1.428a3p0, 0x1.965feap0 },
++  .one_third = 0x1.555556p-2f,
++  .two_thirds = 0x1.555556p-1f,
++};
++
++#define SmallestNormal 0x00800000
++#define Thresh 0x7f000000 /* asuint(INFINITY) - SmallestNormal.  */
++#define MantissaMask 0x007fffff
++#define HalfExp 0x3f000000
++
++static svfloat32_t NOINLINE
++special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
++{
++  return sv_call_f32 (cbrtf, x, y, special);
++}
++
++static inline svfloat32_t
++shifted_lookup (const svbool_t pg, const float32_t *table, svint32_t i)
++{
++  return svld1_gather_index (pg, table, svadd_x (pg, i, 2));
++}
++
++/* Approximation for vector single-precision cbrt(x) using Newton iteration
++   with initial guess obtained by a low-order polynomial. Greatest error
++   is 1.64 ULP. This is observed for every value where the mantissa is
++   0x1.85a2aa and the exponent is a multiple of 3, for example:
++   _ZGVsMxv_cbrtf (0x1.85a2aap+3) got 0x1.267936p+1
++				 want 0x1.267932p+1.  */
++svfloat32_t SV_NAME_F1 (cbrt) (svfloat32_t x, const svbool_t pg)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  svfloat32_t ax = svabs_x (pg, x);
++  svuint32_t iax = svreinterpret_u32 (ax);
++  svuint32_t sign = sveor_x (pg, svreinterpret_u32 (x), iax);
++
++  /* Subnormal, +/-0 and special values.  */
++  svbool_t special = svcmpge (pg, svsub_x (pg, iax, SmallestNormal), Thresh);
++
++  /* Decompose |x| into m * 2^e, where m is in [0.5, 1.0]. This is a vector
++     version of frexpf, which gets subnormal values wrong - these have to be
++     special-cased as a result.  */
++  svfloat32_t m = svreinterpret_f32 (svorr_x (
++      pg, svand_x (pg, svreinterpret_u32 (x), MantissaMask), HalfExp));
++  svint32_t e = svsub_x (pg, svreinterpret_s32 (svlsr_x (pg, iax, 23)), 126);
++
++  /* p is a rough approximation for cbrt(m) in [0.5, 1.0]. The better this is,
++     the less accurate the next stage of the algorithm needs to be. An order-4
++     polynomial is enough for one Newton iteration.  */
++  svfloat32_t p
++      = sv_pairwise_poly_3_f32_x (pg, m, svmul_x (pg, m, m), d->poly);
++
++  /* One iteration of Newton's method for iteratively approximating cbrt.  */
++  svfloat32_t m_by_3 = svmul_x (pg, m, d->one_third);
++  svfloat32_t a = svmla_x (pg, svdiv_x (pg, m_by_3, svmul_x (pg, p, p)), p,
++			   d->two_thirds);
++
++  /* Assemble the result by the following:
++
++     cbrt(x) = cbrt(m) * 2 ^ (e / 3).
++
++     We can get 2 ^ round(e / 3) using ldexp and integer divide, but since e is
++     not necessarily a multiple of 3 we lose some information.
++
++     Let q = 2 ^ round(e / 3), then t = 2 ^ (e / 3) / q.
++
++     Then we know t = 2 ^ (i / 3), where i is the remainder from e / 3, which
++     is an integer in [-2, 2], and can be looked up in the table T. Hence the
++     result is assembled as:
++
++     cbrt(x) = cbrt(m) * t * 2 ^ round(e / 3) * sign.  */
++  svfloat32_t ef = svmul_x (pg, svcvt_f32_x (pg, e), d->one_third);
++  svint32_t ey = svcvt_s32_x (pg, ef);
++  svint32_t em3 = svmls_x (pg, e, ey, 3);
++
++  svfloat32_t my = shifted_lookup (pg, d->table, em3);
++  my = svmul_x (pg, my, a);
++
++  /* Vector version of ldexpf.  */
++  svfloat32_t y = svscale_x (pg, my, ey);
++
++  if (__glibc_unlikely (svptest_any (pg, special)))
++    return special_case (
++	x, svreinterpret_f32 (svorr_x (pg, svreinterpret_u32 (y), sign)),
++	special);
++
++  /* Copy sign.  */
++  return svreinterpret_f32 (svorr_x (pg, svreinterpret_u32 (y), sign));
++}
+diff --git a/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c b/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
+index 417125be476cd75f..1877db3ac6932037 100644
+--- a/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
+@@ -30,6 +30,7 @@ VPCS_VECTOR_WRAPPER (asinh_advsimd, _ZGVnN2v_asinh)
+ VPCS_VECTOR_WRAPPER (atan_advsimd, _ZGVnN2v_atan)
+ VPCS_VECTOR_WRAPPER (atanh_advsimd, _ZGVnN2v_atanh)
+ VPCS_VECTOR_WRAPPER_ff (atan2_advsimd, _ZGVnN2vv_atan2)
++VPCS_VECTOR_WRAPPER (cbrt_advsimd, _ZGVnN2v_cbrt)
+ VPCS_VECTOR_WRAPPER (cos_advsimd, _ZGVnN2v_cos)
+ VPCS_VECTOR_WRAPPER (cosh_advsimd, _ZGVnN2v_cosh)
+ VPCS_VECTOR_WRAPPER (erf_advsimd, _ZGVnN2v_erf)
+diff --git a/sysdeps/aarch64/fpu/test-double-sve-wrappers.c b/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
+index 31ebf18705f68856..b702f942dea0749f 100644
+--- a/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
+@@ -49,6 +49,7 @@ SVE_VECTOR_WRAPPER (asinh_sve, _ZGVsMxv_asinh)
+ SVE_VECTOR_WRAPPER (atan_sve, _ZGVsMxv_atan)
+ SVE_VECTOR_WRAPPER (atanh_sve, _ZGVsMxv_atanh)
+ SVE_VECTOR_WRAPPER_ff (atan2_sve, _ZGVsMxvv_atan2)
++SVE_VECTOR_WRAPPER (cbrt_sve, _ZGVsMxv_cbrt)
+ SVE_VECTOR_WRAPPER (cos_sve, _ZGVsMxv_cos)
+ SVE_VECTOR_WRAPPER (cosh_sve, _ZGVsMxv_cosh)
+ SVE_VECTOR_WRAPPER (erf_sve, _ZGVsMxv_erf)
+diff --git a/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c b/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
+index dab0f1cfcb79a305..9cb451b4f045e625 100644
+--- a/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
+@@ -30,6 +30,7 @@ VPCS_VECTOR_WRAPPER (asinhf_advsimd, _ZGVnN4v_asinhf)
+ VPCS_VECTOR_WRAPPER (atanf_advsimd, _ZGVnN4v_atanf)
+ VPCS_VECTOR_WRAPPER (atanhf_advsimd, _ZGVnN4v_atanhf)
+ VPCS_VECTOR_WRAPPER_ff (atan2f_advsimd, _ZGVnN4vv_atan2f)
++VPCS_VECTOR_WRAPPER (cbrtf_advsimd, _ZGVnN4v_cbrtf)
+ VPCS_VECTOR_WRAPPER (cosf_advsimd, _ZGVnN4v_cosf)
+ VPCS_VECTOR_WRAPPER (coshf_advsimd, _ZGVnN4v_coshf)
+ VPCS_VECTOR_WRAPPER (erff_advsimd, _ZGVnN4v_erff)
+diff --git a/sysdeps/aarch64/fpu/test-float-sve-wrappers.c b/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
+index 2aa6cbcc28d69cf8..5b3dd22916d2a50d 100644
+--- a/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
+@@ -49,6 +49,7 @@ SVE_VECTOR_WRAPPER (asinhf_sve, _ZGVsMxv_asinhf)
+ SVE_VECTOR_WRAPPER (atanf_sve, _ZGVsMxv_atanf)
+ SVE_VECTOR_WRAPPER (atanhf_sve, _ZGVsMxv_atanhf)
+ SVE_VECTOR_WRAPPER_ff (atan2f_sve, _ZGVsMxvv_atan2f)
++SVE_VECTOR_WRAPPER (cbrtf_sve, _ZGVsMxv_cbrtf)
+ SVE_VECTOR_WRAPPER (cosf_sve, _ZGVsMxv_cosf)
+ SVE_VECTOR_WRAPPER (coshf_sve, _ZGVsMxv_coshf)
+ SVE_VECTOR_WRAPPER (erff_sve, _ZGVsMxv_erff)
+diff --git a/sysdeps/aarch64/libm-test-ulps b/sysdeps/aarch64/libm-test-ulps
+index 17723d0c9e2dfcf5..a67cd7cd7399c533 100644
+--- a/sysdeps/aarch64/libm-test-ulps
++++ b/sysdeps/aarch64/libm-test-ulps
+@@ -477,11 +477,19 @@ double: 4
+ float: 1
+ ldouble: 1
+ 
++Function: "cbrt_advsimd":
++double: 1
++float: 1
++
+ Function: "cbrt_downward":
+ double: 4
+ float: 1
+ ldouble: 1
+ 
++Function: "cbrt_sve":
++double: 1
++float: 1
++
+ Function: "cbrt_towardzero":
+ double: 3
+ float: 1
+diff --git a/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist b/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
+index 1184374efd25cfa6..89ac1dfa36279eb0 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
++++ b/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
+@@ -79,6 +79,8 @@ GLIBC_2.40 _ZGVnN2v_asinh F
+ GLIBC_2.40 _ZGVnN2v_asinhf F
+ GLIBC_2.40 _ZGVnN2v_atanh F
+ GLIBC_2.40 _ZGVnN2v_atanhf F
++GLIBC_2.40 _ZGVnN2v_cbrt F
++GLIBC_2.40 _ZGVnN2v_cbrtf F
+ GLIBC_2.40 _ZGVnN2v_cosh F
+ GLIBC_2.40 _ZGVnN2v_coshf F
+ GLIBC_2.40 _ZGVnN2v_erf F
+@@ -94,6 +96,7 @@ GLIBC_2.40 _ZGVnN2vv_hypotf F
+ GLIBC_2.40 _ZGVnN4v_acoshf F
+ GLIBC_2.40 _ZGVnN4v_asinhf F
+ GLIBC_2.40 _ZGVnN4v_atanhf F
++GLIBC_2.40 _ZGVnN4v_cbrtf F
+ GLIBC_2.40 _ZGVnN4v_coshf F
+ GLIBC_2.40 _ZGVnN4v_erfcf F
+ GLIBC_2.40 _ZGVnN4v_erff F
+@@ -106,6 +109,8 @@ GLIBC_2.40 _ZGVsMxv_asinh F
+ GLIBC_2.40 _ZGVsMxv_asinhf F
+ GLIBC_2.40 _ZGVsMxv_atanh F
+ GLIBC_2.40 _ZGVsMxv_atanhf F
++GLIBC_2.40 _ZGVsMxv_cbrt F
++GLIBC_2.40 _ZGVsMxv_cbrtf F
+ GLIBC_2.40 _ZGVsMxv_cosh F
+ GLIBC_2.40 _ZGVsMxv_coshf F
+ GLIBC_2.40 _ZGVsMxv_erf F

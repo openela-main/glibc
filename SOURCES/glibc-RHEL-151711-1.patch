@@ -1,0 +1,57 @@
+commit 652c36b3ea917093bf60ad2a345987530c192821
+Author: Matteo Croce <teknoraver@meta.com>
+Date:   Sat Jun 14 11:59:03 2025 +0200
+
+    fstatat: extend tests and documentation
+    
+    Document the fstatat behaviour leading to a ENOENT errno, and extend
+    tests to test the case where filename does not exist.
+    
+    Signed-off-by: Matteo Croce <teknoraver@meta.com>
+
+diff --git a/io/tst-stat-time64.c b/io/tst-stat-time64.c
+index 2d751a814ddc4706..bf5b0b4fb994167c 100644
+--- a/io/tst-stat-time64.c
++++ b/io/tst-stat-time64.c
+@@ -52,6 +52,12 @@ fstat_check (int fd, const char *path, struct stat *st)
+ static void
+ fstatat_check (int fd, const char *path, struct stat *st)
+ {
++  TEST_COMPARE (fstatat (fd, "", st, 0), -1);
++  TEST_COMPARE (errno, ENOENT);
++
++  TEST_COMPARE (fstatat (AT_FDCWD, "_non_existing_file", st, 0), -1);
++  TEST_COMPARE (errno, ENOENT);
++
+   TEST_COMPARE (fstatat (fd, path, st, 0), 0);
+ }
+ 
+diff --git a/io/tst-stat.c b/io/tst-stat.c
+index d11b25ec0921b1e2..d6f5e83aa06a5fbe 100644
+--- a/io/tst-stat.c
++++ b/io/tst-stat.c
+@@ -56,6 +56,9 @@ fstatat_check (int fd, const char *path, struct stat *st)
+   TEST_COMPARE (fstatat (fd, "", st, 0), -1);
+   TEST_COMPARE (errno, ENOENT);
+ 
++  TEST_COMPARE (fstatat (AT_FDCWD, "_non_existing_file", st, 0), -1);
++  TEST_COMPARE (errno, ENOENT);
++
+   TEST_COMPARE (fstatat (fd, path, st, 0), 0);
+ }
+ 
+diff --git a/manual/filesys.texi b/manual/filesys.texi
+index f21f21804251e480..d0ced84bf6bdbf8e 100644
+--- a/manual/filesys.texi
++++ b/manual/filesys.texi
+@@ -2395,6 +2395,10 @@ The @var{flags} argument is not valid for this function.
+ @item ENOTDIR
+ The descriptor @var{filedes} is not associated with a directory, and
+ @var{filename} is a relative file name.
++
++@item ENOENT
++The file named by @var{filename} does not exist, or @var{filename} is an
++empty string and @var{flags} does not contain @code{AT_EMPTY_PATH}.
+ @end table
+ 
+ When the sources are compiled with @code{_FILE_OFFSET_BITS == 64} this

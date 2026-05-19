@@ -1,0 +1,35 @@
+Downstream-only patch to deal more gracefully with upgrades on
+live systems.  Without it, a newer libc.so will fail to load
+if the process was started with an older ld.so.
+
+diff --git a/sysdeps/generic/ldsodefs.h b/sysdeps/generic/ldsodefs.h
+index f2d62fa2ccbb479d..5512c83d536874cb 100644
+--- a/sysdeps/generic/ldsodefs.h
++++ b/sysdeps/generic/ldsodefs.h
+@@ -1303,8 +1303,26 @@ extern void _dl_show_scope (struct link_map *new, int from)
+ extern struct link_map *_dl_find_dso_for_object (const ElfW(Addr) addr);
+ rtld_hidden_proto (_dl_find_dso_for_object)
+ 
++#if !IS_IN (libc) || !defined SHARED
+ extern enum dl_readonly_area_error_type _dl_readonly_area (const void *ptr,
+ 							   size_t size);
++#else
++/* In libc, only use _dl_readonly_area if it is available, so that
++   loadling libc does not fail with an undefined symbol reference to
++   _dl_readonly_area.  */
++static inline enum dl_readonly_area_error_type
++_dl_readonly_area (const void *ptr, size_t size)
++{
++  extern __typeof (_dl_readonly_area) _dl_readonly_area_real
++    __asm__ ("_dl_readonly_area") __attribute__ ((weak));
++  if (_dl_readonly_area_real != NULL)
++    return _dl_readonly_area_real (ptr, size);
++  else
++    /* This triggers the fallback to __readonly_area_fallback (using
++       /proc/self/maps).  */
++    return dl_readonly_area_not_found;
++}
++#endif
+ 
+ /* Initialization which is normally done by the dynamic linker.  */
+ extern void _dl_non_dynamic_init (void)

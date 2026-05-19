@@ -1,0 +1,93 @@
+commit 01196393c257c59f63e0e14fa1bfe8d2a699bf2d
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Jul 18 19:58:59 2025 +0200
+
+    elf: Initialize GLRO (dl_read_only_area) after static dlopen (bug 33139)
+    
+    The _dl_read_only_area function in the uninitialized ld.so after
+    static dlopen is not able to find anything.  Instead, we need to
+    redirect to the code from the statically linked main program.
+    
+    Fixes commit d60fffe28a46b2a41fc308c1804ff02375d27408 ("debug:
+    Improve '%n' fortify detection (BZ 30932)").
+    
+    Reviewed-by: Adhemerval Zanella Netto  <adhemerval.zanella@linaro.org>
+
+diff --git a/debug/Makefile b/debug/Makefile
+index 13f638e344..919bf91c42 100644
+--- a/debug/Makefile
++++ b/debug/Makefile
+@@ -186,12 +186,19 @@ CPPFLAGS-tst-chk-cancel.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
+ CFLAGS-tst-sprintf-fortify-rdonly.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
+ CFLAGS-tst-sprintf-fortify-rdonly-mod.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
+ CFLAGS-tst-sprintf-fortify-rdonly-dlopen.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
++CFLAGS-tst-sprintf-fortify-rdonly-static.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
+ CFLAGS-tst-fortify-syslog.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
+ CFLAGS-tst-fortify-wide.c += $(no-fortify-source) -D_FORTIFY_SOURCE=2
+ 
+ $(objpfx)tst-sprintf-fortify-rdonly: $(objpfx)tst-sprintf-fortify-rdonly-mod.so
+ $(objpfx)tst-sprintf-fortify-rdonly.out: \
+   $(objpfx)tst-sprintf-fortify-rdonly-dlopen.so
++$(objpfx)tst-sprintf-fortify-rdonly-static: \
++  $(objpfx)tst-sprintf-fortify-rdonly-dlopen.o
++$(objpfx)tst-sprintf-fortify-rdonly-static.out: \
++  $(objpfx)tst-sprintf-fortify-rdonly-dlopen.so
++tst-sprintf-fortify-rdonly-static-ENV = \
++  LD_LIBRARY_PATH=$(objpfx):$(common-objpfx):$(common-objpfx)/elf
+ 
+ # _FORTIFY_SOURCE tests.
+ # Auto-generate tests for _FORTIFY_SOURCE for different levels, compilers and
+@@ -302,9 +309,14 @@ tests = \
+   tst-longjmp_chk3 \
+   tst-realpath-chk \
+   tst-sprintf-fortify-rdonly \
++  tst-sprintf-fortify-rdonly-static \
+   tst-sprintf-fortify-unchecked \
+   # tests
+ 
++tests-static = \
++  tst-sprintf-fortify-rdonly-static \
++  # tests-static
++
+ tests-time64 += \
+   $(tests-all-time64-chk) \
+   # tests-time64
+diff --git a/debug/tst-sprintf-fortify-rdonly-static.c b/debug/tst-sprintf-fortify-rdonly-static.c
+new file mode 100644
+index 0000000000..ca5bbd5aff
+--- /dev/null
++++ b/debug/tst-sprintf-fortify-rdonly-static.c
+@@ -0,0 +1 @@
++#include "tst-sprintf-fortify-rdonly.c"
+diff --git a/elf/rtld.c b/elf/rtld.c
+index f889f01b4a..493f9696ea 100644
+--- a/elf/rtld.c
++++ b/elf/rtld.c
+@@ -372,7 +372,6 @@ struct rtld_global_ro _rtld_global_ro attribute_relro =
+     ._dl_error_free = _dl_error_free,
+     ._dl_tls_get_addr_soft = _dl_tls_get_addr_soft,
+     ._dl_libc_freeres = __rtld_libc_freeres,
+-    ._dl_readonly_area = _dl_readonly_area,
+   };
+ /* If we would use strong_alias here the compiler would see a
+    non-hidden definition.  This would undo the effect of the previous
+@@ -457,6 +456,7 @@ _dl_start_final (void *arg, struct dl_start_final_info *info)
+   /* Do not use an initializer for these members because it would
+      interfere with __rtld_static_init.  */
+   GLRO (dl_find_object) = &_dl_find_object;
++  GLRO (dl_readonly_area) = &_dl_readonly_area;
+ 
+   /* If it hasn't happen yet record the startup time.  */
+   rtld_timer_start (&start_time);
+diff --git a/elf/rtld_static_init.c b/elf/rtld_static_init.c
+index 642379076b..9c56180f88 100644
+--- a/elf/rtld_static_init.c
++++ b/elf/rtld_static_init.c
+@@ -79,6 +79,7 @@ __rtld_static_init (struct link_map *map)
+     attribute_hidden;
+   dl->_dl_tls_static_size = _dl_tls_static_size;
+   dl->_dl_find_object = _dl_find_object;
++  dl->_dl_readonly_area = _dl_readonly_area;
+ 
+   __rtld_static_init_arch (map, dl);
+ }

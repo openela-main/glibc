@@ -1,0 +1,111 @@
+commit b52619f2e8bbae57d79c95538346198c4a9f24a6
+Author: Arjun Shankar <arjun@redhat.com>
+Date:   Mon Jan 26 13:49:37 2026 +0100
+
+    dlfcn: Add dlinfo request type RTLD_DI_ORIGIN_PATH (bug #24298)
+    
+    The existing dlinfo request type RTLD_DI_ORIGIN used for querying the
+    value of the '$ORIGIN' dynamic string token is prone to buffer
+    overflows.
+    
+    This commit adds a new request type named RTLD_DI_ORIGIN_PATH that
+    returns a pointer to the dynamic string token (i.e. the 'l_origin' field
+    in the link map) instead.  The dlinfo manual is updated with the new
+    request type, and the description of RTLD_DI_ORIGIN is updated to
+    recommend RTLD_DI_ORIGIN_PATH instead.
+    
+    A test for the new request type is also added to tst-dlinfo.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/dlfcn/dlfcn.h b/dlfcn/dlfcn.h
+index 574796261105cad0..3d98a294ead93679 100644
+--- a/dlfcn/dlfcn.h
++++ b/dlfcn/dlfcn.h
+@@ -167,7 +167,12 @@ enum
+        the number of program headers in the array.  */
+     RTLD_DI_PHDR = 11,
+ 
+-    RTLD_DI_MAX = 11
++    /* Treat ARG as `const char **' and at that location, store the address
++       of the directory name used to expand $ORIGIN in this shared object's
++       dependency file names.  */
++    RTLD_DI_ORIGIN_PATH = 12,
++
++    RTLD_DI_MAX = 12
+   };
+ 
+ 
+diff --git a/dlfcn/dlinfo.c b/dlfcn/dlinfo.c
+index b0feb9362d587761..c2064db5a32cf49f 100644
+--- a/dlfcn/dlinfo.c
++++ b/dlfcn/dlinfo.c
+@@ -67,6 +67,13 @@ dlinfo_doit (void *argsblock)
+       strcpy (args->arg, l->l_origin);
+       break;
+ 
++    case RTLD_DI_ORIGIN_PATH:
++      if (l->l_origin != (char *) -1)
++        *(const char **) args->arg = l->l_origin;
++      else
++        *(const char **) args->arg = NULL;
++      break;
++
+     case RTLD_DI_TLS_MODID:
+       *(size_t *) args->arg = 0;
+       *(size_t *) args->arg = l->l_tls_modid;
+diff --git a/dlfcn/tst-dlinfo.c b/dlfcn/tst-dlinfo.c
+index 5f93e3bf8928e063..5cc89457f6d39c8e 100644
+--- a/dlfcn/tst-dlinfo.c
++++ b/dlfcn/tst-dlinfo.c
+@@ -20,6 +20,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <error.h>
++#include <support/check.h>
+ 
+ #define TEST_FUNCTION do_test ()
+ 
+@@ -56,6 +57,13 @@ do_test (void)
+       printf ("origin: %s\n", origin);
+     }
+ 
++  const char *origin_path;
++  TRY (RTLD_DI_ORIGIN_PATH, &origin_path)
++    {
++      TEST_COMPARE_STRING (origin, origin_path);
++      printf ("origin_path: %s\n", origin_path);
++    }
++
+   Dl_serinfo counts;
+   TRY (RTLD_DI_SERINFOSIZE, &counts)
+     {
+diff --git a/manual/dynlink.texi b/manual/dynlink.texi
+index ead5455e30c10a61..86917c7452ca9f96 100644
+--- a/manual/dynlink.texi
++++ b/manual/dynlink.texi
+@@ -482,13 +482,23 @@ The namespace identifier of @var{handle} is written to
+ @code{*@var{arg}}.  The @var{arg} argument must be the address of an
+ object of type @code{Lmid_t}.
+ 
++@item RTLD_DI_ORIGIN_PATH
++The @code{$ORIGIN} dynamic string token pointer for @var{handle} is written
++to @code{*@var{arg}}.  The @var{arg} argument must be the address of a
++@code{const char *}.  If the @code{$ORIGIN} could not be determined, the
++function still returns 0 but writes a null pointer to @code{*@var{arg}}.
++The returned string is only valid as long as the corresponding handle is
++valid.  Accessing it after @code{dlclose} has been called for the
++corresponding @var{handle} is undefined behavior.
++
+ @item RTLD_DI_ORIGIN
+ The value of the @code{$ORIGIN} dynamic string token for @var{handle} is
+ written to the character array starting at @var{arg} as a
+ null-terminated string.
+ 
+ This request type should not be used because it is prone to buffer
+-overflows.
++overflows.  Instead, @code{RTLD_DI_ORIGIN_PATH} described above should be
++used.
+ 
+ @item RTLD_DI_SERINFO
+ @itemx RTLD_DI_SERINFOSIZE

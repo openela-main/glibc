@@ -1,0 +1,116 @@
+commit 6f0ea84f17581d13ad668adbc181c37141d389b8
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Mon Dec 30 16:36:18 2024 -0300
+
+    assert: Remove the use of %n from __assert_fail_base (BZ #32456)
+    
+    The require size for mmap can be inferred from __vasprintf return
+    value.  It also fixes tst-assert-2 when building with --enable-fortify,
+    where even if the format is not translated, __readonly_area fails
+    because malloc can not be used.
+    
+    Checked on aarch64-linux-gnu.
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+
+Conflicts:
+	po/libc.pot
+	  (fix context and adjust line numbers)
+
+diff --git a/assert/assert-perr.c b/assert/assert-perr.c
+index 0010cbc2785185e7..8a03620b4c843ebd 100644
+--- a/assert/assert-perr.c
++++ b/assert/assert-perr.c
+@@ -32,7 +32,7 @@ __assert_perror_fail (int errnum,
+   char errbuf[1024];
+ 
+   char *e = __strerror_r (errnum, errbuf, sizeof errbuf);
+-  __assert_fail_base (_("%s%s%s:%u: %s%sUnexpected error: %s.\n%n"),
++  __assert_fail_base (_("%s%s%s:%u: %s%sUnexpected error: %s.\n"),
+ 		      e, file, line, function);
+ }
+ libc_hidden_def (__assert_perror_fail)
+diff --git a/assert/assert.c b/assert/assert.c
+index c063b700aa5c46ff..8bd49fde5004e7bb 100644
+--- a/assert/assert.c
++++ b/assert/assert.c
+@@ -15,25 +15,18 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
+-#include <assert.h>
+-#include <atomic.h>
++#include <intprops.h>
+ #include <ldsodefs.h>
+ #include <libc-pointer-arith.h>
+ #include <libintl.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <sysdep.h>
+-#include <unistd.h>
+-#include <sys/mman.h>
++#include <libio/iolibio.h>
+ #include <setvmaname.h>
+ #include <sys/uio.h>
+-#include <intprops.h>
++#include <unistd.h>
+ 
+ 
+ extern const char *__progname;
+ 
+-#include <wchar.h>
+-#include <libio/iolibio.h>
+ #define fflush(s) _IO_fflush (s)
+ 
+ /* This function, when passed a string containing an asserted
+@@ -57,12 +50,12 @@ __assert_fail_base (const char *fmt, const char *assertion, const char *file,
+   FATAL_PREPARE;
+ #endif
+ 
+-  int total;
+-  if (__asprintf (&str, fmt,
+-		  __progname, __progname[0] ? ": " : "",
+-		  file, line,
+-		  function ? function : "", function ? ": " : "",
+-		  assertion, &total) >= 0)
++  int total = __asprintf (&str, fmt,
++			  __progname, __progname[0] ? ": " : "",
++			  file, line,
++			  function ? function : "", function ? ": " : "",
++			  assertion);
++  if (total >= 0)
+     {
+       /* Print the message.  */
+       (void) __fxprintf (NULL, "%s", str);
+@@ -131,6 +124,6 @@ void
+ __assert_fail (const char *assertion, const char *file, unsigned int line,
+ 	       const char *function)
+ {
+-  __assert_fail_base (_("%s%s%s:%u: %s%sAssertion `%s' failed.\n%n"),
++  __assert_fail_base (_("%s%s%s:%u: %s%sAssertion `%s' failed.\n"),
+ 		      assertion, file, line, function);
+ }
+diff --git a/po/libc.pot b/po/libc.pot
+index 42fdf35a752ae8bf..9c1a3aa982e5aaac 100644
+--- a/po/libc.pot
++++ b/po/libc.pot
+@@ -102,16 +102,12 @@ msgstr ""
+ 
+ #: assert/assert-perr.c:35
+ #, c-format
+-msgid ""
+-"%s%s%s:%u: %s%sUnexpected error: %s.\n"
+-"%n"
++msgid "%s%s%s:%u: %s%sUnexpected error: %s.\n"
+ msgstr ""
+ 
+-#: assert/assert.c:103
++#: assert/assert.c:125
+ #, c-format
+-msgid ""
+-"%s%s%s:%u: %s%sAssertion `%s' failed.\n"
+-"%n"
++msgid "%s%s%s:%u: %s%sAssertion `%s' failed.\n"
+ msgstr ""
+ 
+ #: catgets/gencat.c:111

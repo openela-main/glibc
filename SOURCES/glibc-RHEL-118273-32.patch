@@ -1,0 +1,531 @@
+commit ce2f26a22e6b6f5c108d156afd9b43a452bb024c
+Author: Wilco Dijkstra <wilco.dijkstra@arm.com>
+Date:   Tue Dec 31 18:07:36 2024 +0000
+
+    AArch64: Remove PTR_ARG/SIZE_ARG defines
+    
+    This series removes various ILP32 defines that are now
+    no longer needed.
+    
+    Remove PTR_ARG/SIZE_ARG.
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+Conflicts:
+        sysdeps/aarch64/dl-start.S
+          (Fixup context to apply without out-of-scope dependency 01f52b11de)
+        sysdeps/aarch64/multiarch/memcpy_thunderx.S
+          (Dropped by upstream commit e162ab2)
+        sysdeps/aarch64/multiarch/memcpy_oryon1.S
+          (Skipped: file from 4dc83cac is out-of-scope)
+        sysdeps/aarch64/multiarch/memset_oryon1.S
+          (Skipped: file from 2f1f7a5f is out-of-scope)
+
+diff --git a/sysdeps/aarch64/__longjmp.S b/sysdeps/aarch64/__longjmp.S
+index 7b6add751e6bd96b..452ba0da6d788ce8 100644
+--- a/sysdeps/aarch64/__longjmp.S
++++ b/sysdeps/aarch64/__longjmp.S
+@@ -47,8 +47,6 @@ ENTRY (__longjmp)
+ 	cfi_offset(d14, JB_D14<<3)
+ 	cfi_offset(d15, JB_D15<<3)
+ 
+-	PTR_ARG (0)
+-
+ #if IS_IN(libc)
+ 	/* Disable ZA state of SME in libc.a and libc.so, but not in ld.so.  */
+ # if HAVE_AARCH64_PAC_RET
+diff --git a/sysdeps/aarch64/__mtag_tag_region.S b/sysdeps/aarch64/__mtag_tag_region.S
+index 22e8d8b75372c8aa..90ac17ced4801f21 100644
+--- a/sysdeps/aarch64/__mtag_tag_region.S
++++ b/sysdeps/aarch64/__mtag_tag_region.S
+@@ -40,9 +40,6 @@
+ #define zva_val	x4
+ 
+ ENTRY (__libc_mtag_tag_region)
+-	PTR_ARG (0)
+-	SIZE_ARG (1)
+-
+ 	add	dstend, dstin, count
+ 
+ 	cmp	count, 96
+diff --git a/sysdeps/aarch64/__mtag_tag_zero_region.S b/sysdeps/aarch64/__mtag_tag_zero_region.S
+index 566698e9146e7da8..e975a2f8bdb85ae0 100644
+--- a/sysdeps/aarch64/__mtag_tag_zero_region.S
++++ b/sysdeps/aarch64/__mtag_tag_zero_region.S
+@@ -40,9 +40,6 @@
+ #define zva_val	x4
+ 
+ ENTRY (__libc_mtag_tag_zero_region)
+-	PTR_ARG (0)
+-	SIZE_ARG (1)
+-
+ 	add	dstend, dstin, count
+ 
+ 	cmp	count, 96
+diff --git a/sysdeps/aarch64/dl-start.S b/sysdeps/aarch64/dl-start.S
+index d645484e79858013..b7ac6c31432e07c9 100644
+--- a/sysdeps/aarch64/dl-start.S
++++ b/sysdeps/aarch64/dl-start.S
+@@ -26,7 +26,6 @@ ENTRY (_start)
+ 	mov	x30, #0
+ 
+ 	mov	x0, sp
+-	PTR_ARG (0)
+ 	bl	_dl_start
+ 	/* Returns user entry point in x0.  */
+ 	mov	PTR_REG (21), PTR_REG (0)
+diff --git a/sysdeps/aarch64/dl-tlsdesc.S b/sysdeps/aarch64/dl-tlsdesc.S
+index 9b253b39dd1d9d46..0aeaf64edd2594f1 100644
+--- a/sysdeps/aarch64/dl-tlsdesc.S
++++ b/sysdeps/aarch64/dl-tlsdesc.S
+@@ -75,7 +75,6 @@
+ 	.align 2
+ _dl_tlsdesc_return:
+ 	BTI_C
+-	PTR_ARG (0)
+ 	ldr	PTR_REG (0), [x0, #PTR_SIZE]
+ 	RET
+ 	cfi_endproc
+@@ -99,7 +98,6 @@ _dl_tlsdesc_undefweak:
+ 	BTI_C
+ 	str	x1, [sp, #-16]!
+ 	cfi_adjust_cfa_offset (16)
+-	PTR_ARG (0)
+ 	ldr	PTR_REG (0), [x0, #PTR_SIZE]
+ 	mrs	x1, tpidr_el0
+ 	sub	PTR_REG (0), PTR_REG (0), PTR_REG (1)
+@@ -145,7 +143,6 @@ _dl_tlsdesc_undefweak:
+ 	.align 2
+ _dl_tlsdesc_dynamic:
+ 	BTI_C
+-	PTR_ARG (0)
+ 
+ 	/* Save just enough registers to support fast path, if we fall
+ 	   into slow path we will save additional registers.  */
+diff --git a/sysdeps/aarch64/memchr.S b/sysdeps/aarch64/memchr.S
+index a9fa40519c78b7df..7173c7fafa7d6eb5 100644
+--- a/sysdeps/aarch64/memchr.S
++++ b/sysdeps/aarch64/memchr.S
+@@ -57,8 +57,6 @@
+    exactly which byte matched.  */
+ 
+ ENTRY (MEMCHR)
+-	PTR_ARG (0)
+-	SIZE_ARG (2)
+ 	bic	src, srcin, 15
+ 	cbz	cntin, L(nomatch)
+ 	ld1	{vdata.16b}, [src]
+diff --git a/sysdeps/aarch64/memcmp.S b/sysdeps/aarch64/memcmp.S
+index 5afa79494bf9cb7f..68dfa604f4b1bd43 100644
+--- a/sysdeps/aarch64/memcmp.S
++++ b/sysdeps/aarch64/memcmp.S
+@@ -44,10 +44,6 @@
+ 
+ 
+ ENTRY (memcmp)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	cmp	limit, 16
+ 	b.lo	L(less16)
+ 	ldp	data1, data3, [src1]
+diff --git a/sysdeps/aarch64/memcpy.S b/sysdeps/aarch64/memcpy.S
+index f21c21d3f2a21d89..fba93faeba52447f 100644
+--- a/sysdeps/aarch64/memcpy.S
++++ b/sysdeps/aarch64/memcpy.S
+@@ -70,10 +70,6 @@
+    from the end.  */
+ 
+ ENTRY (MEMCPY)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	add	srcend, src, count
+ 	add	dstend, dstin, count
+ 	cmp	count, 128
+@@ -187,10 +183,6 @@ libc_hidden_builtin_def (MEMCPY)
+ 
+ 
+ ENTRY (MEMMOVE)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	add	srcend, src, count
+ 	add	dstend, dstin, count
+ 	cmp	count, 128
+diff --git a/sysdeps/aarch64/memrchr.S b/sysdeps/aarch64/memrchr.S
+index c5274f5ebf595268..1bd3e230ca197581 100644
+--- a/sysdeps/aarch64/memrchr.S
++++ b/sysdeps/aarch64/memrchr.S
+@@ -55,8 +55,6 @@
+    exactly which byte matched.  */
+ 
+ ENTRY (__memrchr)
+-	PTR_ARG (0)
+-	SIZE_ARG (2)
+ 	add	end, srcin, cntin
+ 	sub	endm1, end, 1
+ 	bic	src, endm1, 15
+diff --git a/sysdeps/aarch64/memset.S b/sysdeps/aarch64/memset.S
+index 71814d0b2f6dd3a7..496ad332882a7e3d 100644
+--- a/sysdeps/aarch64/memset.S
++++ b/sysdeps/aarch64/memset.S
+@@ -40,9 +40,6 @@
+ #define dstend2	x5
+ 
+ ENTRY (MEMSET)
+-	PTR_ARG (0)
+-	SIZE_ARG (2)
+-
+ 	dup	v0.16B, valw
+ 	cmp	count, 16
+ 	b.lo	L(set_small)
+diff --git a/sysdeps/aarch64/multiarch/memchr_nosimd.S b/sysdeps/aarch64/multiarch/memchr_nosimd.S
+index 0a65139b0810e95b..b47059de1ee61f71 100644
+--- a/sysdeps/aarch64/multiarch/memchr_nosimd.S
++++ b/sysdeps/aarch64/multiarch/memchr_nosimd.S
+@@ -60,9 +60,6 @@
+ 
+ ENTRY (__memchr_nosimd)
+ 
+-	PTR_ARG (0)
+-	SIZE_ARG (2)
+-
+ 	/* Do not dereference srcin if no bytes to compare. */
+ 	cbz	cntin, L(none_chr)
+ 
+diff --git a/sysdeps/aarch64/multiarch/memcpy_a64fx.S b/sysdeps/aarch64/multiarch/memcpy_a64fx.S
+index d826aafd80ed7b0b..fa693f7c3a5c28a3 100644
+--- a/sysdeps/aarch64/multiarch/memcpy_a64fx.S
++++ b/sysdeps/aarch64/multiarch/memcpy_a64fx.S
+@@ -96,10 +96,6 @@
+ 
+ ENTRY (__memcpy_a64fx)
+ 
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	cntb	vlen
+ 	cmp	n, vlen, lsl 1
+ 	b.hi	L(copy_small)
+@@ -236,10 +232,6 @@ END (__memcpy_a64fx)
+ 
+ ENTRY_ALIGN (__memmove_a64fx, 4)
+ 
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	/* Fast case for up to 2 vectors.  */
+ 	cntb	vlen
+ 	cmp	n, vlen, lsl 1
+diff --git a/sysdeps/aarch64/multiarch/memcpy_mops.S b/sysdeps/aarch64/multiarch/memcpy_mops.S
+index b094af3d22bc4aeb..2c426f008e699101 100644
+--- a/sysdeps/aarch64/multiarch/memcpy_mops.S
++++ b/sysdeps/aarch64/multiarch/memcpy_mops.S
+@@ -26,10 +26,6 @@
+  */
+ 
+ ENTRY (__memcpy_mops)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	mov	x3, x0
+ 	.inst	0x19010443	/* cpyfp   [x3]!, [x1]!, x2!  */
+ 	.inst	0x19410443	/* cpyfm   [x3]!, [x1]!, x2!  */
+diff --git a/sysdeps/aarch64/multiarch/memcpy_sve.S b/sysdeps/aarch64/multiarch/memcpy_sve.S
+index 3ce49d79ecdb94e0..26375b47174f1ba8 100644
+--- a/sysdeps/aarch64/multiarch/memcpy_sve.S
++++ b/sysdeps/aarch64/multiarch/memcpy_sve.S
+@@ -61,10 +61,6 @@
+ 	.arch armv8.2-a+sve
+ 
+ ENTRY (__memcpy_sve)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	cmp	count, 128
+ 	b.hi	L(copy_long)
+ 	cntb	vlen
+@@ -144,10 +140,6 @@ END (__memcpy_sve)
+ 
+ 
+ ENTRY (__memmove_sve)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	cmp	count, 128
+ 	b.hi	L(move_long)
+ 	cntb	vlen
+diff --git a/sysdeps/aarch64/multiarch/memcpy_thunderx.S b/sysdeps/aarch64/multiarch/memcpy_thunderx.S
+index 5d8438a82ea2a3be..02ea27f356fe8ea1 100644
+--- a/sysdeps/aarch64/multiarch/memcpy_thunderx.S
++++ b/sysdeps/aarch64/multiarch/memcpy_thunderx.S
+@@ -67,10 +67,6 @@
+ 
+ ENTRY (__memmove_thunderx)
+ 
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	sub	tmp1, dstin, src
+ 	cmp	count, 96
+ 	ccmp	tmp1, count, 2, hi
+diff --git a/sysdeps/aarch64/multiarch/memmove_mops.S b/sysdeps/aarch64/multiarch/memmove_mops.S
+index 7df0d22454ead375..229fccd9d5a7abd2 100644
+--- a/sysdeps/aarch64/multiarch/memmove_mops.S
++++ b/sysdeps/aarch64/multiarch/memmove_mops.S
+@@ -26,10 +26,6 @@
+  */
+ 
+ ENTRY (__memmove_mops)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	SIZE_ARG (2)
+-
+ 	mov	x3, x0
+ 	.inst	0x1d010443	/* cpyp    [x3]!, [x1]!, x2!  */
+ 	.inst	0x1d410443	/* cpym    [x3]!, [x1]!, x2!  */
+diff --git a/sysdeps/aarch64/multiarch/memset_a64fx.S b/sysdeps/aarch64/multiarch/memset_a64fx.S
+index 2e6d882fc931a882..9ea329a82ae7d0f6 100644
+--- a/sysdeps/aarch64/multiarch/memset_a64fx.S
++++ b/sysdeps/aarch64/multiarch/memset_a64fx.S
+@@ -48,8 +48,6 @@
+ #define BTI_C
+ 
+ ENTRY (__memset_a64fx)
+-	PTR_ARG (0)
+-	SIZE_ARG (2)
+ 
+ 	cntb	vector_length
+ 	dup	z0.b, valw
+diff --git a/sysdeps/aarch64/multiarch/memset_emag.S b/sysdeps/aarch64/multiarch/memset_emag.S
+index 6d714ed0e1b396ef..5c33280e0f8bf85a 100644
+--- a/sysdeps/aarch64/multiarch/memset_emag.S
++++ b/sysdeps/aarch64/multiarch/memset_emag.S
+@@ -28,9 +28,6 @@
+ 
+ ENTRY (__memset_emag)
+ 
+-	PTR_ARG (0)
+-	SIZE_ARG (2)
+-
+ 	bfi	valw, valw, 8, 8
+ 	bfi	valw, valw, 16, 16
+ 	bfi	val, val, 32, 32
+diff --git a/sysdeps/aarch64/multiarch/memset_kunpeng.S b/sysdeps/aarch64/multiarch/memset_kunpeng.S
+index 7b215501376cbe03..93f3bfb8cf7238a5 100644
+--- a/sysdeps/aarch64/multiarch/memset_kunpeng.S
++++ b/sysdeps/aarch64/multiarch/memset_kunpeng.S
+@@ -28,9 +28,6 @@
+ 
+ ENTRY (__memset_kunpeng)
+ 
+-	PTR_ARG (0)
+-	SIZE_ARG (2)
+-
+ 	dup	v0.16B, valw
+ 	add	dstend, dstin, count
+ 
+diff --git a/sysdeps/aarch64/multiarch/memset_mops.S b/sysdeps/aarch64/multiarch/memset_mops.S
+index e879c81ab2d047b1..f13a0b561078137e 100644
+--- a/sysdeps/aarch64/multiarch/memset_mops.S
++++ b/sysdeps/aarch64/multiarch/memset_mops.S
+@@ -26,9 +26,6 @@
+  */
+ 
+ ENTRY (__memset_mops)
+-	PTR_ARG (0)
+-	SIZE_ARG (2)
+-
+ 	mov     x3, x0
+ 	.inst   0x19c10443	/* setp    [x3]!, x2!, x1  */
+ 	.inst   0x19c14443	/* setm    [x3]!, x2!, x1  */
+diff --git a/sysdeps/aarch64/multiarch/strlen_asimd.S b/sysdeps/aarch64/multiarch/strlen_asimd.S
+index 67dcc94adc587928..3118cd00663b0b25 100644
+--- a/sysdeps/aarch64/multiarch/strlen_asimd.S
++++ b/sysdeps/aarch64/multiarch/strlen_asimd.S
+@@ -87,7 +87,6 @@
+    character, return the length, if not, continue in the main loop.  */
+ 
+ ENTRY (__strlen_asimd)
+-	PTR_ARG (0)
+ 	and	tmp1, srcin, MIN_PAGE_SIZE - 1
+ 	cmp	tmp1, MIN_PAGE_SIZE - 32
+ 	b.hi	L(page_cross)
+diff --git a/sysdeps/aarch64/setjmp.S b/sysdeps/aarch64/setjmp.S
+index 43fdb1b2fb1b7b78..92dc34e3e9a2650c 100644
+--- a/sysdeps/aarch64/setjmp.S
++++ b/sysdeps/aarch64/setjmp.S
+@@ -34,8 +34,6 @@ END (_setjmp)
+ libc_hidden_def (_setjmp)
+ 
+ ENTRY (__sigsetjmp)
+-	PTR_ARG (0)
+-
+ 1:
+ 	stp	x19, x20, [x0, #JB_X19<<3]
+ 	stp	x21, x22, [x0, #JB_X21<<3]
+diff --git a/sysdeps/aarch64/strchr.S b/sysdeps/aarch64/strchr.S
+index ca4c99e6bf9ac960..bc57283361e172ab 100644
+--- a/sysdeps/aarch64/strchr.S
++++ b/sysdeps/aarch64/strchr.S
+@@ -52,7 +52,6 @@
+    If it is not a multiple of 4, there was no match.  */
+ 
+ ENTRY (strchr)
+-	PTR_ARG (0)
+ 	bic	src, srcin, 15
+ 	dup	vrepchr.16b, chrin
+ 	ld1	{vdata.16b}, [src]
+diff --git a/sysdeps/aarch64/strchrnul.S b/sysdeps/aarch64/strchrnul.S
+index e1a1c7eb4383e0f6..09e092bf5f847a7f 100644
+--- a/sysdeps/aarch64/strchrnul.S
++++ b/sysdeps/aarch64/strchrnul.S
+@@ -51,7 +51,6 @@
+    exactly which byte matched.  */
+ 
+ ENTRY (__strchrnul)
+-	PTR_ARG (0)
+ 	bic	src, srcin, 15
+ 	dup	vrepchr.16b, chrin
+ 	ld1	{vdata.16b}, [src]
+diff --git a/sysdeps/aarch64/strcmp.S b/sysdeps/aarch64/strcmp.S
+index 47f6fb1448c464bf..7bf87073be304e0f 100644
+--- a/sysdeps/aarch64/strcmp.S
++++ b/sysdeps/aarch64/strcmp.S
+@@ -62,8 +62,6 @@
+    NUL too in big-endian, byte-reverse the data before the NUL check.  */
+ 
+ ENTRY(strcmp)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+ 	sub	off2, src2, src1
+ 	mov	zeroones, REP8_01
+ 	and	tmp, src1, 7
+diff --git a/sysdeps/aarch64/strcpy.S b/sysdeps/aarch64/strcpy.S
+index 705354060055a45e..62fb0248fa5a7ba3 100644
+--- a/sysdeps/aarch64/strcpy.S
++++ b/sysdeps/aarch64/strcpy.S
+@@ -69,8 +69,6 @@
+    exactly which byte matched.  */
+ 
+ ENTRY (STRCPY)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+ 	bic	src, srcin, 15
+ 	ld1	{vdata.16b}, [src]
+ 	cmeq	vhas_nul.16b, vdata.16b, 0
+diff --git a/sysdeps/aarch64/strlen.S b/sysdeps/aarch64/strlen.S
+index 352fb40d3abbb44b..0d10b6efb7b31e54 100644
+--- a/sysdeps/aarch64/strlen.S
++++ b/sysdeps/aarch64/strlen.S
+@@ -49,7 +49,6 @@
+    identifies the first zero byte.  */
+ 
+ ENTRY (STRLEN)
+-	PTR_ARG (0)
+ 	bic	src, srcin, 15
+ 	ld1	{vdata.16b}, [src]
+ 	cmeq	vhas_nul.16b, vdata.16b, 0
+diff --git a/sysdeps/aarch64/strnlen.S b/sysdeps/aarch64/strnlen.S
+index e4fb3506a80756b3..2a2264c0e5427225 100644
+--- a/sysdeps/aarch64/strnlen.S
++++ b/sysdeps/aarch64/strnlen.S
+@@ -49,8 +49,6 @@
+    identifies the first zero byte.  */
+ 
+ ENTRY (__strnlen)
+-	PTR_ARG (0)
+-	SIZE_ARG (1)
+ 	bic	src, srcin, 15
+ 	cbz	cntin, L(nomatch)
+ 	ld1	{vdata.16b}, [src]
+diff --git a/sysdeps/aarch64/strrchr.S b/sysdeps/aarch64/strrchr.S
+index e52c9b275347978c..402bce444ef3bb28 100644
+--- a/sysdeps/aarch64/strrchr.S
++++ b/sysdeps/aarch64/strrchr.S
+@@ -55,7 +55,6 @@
+    if the relevant byte matched the NUL end of string.  */
+ 
+ ENTRY (strrchr)
+-	PTR_ARG (0)
+ 	bic	src, srcin, 15
+ 	dup	vrepchr.16b, chrin
+ 	movi	vrepmask.16b, 0x33
+diff --git a/sysdeps/unix/sysv/linux/aarch64/clone.S b/sysdeps/unix/sysv/linux/aarch64/clone.S
+index 0e7ee24e68c85377..fed19acc2f78351f 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/clone.S
++++ b/sysdeps/unix/sysv/linux/aarch64/clone.S
+@@ -33,12 +33,6 @@
+  */
+         .text
+ ENTRY(__clone)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	PTR_ARG (3)
+-	PTR_ARG (4)
+-	PTR_ARG (5)
+-	PTR_ARG (6)
+ 	/* Save args for the child.  */
+ 	mov	x10, x0
+ 	mov	x11, x2
+diff --git a/sysdeps/unix/sysv/linux/aarch64/clone3.S b/sysdeps/unix/sysv/linux/aarch64/clone3.S
+index 92d69a5430518cbc..9b00b6b8853e9b8b 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/clone3.S
++++ b/sysdeps/unix/sysv/linux/aarch64/clone3.S
+@@ -36,10 +36,6 @@
+ 
+         .text
+ ENTRY(__clone3)
+-	PTR_ARG (0)
+-	PTR_ARG (1)
+-	PTR_ARG (3)
+-	PTR_ARG (4)
+ 	/* Save args for the child.  */
+ 	mov	x10, x0		/* cl_args  */
+ 	mov	x11, x2		/* func	 */
+diff --git a/sysdeps/unix/sysv/linux/aarch64/getcontext.S b/sysdeps/unix/sysv/linux/aarch64/getcontext.S
+index e5b69c9a82b7a448..862bd67aa484ae1a 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/getcontext.S
++++ b/sysdeps/unix/sysv/linux/aarch64/getcontext.S
+@@ -30,7 +30,6 @@
+ 	.text
+ 
+ ENTRY(__getcontext)
+-	PTR_ARG (0)
+ 	/* The saved context will return to the getcontext() call point
+ 	   with a return value of 0 */
+ 	str	xzr,	  [x0, oX0 +  0 * SZREG]
+diff --git a/sysdeps/unix/sysv/linux/aarch64/setcontext.S b/sysdeps/unix/sysv/linux/aarch64/setcontext.S
+index ba659438c564dc3b..8c072781cdf98c2b 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/setcontext.S
++++ b/sysdeps/unix/sysv/linux/aarch64/setcontext.S
+@@ -34,7 +34,6 @@
+ 	.text
+ 
+ ENTRY (__setcontext)
+-	PTR_ARG (0)
+ 	/* Save a copy of UCP.  */
+ 	mov	x9, x0
+ 
+diff --git a/sysdeps/unix/sysv/linux/aarch64/swapcontext.S b/sysdeps/unix/sysv/linux/aarch64/swapcontext.S
+index f049140d35b79ba6..7000f220368bb094 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/swapcontext.S
++++ b/sysdeps/unix/sysv/linux/aarch64/swapcontext.S
+@@ -27,7 +27,6 @@
+ 
+ 	.text
+ ENTRY(__swapcontext)
+-	PTR_ARG (0)
+ 	/* Set the value returned when swapcontext() returns in this context.
+ 	   And set up x1 to become the return address of the caller, so we
+ 	   can return there with a normal RET instead of an indirect jump.  */

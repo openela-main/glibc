@@ -1,0 +1,2511 @@
+commit 0fed0b250f728f38bca5f6fba1dcecdccfc6a44e
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Thu May 16 09:21:24 2024 +0100
+
+    aarch64/fpu: Add vector variants of pow
+    
+    Plus a small amount of moving includes around in order to be able to
+    remove duplicate definition of asuint64.
+    
+    Reviewed-by: Szabolcs Nagy <szabolcs.nagy@arm.com>
+
+Conflicts:
+        sysdeps/aarch64/fpu/atan2_advsimd.c
+        sysdeps/aarch64/fpu/atan2_sve.c
+          (Adjusting to align with glibc-upstream-2.39-214.patch)
+
+diff --git a/sysdeps/aarch64/fpu/Makefile b/sysdeps/aarch64/fpu/Makefile
+index 990d1135b93485c5..234a6c457c26f6cb 100644
+--- a/sysdeps/aarch64/fpu/Makefile
++++ b/sysdeps/aarch64/fpu/Makefile
+@@ -19,6 +19,7 @@ libmvec-supported-funcs = acos \
+                           log10 \
+                           log1p \
+                           log2 \
++                          pow \
+                           sin \
+                           sinh \
+                           tan \
+@@ -44,7 +45,10 @@ libmvec-support = $(addsuffix f_advsimd,$(float-advsimd-funcs)) \
+                   sv_erff_data \
+                   v_exp_tail_data \
+                   erfc_data \
+-                  erfcf_data
++                  erfcf_data \
++                  v_pow_exp_data \
++                  v_pow_log_data \
++                  v_powf_data
+ endif
+ 
+ sve-cflags = -march=armv8-a+sve
+diff --git a/sysdeps/aarch64/fpu/Versions b/sysdeps/aarch64/fpu/Versions
+index 36a9e4df1e058c46..cc15ce2d1e26b2c3 100644
+--- a/sysdeps/aarch64/fpu/Versions
++++ b/sysdeps/aarch64/fpu/Versions
+@@ -119,6 +119,11 @@ libmvec {
+     _ZGVnN2vv_hypot;
+     _ZGVsMxvv_hypotf;
+     _ZGVsMxvv_hypot;
++    _ZGVnN4vv_powf;
++    _ZGVnN2vv_powf;
++    _ZGVnN2vv_pow;
++    _ZGVsMxvv_powf;
++    _ZGVsMxvv_pow;
+     _ZGVnN2v_sinh;
+     _ZGVnN2v_sinhf;
+     _ZGVnN4v_sinhf;
+diff --git a/sysdeps/aarch64/fpu/advsimd_f32_protos.h b/sysdeps/aarch64/fpu/advsimd_f32_protos.h
+index 54858efd8aa0ff82..097d403ffe2c379b 100644
+--- a/sysdeps/aarch64/fpu/advsimd_f32_protos.h
++++ b/sysdeps/aarch64/fpu/advsimd_f32_protos.h
+@@ -37,6 +37,7 @@ libmvec_hidden_proto (V_NAME_F1(log10));
+ libmvec_hidden_proto (V_NAME_F1(log1p));
+ libmvec_hidden_proto (V_NAME_F1(log2));
+ libmvec_hidden_proto (V_NAME_F1(log));
++libmvec_hidden_proto (V_NAME_F2(pow));
+ libmvec_hidden_proto (V_NAME_F1(sin));
+ libmvec_hidden_proto (V_NAME_F1(sinh));
+ libmvec_hidden_proto (V_NAME_F1(tan));
+diff --git a/sysdeps/aarch64/fpu/atan2_advsimd.c b/sysdeps/aarch64/fpu/atan2_advsimd.c
+index 36be4ce83ac15727..1e5d20602ea27380 100644
+--- a/sysdeps/aarch64/fpu/atan2_advsimd.c
++++ b/sysdeps/aarch64/fpu/atan2_advsimd.c
+@@ -17,6 +17,7 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
++#include "math_config.h"
+ #include "v_math.h"
+ 
+ static const struct data
+diff --git a/sysdeps/aarch64/fpu/atan2_sve.c b/sysdeps/aarch64/fpu/atan2_sve.c
+index 7af4931cdb89a1c5..0337ea57b78be851 100644
+--- a/sysdeps/aarch64/fpu/atan2_sve.c
++++ b/sysdeps/aarch64/fpu/atan2_sve.c
+@@ -17,6 +17,7 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
++#include "math_config.h"
+ #include "sv_math.h"
+ 
+ static const struct data
+diff --git a/sysdeps/aarch64/fpu/bits/math-vector.h b/sysdeps/aarch64/fpu/bits/math-vector.h
+index b1c024fe13a7dc32..74841501311827c1 100644
+--- a/sysdeps/aarch64/fpu/bits/math-vector.h
++++ b/sysdeps/aarch64/fpu/bits/math-vector.h
+@@ -113,6 +113,10 @@
+ # define __DECL_SIMD_log2 __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_log2f
+ # define __DECL_SIMD_log2f __DECL_SIMD_aarch64
++# undef __DECL_SIMD_pow
++# define __DECL_SIMD_pow __DECL_SIMD_aarch64
++# undef __DECL_SIMD_powf
++# define __DECL_SIMD_powf __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_sin
+ # define __DECL_SIMD_sin __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_sinf
+@@ -176,6 +180,7 @@ __vpcs __f32x4_t _ZGVnN4v_logf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_log10f (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_log1pf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_log2f (__f32x4_t);
++__vpcs __f32x4_t _ZGVnN4vv_powf (__f32x4_t, __f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_sinf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_sinhf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_tanf (__f32x4_t);
+@@ -202,6 +207,7 @@ __vpcs __f64x2_t _ZGVnN2v_log (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_log10 (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_log1p (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_log2 (__f64x2_t);
++__vpcs __f64x2_t _ZGVnN2vv_pow (__f64x2_t, __f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_sin (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_sinh (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_tan (__f64x2_t);
+@@ -233,6 +239,7 @@ __sv_f32_t _ZGVsMxv_logf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_log10f (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_log1pf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_log2f (__sv_f32_t, __sv_bool_t);
++__sv_f32_t _ZGVsMxvv_powf (__sv_f32_t, __sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_sinf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_sinhf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_tanf (__sv_f32_t, __sv_bool_t);
+@@ -259,6 +266,7 @@ __sv_f64_t _ZGVsMxv_log (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_log10 (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_log1p (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_log2 (__sv_f64_t, __sv_bool_t);
++__sv_f64_t _ZGVsMxvv_pow (__sv_f64_t, __sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_sin (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_sinh (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_tan (__sv_f64_t, __sv_bool_t);
+diff --git a/sysdeps/aarch64/fpu/finite_pow.h b/sysdeps/aarch64/fpu/finite_pow.h
+new file mode 100644
+index 0000000000000000..84c93d404836e2ba
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/finite_pow.h
+@@ -0,0 +1,373 @@
++/* Double-precision x^y function.
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "math_config.h"
++
++/* Scalar version of pow used for fallbacks in vector implementations.  */
++
++/* Data is defined in v_pow_log_data.c.  */
++#define N_LOG (1 << V_POW_LOG_TABLE_BITS)
++#define Off 0x3fe6955500000000
++#define As __v_pow_log_data.poly
++
++/* Data is defined in v_pow_exp_data.c.  */
++#define N_EXP (1 << V_POW_EXP_TABLE_BITS)
++#define SignBias (0x800 << V_POW_EXP_TABLE_BITS)
++#define SmallExp 0x3c9 /* top12(0x1p-54).  */
++#define BigExp 0x408   /* top12(512.0).  */
++#define ThresExp 0x03f /* BigExp - SmallExp.  */
++#define InvLn2N __v_pow_exp_data.n_over_ln2
++#define Ln2HiN __v_pow_exp_data.ln2_over_n_hi
++#define Ln2LoN __v_pow_exp_data.ln2_over_n_lo
++#define SBits __v_pow_exp_data.sbits
++#define Cs __v_pow_exp_data.poly
++
++/* Constants associated with pow.  */
++#define SmallPowX 0x001 /* top12(0x1p-126).  */
++#define BigPowX 0x7ff	/* top12(INFINITY).  */
++#define ThresPowX 0x7fe /* BigPowX - SmallPowX.  */
++#define SmallPowY 0x3be /* top12(0x1.e7b6p-65).  */
++#define BigPowY 0x43e	/* top12(0x1.749p62).  */
++#define ThresPowY 0x080 /* BigPowY - SmallPowY.  */
++
++/* Top 12 bits of a double (sign and exponent bits).  */
++static inline uint32_t
++top12 (double x)
++{
++  return asuint64 (x) >> 52;
++}
++
++/* Compute y+TAIL = log(x) where the rounded result is y and TAIL has about
++   additional 15 bits precision.  IX is the bit representation of x, but
++   normalized in the subnormal range using the sign bit for the exponent.  */
++static inline double
++log_inline (uint64_t ix, double *tail)
++{
++  /* x = 2^k z; where z is in range [Off,2*Off) and exact.
++     The range is split into N subintervals.
++     The ith subinterval contains z and c is near its center.  */
++  uint64_t tmp = ix - Off;
++  int i = (tmp >> (52 - V_POW_LOG_TABLE_BITS)) & (N_LOG - 1);
++  int k = (int64_t) tmp >> 52; /* arithmetic shift.  */
++  uint64_t iz = ix - (tmp & 0xfffULL << 52);
++  double z = asdouble (iz);
++  double kd = (double) k;
++
++  /* log(x) = k*Ln2 + log(c) + log1p(z/c-1).  */
++  double invc = __v_pow_log_data.invc[i];
++  double logc = __v_pow_log_data.logc[i];
++  double logctail = __v_pow_log_data.logctail[i];
++
++  /* Note: 1/c is j/N or j/N/2 where j is an integer in [N,2N) and
++     |z/c - 1| < 1/N, so r = z/c - 1 is exactly representible.  */
++  double r = fma (z, invc, -1.0);
++
++  /* k*Ln2 + log(c) + r.  */
++  double t1 = kd * __v_pow_log_data.ln2_hi + logc;
++  double t2 = t1 + r;
++  double lo1 = kd * __v_pow_log_data.ln2_lo + logctail;
++  double lo2 = t1 - t2 + r;
++
++  /* Evaluation is optimized assuming superscalar pipelined execution.  */
++  double ar = As[0] * r;
++  double ar2 = r * ar;
++  double ar3 = r * ar2;
++  /* k*Ln2 + log(c) + r + A[0]*r*r.  */
++  double hi = t2 + ar2;
++  double lo3 = fma (ar, r, -ar2);
++  double lo4 = t2 - hi + ar2;
++  /* p = log1p(r) - r - A[0]*r*r.  */
++  double p = (ar3
++	      * (As[1] + r * As[2]
++		 + ar2 * (As[3] + r * As[4] + ar2 * (As[5] + r * As[6]))));
++  double lo = lo1 + lo2 + lo3 + lo4 + p;
++  double y = hi + lo;
++  *tail = hi - y + lo;
++  return y;
++}
++
++/* Handle cases that may overflow or underflow when computing the result that
++   is scale*(1+TMP) without intermediate rounding.  The bit representation of
++   scale is in SBITS, however it has a computed exponent that may have
++   overflown into the sign bit so that needs to be adjusted before using it as
++   a double.  (int32_t)KI is the k used in the argument reduction and exponent
++   adjustment of scale, positive k here means the result may overflow and
++   negative k means the result may underflow.  */
++static inline double
++special_case (double tmp, uint64_t sbits, uint64_t ki)
++{
++  double scale, y;
++
++  if ((ki & 0x80000000) == 0)
++    {
++      /* k > 0, the exponent of scale might have overflowed by <= 460.  */
++      sbits -= 1009ull << 52;
++      scale = asdouble (sbits);
++      y = 0x1p1009 * (scale + scale * tmp);
++      return y;
++    }
++  /* k < 0, need special care in the subnormal range.  */
++  sbits += 1022ull << 52;
++  /* Note: sbits is signed scale.  */
++  scale = asdouble (sbits);
++  y = scale + scale * tmp;
++#if WANT_SIMD_EXCEPT
++  if (fabs (y) < 1.0)
++    {
++      /* Round y to the right precision before scaling it into the subnormal
++	 range to avoid double rounding that can cause 0.5+E/2 ulp error where
++	 E is the worst-case ulp error outside the subnormal range.  So this
++	 is only useful if the goal is better than 1 ulp worst-case error.  */
++      double hi, lo, one = 1.0;
++      if (y < 0.0)
++	one = -1.0;
++      lo = scale - y + scale * tmp;
++      hi = one + y;
++      lo = one - hi + y + lo;
++      y = (hi + lo) - one;
++      /* Fix the sign of 0.  */
++      if (y == 0.0)
++	y = asdouble (sbits & 0x8000000000000000);
++      /* The underflow exception needs to be signaled explicitly.  */
++      force_eval_double (opt_barrier_double (0x1p-1022) * 0x1p-1022);
++    }
++#endif
++  y = 0x1p-1022 * y;
++  return y;
++}
++
++/* Computes sign*exp(x+xtail) where |xtail| < 2^-8/N and |xtail| <= |x|.
++   The sign_bias argument is SignBias or 0 and sets the sign to -1 or 1.  */
++static inline double
++exp_inline (double x, double xtail, uint32_t sign_bias)
++{
++  uint32_t abstop = top12 (x) & 0x7ff;
++  if (__glibc_unlikely (abstop - SmallExp >= ThresExp))
++    {
++      if (abstop - SmallExp >= 0x80000000)
++	{
++	  /* Avoid spurious underflow for tiny x.  */
++	  /* Note: 0 is common input.  */
++	  return sign_bias ? -1.0 : 1.0;
++	}
++      if (abstop >= top12 (1024.0))
++	{
++	  /* Note: inf and nan are already handled.  */
++	  /* Skip errno handling.  */
++#if WANT_SIMD_EXCEPT
++	  return asuint64 (x) >> 63 ? __math_uflow (sign_bias)
++				    : __math_oflow (sign_bias);
++#else
++	  double res_uoflow = asuint64 (x) >> 63 ? 0.0 : INFINITY;
++	  return sign_bias ? -res_uoflow : res_uoflow;
++#endif
++	}
++      /* Large x is special cased below.  */
++      abstop = 0;
++    }
++
++  /* exp(x) = 2^(k/N) * exp(r), with exp(r) in [2^(-1/2N),2^(1/2N)].  */
++  /* x = ln2/N*k + r, with int k and r in [-ln2/2N, ln2/2N].  */
++  double z = InvLn2N * x;
++  double kd = round (z);
++  uint64_t ki = lround (z);
++  double r = x - kd * Ln2HiN - kd * Ln2LoN;
++  /* The code assumes 2^-200 < |xtail| < 2^-8/N.  */
++  r += xtail;
++  /* 2^(k/N) ~= scale.  */
++  uint64_t idx = ki & (N_EXP - 1);
++  uint64_t top = (ki + sign_bias) << (52 - V_POW_EXP_TABLE_BITS);
++  /* This is only a valid scale when -1023*N < k < 1024*N.  */
++  uint64_t sbits = SBits[idx] + top;
++  /* exp(x) = 2^(k/N) * exp(r) ~= scale + scale * (exp(r) - 1).  */
++  /* Evaluation is optimized assuming superscalar pipelined execution.  */
++  double r2 = r * r;
++  double tmp = r + r2 * Cs[0] + r * r2 * (Cs[1] + r * Cs[2]);
++  if (__glibc_unlikely (abstop == 0))
++    return special_case (tmp, sbits, ki);
++  double scale = asdouble (sbits);
++  /* Note: tmp == 0 or |tmp| > 2^-200 and scale > 2^-739, so there
++     is no spurious underflow here even without fma.  */
++  return scale + scale * tmp;
++}
++
++/* Computes exp(x+xtail) where |xtail| < 2^-8/N and |xtail| <= |x|.
++   A version of exp_inline that is not inlined and for which sign_bias is
++   equal to 0.  */
++static double NOINLINE
++exp_nosignbias (double x, double xtail)
++{
++  uint32_t abstop = top12 (x) & 0x7ff;
++  if (__glibc_unlikely (abstop - SmallExp >= ThresExp))
++    {
++      /* Avoid spurious underflow for tiny x.  */
++      if (abstop - SmallExp >= 0x80000000)
++	return 1.0;
++      /* Note: inf and nan are already handled.  */
++      if (abstop >= top12 (1024.0))
++#if WANT_SIMD_EXCEPT
++	return asuint64 (x) >> 63 ? __math_uflow (0) : __math_oflow (0);
++#else
++	return asuint64 (x) >> 63 ? 0.0 : INFINITY;
++#endif
++      /* Large x is special cased below.  */
++      abstop = 0;
++    }
++
++  /* exp(x) = 2^(k/N) * exp(r), with exp(r) in [2^(-1/2N),2^(1/2N)].  */
++  /* x = ln2/N*k + r, with k integer and r in [-ln2/2N, ln2/2N].  */
++  double z = InvLn2N * x;
++  double kd = round (z);
++  uint64_t ki = lround (z);
++  double r = x - kd * Ln2HiN - kd * Ln2LoN;
++  /* The code assumes 2^-200 < |xtail| < 2^-8/N.  */
++  r += xtail;
++  /* 2^(k/N) ~= scale.  */
++  uint64_t idx = ki & (N_EXP - 1);
++  uint64_t top = ki << (52 - V_POW_EXP_TABLE_BITS);
++  /* This is only a valid scale when -1023*N < k < 1024*N.  */
++  uint64_t sbits = SBits[idx] + top;
++  /* exp(x) = 2^(k/N) * exp(r) ~= scale + scale * (tail + exp(r) - 1).  */
++  double r2 = r * r;
++  double tmp = r + r2 * Cs[0] + r * r2 * (Cs[1] + r * Cs[2]);
++  if (__glibc_unlikely (abstop == 0))
++    return special_case (tmp, sbits, ki);
++  double scale = asdouble (sbits);
++  /* Note: tmp == 0 or |tmp| > 2^-200 and scale > 2^-739, so there
++     is no spurious underflow here even without fma.  */
++  return scale + scale * tmp;
++}
++
++/* Returns 0 if not int, 1 if odd int, 2 if even int.  The argument is
++   the bit representation of a non-zero finite floating-point value.  */
++static inline int
++checkint (uint64_t iy)
++{
++  int e = iy >> 52 & 0x7ff;
++  if (e < 0x3ff)
++    return 0;
++  if (e > 0x3ff + 52)
++    return 2;
++  if (iy & ((1ULL << (0x3ff + 52 - e)) - 1))
++    return 0;
++  if (iy & (1ULL << (0x3ff + 52 - e)))
++    return 1;
++  return 2;
++}
++
++/* Returns 1 if input is the bit representation of 0, infinity or nan.  */
++static inline int
++zeroinfnan (uint64_t i)
++{
++  return 2 * i - 1 >= 2 * asuint64 (INFINITY) - 1;
++}
++
++static double NOINLINE
++pow_scalar_special_case (double x, double y)
++{
++  uint32_t sign_bias = 0;
++  uint64_t ix, iy;
++  uint32_t topx, topy;
++
++  ix = asuint64 (x);
++  iy = asuint64 (y);
++  topx = top12 (x);
++  topy = top12 (y);
++  if (__glibc_unlikely (topx - SmallPowX >= ThresPowX
++		|| (topy & 0x7ff) - SmallPowY >= ThresPowY))
++    {
++      /* Note: if |y| > 1075 * ln2 * 2^53 ~= 0x1.749p62 then pow(x,y) = inf/0
++	 and if |y| < 2^-54 / 1075 ~= 0x1.e7b6p-65 then pow(x,y) = +-1.  */
++      /* Special cases: (x < 0x1p-126 or inf or nan) or
++	 (|y| < 0x1p-65 or |y| >= 0x1p63 or nan).  */
++      if (__glibc_unlikely (zeroinfnan (iy)))
++	{
++	  if (2 * iy == 0)
++	    return issignaling_inline (x) ? x + y : 1.0;
++	  if (ix == asuint64 (1.0))
++	    return issignaling_inline (y) ? x + y : 1.0;
++	  if (2 * ix > 2 * asuint64 (INFINITY)
++	      || 2 * iy > 2 * asuint64 (INFINITY))
++	    return x + y;
++	  if (2 * ix == 2 * asuint64 (1.0))
++	    return 1.0;
++	  if ((2 * ix < 2 * asuint64 (1.0)) == !(iy >> 63))
++	    return 0.0; /* |x|<1 && y==inf or |x|>1 && y==-inf.  */
++	  return y * y;
++	}
++      if (__glibc_unlikely (zeroinfnan (ix)))
++	{
++	  double x2 = x * x;
++	  if (ix >> 63 && checkint (iy) == 1)
++	    {
++	      x2 = -x2;
++	      sign_bias = 1;
++	    }
++#if WANT_SIMD_EXCEPT
++	  if (2 * ix == 0 && iy >> 63)
++	    return __math_divzero (sign_bias);
++#endif
++	  return iy >> 63 ? 1 / x2 : x2;
++	}
++      /* Here x and y are non-zero finite.  */
++      if (ix >> 63)
++	{
++	  /* Finite x < 0.  */
++	  int yint = checkint (iy);
++	  if (yint == 0)
++#if WANT_SIMD_EXCEPT
++	    return __math_invalid (x);
++#else
++	    return __builtin_nan ("");
++#endif
++	  if (yint == 1)
++	    sign_bias = SignBias;
++	  ix &= 0x7fffffffffffffff;
++	  topx &= 0x7ff;
++	}
++      if ((topy & 0x7ff) - SmallPowY >= ThresPowY)
++	{
++	  /* Note: sign_bias == 0 here because y is not odd.  */
++	  if (ix == asuint64 (1.0))
++	    return 1.0;
++	  /* |y| < 2^-65, x^y ~= 1 + y*log(x).  */
++	  if ((topy & 0x7ff) < SmallPowY)
++	    return 1.0;
++#if WANT_SIMD_EXCEPT
++	  return (ix > asuint64 (1.0)) == (topy < 0x800) ? __math_oflow (0)
++							 : __math_uflow (0);
++#else
++	  return (ix > asuint64 (1.0)) == (topy < 0x800) ? INFINITY : 0;
++#endif
++	}
++      if (topx == 0)
++	{
++	  /* Normalize subnormal x so exponent becomes negative.  */
++	  ix = asuint64 (x * 0x1p52);
++	  ix &= 0x7fffffffffffffff;
++	  ix -= 52ULL << 52;
++	}
++    }
++
++  double lo;
++  double hi = log_inline (ix, &lo);
++  double ehi = y * hi;
++  double elo = y * lo + fma (y, hi, -ehi);
++  return exp_inline (ehi, elo, sign_bias);
++}
+diff --git a/sysdeps/aarch64/fpu/pow_advsimd.c b/sysdeps/aarch64/fpu/pow_advsimd.c
+new file mode 100644
+index 0000000000000000..3c91e3e183599e3e
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/pow_advsimd.c
+@@ -0,0 +1,249 @@
++/* Double-precision vector (AdvSIMD) pow function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "v_math.h"
++
++/* Defines parameters of the approximation and scalar fallback.  */
++#include "finite_pow.h"
++
++#define VecSmallExp v_u64 (SmallExp)
++#define VecThresExp v_u64 (ThresExp)
++
++#define VecSmallPowX v_u64 (SmallPowX)
++#define VecThresPowX v_u64 (ThresPowX)
++#define VecSmallPowY v_u64 (SmallPowY)
++#define VecThresPowY v_u64 (ThresPowY)
++
++static const struct data
++{
++  float64x2_t log_poly[6];
++  float64x2_t exp_poly[3];
++  float64x2_t ln2_hi, ln2_lo;
++  float64x2_t shift, inv_ln2_n, ln2_hi_n, ln2_lo_n, small_powx;
++  uint64x2_t inf;
++} data = {
++  /* Coefficients copied from v_pow_log_data.c
++     relative error: 0x1.11922ap-70 in [-0x1.6bp-8, 0x1.6bp-8]
++     Coefficients are scaled to match the scaling during evaluation.  */
++  .log_poly
++  = { V2 (0x1.555555555556p-2 * -2), V2 (-0x1.0000000000006p-2 * -2),
++      V2 (0x1.999999959554ep-3 * 4), V2 (-0x1.555555529a47ap-3 * 4),
++      V2 (0x1.2495b9b4845e9p-3 * -8), V2 (-0x1.0002b8b263fc3p-3 * -8) },
++  .ln2_hi = V2 (0x1.62e42fefa3800p-1),
++  .ln2_lo = V2 (0x1.ef35793c76730p-45),
++  /* Polynomial coefficients: abs error: 1.43*2^-58, ulp error: 0.549
++     (0.550 without fma) if |x| < ln2/512.  */
++  .exp_poly = { V2 (0x1.fffffffffffd4p-2), V2 (0x1.5555571d6ef9p-3),
++		V2 (0x1.5555576a5adcep-5) },
++  .shift = V2 (0x1.8p52), /* round to nearest int. without intrinsics.  */
++  .inv_ln2_n = V2 (0x1.71547652b82fep8), /* N/ln2.  */
++  .ln2_hi_n = V2 (0x1.62e42fefc0000p-9), /* ln2/N.  */
++  .ln2_lo_n = V2 (-0x1.c610ca86c3899p-45),
++  .small_powx = V2 (0x1p-126),
++  .inf = V2 (0x7ff0000000000000)
++};
++
++#define A(i) data.log_poly[i]
++#define C(i) data.exp_poly[i]
++
++/* This version implements an algorithm close to scalar pow but
++   - does not implement the trick in the exp's specialcase subroutine to avoid
++     double-rounding,
++   - does not use a tail in the exponential core computation,
++   - and pow's exp polynomial order and table bits might differ.
++
++   Maximum measured error is 1.04 ULPs:
++   _ZGVnN2vv_pow(0x1.024a3e56b3c3p-136, 0x1.87910248b58acp-13)
++     got 0x1.f71162f473251p-1
++    want 0x1.f71162f473252p-1.  */
++
++static inline float64x2_t
++v_masked_lookup_f64 (const double *table, uint64x2_t i)
++{
++  return (float64x2_t){
++    table[(i[0] >> (52 - V_POW_LOG_TABLE_BITS)) & (N_LOG - 1)],
++    table[(i[1] >> (52 - V_POW_LOG_TABLE_BITS)) & (N_LOG - 1)]
++  };
++}
++
++/* Compute y+TAIL = log(x) where the rounded result is y and TAIL has about
++   additional 15 bits precision.  IX is the bit representation of x, but
++   normalized in the subnormal range using the sign bit for the exponent.  */
++static inline float64x2_t
++v_log_inline (uint64x2_t ix, float64x2_t *tail, const struct data *d)
++{
++  /* x = 2^k z; where z is in range [OFF,2*OFF) and exact.
++     The range is split into N subintervals.
++     The ith subinterval contains z and c is near its center.  */
++  uint64x2_t tmp = vsubq_u64 (ix, v_u64 (Off));
++  int64x2_t k
++      = vshrq_n_s64 (vreinterpretq_s64_u64 (tmp), 52); /* arithmetic shift.  */
++  uint64x2_t iz = vsubq_u64 (ix, vandq_u64 (tmp, v_u64 (0xfffULL << 52)));
++  float64x2_t z = vreinterpretq_f64_u64 (iz);
++  float64x2_t kd = vcvtq_f64_s64 (k);
++  /* log(x) = k*Ln2 + log(c) + log1p(z/c-1).  */
++  float64x2_t invc = v_masked_lookup_f64 (__v_pow_log_data.invc, tmp);
++  float64x2_t logc = v_masked_lookup_f64 (__v_pow_log_data.logc, tmp);
++  float64x2_t logctail = v_masked_lookup_f64 (__v_pow_log_data.logctail, tmp);
++  /* Note: 1/c is j/N or j/N/2 where j is an integer in [N,2N) and
++     |z/c - 1| < 1/N, so r = z/c - 1 is exactly representible.  */
++  float64x2_t r = vfmaq_f64 (v_f64 (-1.0), z, invc);
++  /* k*Ln2 + log(c) + r.  */
++  float64x2_t t1 = vfmaq_f64 (logc, kd, d->ln2_hi);
++  float64x2_t t2 = vaddq_f64 (t1, r);
++  float64x2_t lo1 = vfmaq_f64 (logctail, kd, d->ln2_lo);
++  float64x2_t lo2 = vaddq_f64 (vsubq_f64 (t1, t2), r);
++  /* Evaluation is optimized assuming superscalar pipelined execution.  */
++  float64x2_t ar = vmulq_f64 (v_f64 (-0.5), r);
++  float64x2_t ar2 = vmulq_f64 (r, ar);
++  float64x2_t ar3 = vmulq_f64 (r, ar2);
++  /* k*Ln2 + log(c) + r + A[0]*r*r.  */
++  float64x2_t hi = vaddq_f64 (t2, ar2);
++  float64x2_t lo3 = vfmaq_f64 (vnegq_f64 (ar2), ar, r);
++  float64x2_t lo4 = vaddq_f64 (vsubq_f64 (t2, hi), ar2);
++  /* p = log1p(r) - r - A[0]*r*r.  */
++  float64x2_t a56 = vfmaq_f64 (A (4), r, A (5));
++  float64x2_t a34 = vfmaq_f64 (A (2), r, A (3));
++  float64x2_t a12 = vfmaq_f64 (A (0), r, A (1));
++  float64x2_t p = vfmaq_f64 (a34, ar2, a56);
++  p = vfmaq_f64 (a12, ar2, p);
++  p = vmulq_f64 (ar3, p);
++  float64x2_t lo
++      = vaddq_f64 (vaddq_f64 (vaddq_f64 (vaddq_f64 (lo1, lo2), lo3), lo4), p);
++  float64x2_t y = vaddq_f64 (hi, lo);
++  *tail = vaddq_f64 (vsubq_f64 (hi, y), lo);
++  return y;
++}
++
++static float64x2_t VPCS_ATTR NOINLINE
++exp_special_case (float64x2_t x, float64x2_t xtail)
++{
++  return (float64x2_t){ exp_nosignbias (x[0], xtail[0]),
++			exp_nosignbias (x[1], xtail[1]) };
++}
++
++/* Computes sign*exp(x+xtail) where |xtail| < 2^-8/N and |xtail| <= |x|.  */
++static inline float64x2_t
++v_exp_inline (float64x2_t x, float64x2_t xtail, const struct data *d)
++{
++  /* Fallback to scalar exp_inline for all lanes if any lane
++     contains value of x s.t. |x| <= 2^-54 or >= 512.  */
++  uint64x2_t abstop
++      = vshrq_n_u64 (vandq_u64 (vreinterpretq_u64_f64 (x), d->inf), 52);
++  uint64x2_t uoflowx
++      = vcgeq_u64 (vsubq_u64 (abstop, VecSmallExp), VecThresExp);
++  if (__glibc_unlikely (v_any_u64 (uoflowx)))
++    return exp_special_case (x, xtail);
++
++  /* exp(x) = 2^(k/N) * exp(r), with exp(r) in [2^(-1/2N),2^(1/2N)].  */
++  /* x = ln2/N*k + r, with k integer and r in [-ln2/2N, ln2/2N].  */
++  float64x2_t z = vmulq_f64 (d->inv_ln2_n, x);
++  /* z - kd is in [-1, 1] in non-nearest rounding modes.  */
++  float64x2_t kd = vaddq_f64 (z, d->shift);
++  uint64x2_t ki = vreinterpretq_u64_f64 (kd);
++  kd = vsubq_f64 (kd, d->shift);
++  float64x2_t r = vfmsq_f64 (x, kd, d->ln2_hi_n);
++  r = vfmsq_f64 (r, kd, d->ln2_lo_n);
++  /* The code assumes 2^-200 < |xtail| < 2^-8/N.  */
++  r = vaddq_f64 (r, xtail);
++  /* 2^(k/N) ~= scale.  */
++  uint64x2_t idx = vandq_u64 (ki, v_u64 (N_EXP - 1));
++  uint64x2_t top = vshlq_n_u64 (ki, 52 - V_POW_EXP_TABLE_BITS);
++  /* This is only a valid scale when -1023*N < k < 1024*N.  */
++  uint64x2_t sbits = v_lookup_u64 (SBits, idx);
++  sbits = vaddq_u64 (sbits, top);
++  /* exp(x) = 2^(k/N) * exp(r) ~= scale + scale * (exp(r) - 1).  */
++  float64x2_t r2 = vmulq_f64 (r, r);
++  float64x2_t tmp = vfmaq_f64 (C (1), r, C (2));
++  tmp = vfmaq_f64 (C (0), r, tmp);
++  tmp = vfmaq_f64 (r, r2, tmp);
++  float64x2_t scale = vreinterpretq_f64_u64 (sbits);
++  /* Note: tmp == 0 or |tmp| > 2^-200 and scale > 2^-739, so there
++     is no spurious underflow here even without fma.  */
++  return vfmaq_f64 (scale, scale, tmp);
++}
++
++static float64x2_t NOINLINE VPCS_ATTR
++scalar_fallback (float64x2_t x, float64x2_t y)
++{
++  return (float64x2_t){ pow_scalar_special_case (x[0], y[0]),
++			pow_scalar_special_case (x[1], y[1]) };
++}
++
++float64x2_t VPCS_ATTR V_NAME_D2 (pow) (float64x2_t x, float64x2_t y)
++{
++  const struct data *d = ptr_barrier (&data);
++  /* Case of x <= 0 is too complicated to be vectorised efficiently here,
++     fallback to scalar pow for all lanes if any x < 0 detected.  */
++  if (v_any_u64 (vclezq_s64 (vreinterpretq_s64_f64 (x))))
++    return scalar_fallback (x, y);
++
++  uint64x2_t vix = vreinterpretq_u64_f64 (x);
++  uint64x2_t viy = vreinterpretq_u64_f64 (y);
++  uint64x2_t iay = vandq_u64 (viy, d->inf);
++
++  /* Special cases of x or y.  */
++#if WANT_SIMD_EXCEPT
++  /* Small or large.  */
++  uint64x2_t vtopx = vshrq_n_u64 (vix, 52);
++  uint64x2_t vabstopy = vshrq_n_u64 (iay, 52);
++  uint64x2_t specialx
++      = vcgeq_u64 (vsubq_u64 (vtopx, VecSmallPowX), VecThresPowX);
++  uint64x2_t specialy
++      = vcgeq_u64 (vsubq_u64 (vabstopy, VecSmallPowY), VecThresPowY);
++#else
++  /* The case y==0 does not trigger a special case, since in this case it is
++     necessary to fix the result only if x is a signalling nan, which already
++     triggers a special case. We test y==0 directly in the scalar fallback.  */
++  uint64x2_t iax = vandq_u64 (vix, d->inf);
++  uint64x2_t specialx = vcgeq_u64 (iax, d->inf);
++  uint64x2_t specialy = vcgeq_u64 (iay, d->inf);
++#endif
++  uint64x2_t special = vorrq_u64 (specialx, specialy);
++  /* Fallback to scalar on all lanes if any lane is inf or nan.  */
++  if (__glibc_unlikely (v_any_u64 (special)))
++    return scalar_fallback (x, y);
++
++  /* Small cases of x: |x| < 0x1p-126.  */
++  uint64x2_t smallx = vcaltq_f64 (x, d->small_powx);
++  if (__glibc_unlikely (v_any_u64 (smallx)))
++    {
++      /* Update ix if top 12 bits of x are 0.  */
++      uint64x2_t sub_x = vceqzq_u64 (vshrq_n_u64 (vix, 52));
++      if (__glibc_unlikely (v_any_u64 (sub_x)))
++	{
++	  /* Normalize subnormal x so exponent becomes negative.  */
++	  uint64x2_t vix_norm = vreinterpretq_u64_f64 (
++	      vabsq_f64 (vmulq_f64 (x, vcvtq_f64_u64 (v_u64 (1ULL << 52)))));
++	  vix_norm = vsubq_u64 (vix_norm, v_u64 (52ULL << 52));
++	  vix = vbslq_u64 (sub_x, vix_norm, vix);
++	}
++    }
++
++  /* Vector Log(ix, &lo).  */
++  float64x2_t vlo;
++  float64x2_t vhi = v_log_inline (vix, &vlo, d);
++
++  /* Vector Exp(y_loghi, y_loglo).  */
++  float64x2_t vehi = vmulq_f64 (y, vhi);
++  float64x2_t velo = vmulq_f64 (y, vlo);
++  float64x2_t vemi = vfmsq_f64 (vehi, y, vhi);
++  velo = vsubq_f64 (velo, vemi);
++  return v_exp_inline (vehi, velo, d);
++}
+diff --git a/sysdeps/aarch64/fpu/pow_sve.c b/sysdeps/aarch64/fpu/pow_sve.c
+new file mode 100644
+index 0000000000000000..4c0bf8956c584be7
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/pow_sve.c
+@@ -0,0 +1,411 @@
++/* Double-precision vector (SVE) pow function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++/* This version share a similar algorithm as AOR scalar pow.
++
++   The core computation consists in computing pow(x, y) as
++
++     exp (y * log (x)).
++
++   The algorithms for exp and log are very similar to scalar exp and log.
++   The log relies on table lookup for 3 variables and an order 8 polynomial.
++   It returns a high and a low contribution that are then passed to the exp,
++   to minimise the loss of accuracy in both routines.
++   The exp is based on 8-bit table lookup for scale and order-4 polynomial.
++   The SVE algorithm drops the tail in the exp computation at the price of
++   a lower accuracy, slightly above 1ULP.
++   The SVE algorithm also drops the special treatement of small (< 2^-65) and
++   large (> 2^63) finite values of |y|, as they only affect non-round to nearest
++   modes.
++
++   Maximum measured error is 1.04 ULPs:
++   SV_NAME_D2 (pow) (0x1.3d2d45bc848acp+63, -0x1.a48a38b40cd43p-12)
++     got 0x1.f7116284221fcp-1
++    want 0x1.f7116284221fdp-1.  */
++
++#include "math_config.h"
++#include "sv_math.h"
++
++/* Data is defined in v_pow_log_data.c.  */
++#define N_LOG (1 << V_POW_LOG_TABLE_BITS)
++#define A __v_pow_log_data.poly
++#define Off 0x3fe6955500000000
++
++/* Data is defined in v_pow_exp_data.c.  */
++#define N_EXP (1 << V_POW_EXP_TABLE_BITS)
++#define SignBias (0x800 << V_POW_EXP_TABLE_BITS)
++#define C __v_pow_exp_data.poly
++#define SmallExp 0x3c9 /* top12(0x1p-54).  */
++#define BigExp 0x408   /* top12(512.).  */
++#define ThresExp 0x03f /* BigExp - SmallExp.  */
++#define HugeExp 0x409  /* top12(1024.).  */
++
++/* Constants associated with pow.  */
++#define SmallPowX 0x001 /* top12(0x1p-126).  */
++#define BigPowX 0x7ff	/* top12(INFINITY).  */
++#define ThresPowX 0x7fe /* BigPowX - SmallPowX.  */
++#define SmallPowY 0x3be /* top12(0x1.e7b6p-65).  */
++#define BigPowY 0x43e	/* top12(0x1.749p62).  */
++#define ThresPowY 0x080 /* BigPowY - SmallPowY.  */
++
++/* Check if x is an integer.  */
++static inline svbool_t
++sv_isint (svbool_t pg, svfloat64_t x)
++{
++  return svcmpeq (pg, svrintz_z (pg, x), x);
++}
++
++/* Check if x is real not integer valued.  */
++static inline svbool_t
++sv_isnotint (svbool_t pg, svfloat64_t x)
++{
++  return svcmpne (pg, svrintz_z (pg, x), x);
++}
++
++/* Check if x is an odd integer.  */
++static inline svbool_t
++sv_isodd (svbool_t pg, svfloat64_t x)
++{
++  svfloat64_t y = svmul_x (pg, x, 0.5);
++  return sv_isnotint (pg, y);
++}
++
++/* Returns 0 if not int, 1 if odd int, 2 if even int.  The argument is
++   the bit representation of a non-zero finite floating-point value.  */
++static inline int
++checkint (uint64_t iy)
++{
++  int e = iy >> 52 & 0x7ff;
++  if (e < 0x3ff)
++    return 0;
++  if (e > 0x3ff + 52)
++    return 2;
++  if (iy & ((1ULL << (0x3ff + 52 - e)) - 1))
++    return 0;
++  if (iy & (1ULL << (0x3ff + 52 - e)))
++    return 1;
++  return 2;
++}
++
++/* Top 12 bits (sign and exponent of each double float lane).  */
++static inline svuint64_t
++sv_top12 (svfloat64_t x)
++{
++  return svlsr_x (svptrue_b64 (), svreinterpret_u64 (x), 52);
++}
++
++/* Returns 1 if input is the bit representation of 0, infinity or nan.  */
++static inline int
++zeroinfnan (uint64_t i)
++{
++  return 2 * i - 1 >= 2 * asuint64 (INFINITY) - 1;
++}
++
++/* Returns 1 if input is the bit representation of 0, infinity or nan.  */
++static inline svbool_t
++sv_zeroinfnan (svbool_t pg, svuint64_t i)
++{
++  return svcmpge (pg, svsub_x (pg, svmul_x (pg, i, 2), 1),
++		  2 * asuint64 (INFINITY) - 1);
++}
++
++/* Handle cases that may overflow or underflow when computing the result that
++   is scale*(1+TMP) without intermediate rounding.  The bit representation of
++   scale is in SBITS, however it has a computed exponent that may have
++   overflown into the sign bit so that needs to be adjusted before using it as
++   a double.  (int32_t)KI is the k used in the argument reduction and exponent
++   adjustment of scale, positive k here means the result may overflow and
++   negative k means the result may underflow.  */
++static inline double
++specialcase (double tmp, uint64_t sbits, uint64_t ki)
++{
++  double scale;
++  if ((ki & 0x80000000) == 0)
++    {
++      /* k > 0, the exponent of scale might have overflowed by <= 460.  */
++      sbits -= 1009ull << 52;
++      scale = asdouble (sbits);
++      return 0x1p1009 * (scale + scale * tmp);
++    }
++  /* k < 0, need special care in the subnormal range.  */
++  sbits += 1022ull << 52;
++  /* Note: sbits is signed scale.  */
++  scale = asdouble (sbits);
++  double y = scale + scale * tmp;
++  return 0x1p-1022 * y;
++}
++
++/* Scalar fallback for special cases of SVE pow's exp.  */
++static inline svfloat64_t
++sv_call_specialcase (svfloat64_t x1, svuint64_t u1, svuint64_t u2,
++		     svfloat64_t y, svbool_t cmp)
++{
++  svbool_t p = svpfirst (cmp, svpfalse ());
++  while (svptest_any (cmp, p))
++    {
++      double sx1 = svclastb (p, 0, x1);
++      uint64_t su1 = svclastb (p, 0, u1);
++      uint64_t su2 = svclastb (p, 0, u2);
++      double elem = specialcase (sx1, su1, su2);
++      svfloat64_t y2 = sv_f64 (elem);
++      y = svsel (p, y2, y);
++      p = svpnext_b64 (cmp, p);
++    }
++  return y;
++}
++
++/* Compute y+TAIL = log(x) where the rounded result is y and TAIL has about
++   additional 15 bits precision.  IX is the bit representation of x, but
++   normalized in the subnormal range using the sign bit for the exponent.  */
++static inline svfloat64_t
++sv_log_inline (svbool_t pg, svuint64_t ix, svfloat64_t *tail)
++{
++  /* x = 2^k z; where z is in range [Off,2*Off) and exact.
++     The range is split into N subintervals.
++     The ith subinterval contains z and c is near its center.  */
++  svuint64_t tmp = svsub_x (pg, ix, Off);
++  svuint64_t i = svand_x (pg, svlsr_x (pg, tmp, 52 - V_POW_LOG_TABLE_BITS),
++			  sv_u64 (N_LOG - 1));
++  svint64_t k = svasr_x (pg, svreinterpret_s64 (tmp), 52);
++  svuint64_t iz = svsub_x (pg, ix, svand_x (pg, tmp, sv_u64 (0xfffULL << 52)));
++  svfloat64_t z = svreinterpret_f64 (iz);
++  svfloat64_t kd = svcvt_f64_x (pg, k);
++
++  /* log(x) = k*Ln2 + log(c) + log1p(z/c-1).  */
++  /* SVE lookup requires 3 separate lookup tables, as opposed to scalar version
++     that uses array of structures. We also do the lookup earlier in the code to
++     make sure it finishes as early as possible.  */
++  svfloat64_t invc = svld1_gather_index (pg, __v_pow_log_data.invc, i);
++  svfloat64_t logc = svld1_gather_index (pg, __v_pow_log_data.logc, i);
++  svfloat64_t logctail = svld1_gather_index (pg, __v_pow_log_data.logctail, i);
++
++  /* Note: 1/c is j/N or j/N/2 where j is an integer in [N,2N) and
++     |z/c - 1| < 1/N, so r = z/c - 1 is exactly representible.  */
++  svfloat64_t r = svmad_x (pg, z, invc, -1.0);
++  /* k*Ln2 + log(c) + r.  */
++  svfloat64_t t1 = svmla_x (pg, logc, kd, __v_pow_log_data.ln2_hi);
++  svfloat64_t t2 = svadd_x (pg, t1, r);
++  svfloat64_t lo1 = svmla_x (pg, logctail, kd, __v_pow_log_data.ln2_lo);
++  svfloat64_t lo2 = svadd_x (pg, svsub_x (pg, t1, t2), r);
++
++  /* Evaluation is optimized assuming superscalar pipelined execution.  */
++  svfloat64_t ar = svmul_x (pg, r, -0.5); /* A[0] = -0.5.  */
++  svfloat64_t ar2 = svmul_x (pg, r, ar);
++  svfloat64_t ar3 = svmul_x (pg, r, ar2);
++  /* k*Ln2 + log(c) + r + A[0]*r*r.  */
++  svfloat64_t hi = svadd_x (pg, t2, ar2);
++  svfloat64_t lo3 = svmla_x (pg, svneg_x (pg, ar2), ar, r);
++  svfloat64_t lo4 = svadd_x (pg, svsub_x (pg, t2, hi), ar2);
++  /* p = log1p(r) - r - A[0]*r*r.  */
++  /* p = (ar3 * (A[1] + r * A[2] + ar2 * (A[3] + r * A[4] + ar2 * (A[5] + r *
++     A[6])))).  */
++  svfloat64_t a56 = svmla_x (pg, sv_f64 (A[5]), r, A[6]);
++  svfloat64_t a34 = svmla_x (pg, sv_f64 (A[3]), r, A[4]);
++  svfloat64_t a12 = svmla_x (pg, sv_f64 (A[1]), r, A[2]);
++  svfloat64_t p = svmla_x (pg, a34, ar2, a56);
++  p = svmla_x (pg, a12, ar2, p);
++  p = svmul_x (pg, ar3, p);
++  svfloat64_t lo = svadd_x (
++      pg, svadd_x (pg, svadd_x (pg, svadd_x (pg, lo1, lo2), lo3), lo4), p);
++  svfloat64_t y = svadd_x (pg, hi, lo);
++  *tail = svadd_x (pg, svsub_x (pg, hi, y), lo);
++  return y;
++}
++
++/* Computes sign*exp(x+xtail) where |xtail| < 2^-8/N and |xtail| <= |x|.
++   The sign_bias argument is SignBias or 0 and sets the sign to -1 or 1.  */
++static inline svfloat64_t
++sv_exp_inline (svbool_t pg, svfloat64_t x, svfloat64_t xtail,
++	       svuint64_t sign_bias)
++{
++  /* 3 types of special cases: tiny (uflow and spurious uflow), huge (oflow)
++     and other cases of large values of x (scale * (1 + TMP) oflow).  */
++  svuint64_t abstop = svand_x (pg, sv_top12 (x), 0x7ff);
++  /* |x| is large (|x| >= 512) or tiny (|x| <= 0x1p-54).  */
++  svbool_t uoflow = svcmpge (pg, svsub_x (pg, abstop, SmallExp), ThresExp);
++
++  /* Conditions special, uflow and oflow are all expressed as uoflow &&
++     something, hence do not bother computing anything if no lane in uoflow is
++     true.  */
++  svbool_t special = svpfalse_b ();
++  svbool_t uflow = svpfalse_b ();
++  svbool_t oflow = svpfalse_b ();
++  if (__glibc_unlikely (svptest_any (pg, uoflow)))
++    {
++      /* |x| is tiny (|x| <= 0x1p-54).  */
++      uflow = svcmpge (pg, svsub_x (pg, abstop, SmallExp), 0x80000000);
++      uflow = svand_z (pg, uoflow, uflow);
++      /* |x| is huge (|x| >= 1024).  */
++      oflow = svcmpge (pg, abstop, HugeExp);
++      oflow = svand_z (pg, uoflow, svbic_z (pg, oflow, uflow));
++      /* For large |x| values (512 < |x| < 1024) scale * (1 + TMP) can overflow
++	 or underflow.  */
++      special = svbic_z (pg, uoflow, svorr_z (pg, uflow, oflow));
++    }
++
++  /* exp(x) = 2^(k/N) * exp(r), with exp(r) in [2^(-1/2N),2^(1/2N)].  */
++  /* x = ln2/N*k + r, with int k and r in [-ln2/2N, ln2/2N].  */
++  svfloat64_t z = svmul_x (pg, x, __v_pow_exp_data.n_over_ln2);
++  /* z - kd is in [-1, 1] in non-nearest rounding modes.  */
++  svfloat64_t shift = sv_f64 (__v_pow_exp_data.shift);
++  svfloat64_t kd = svadd_x (pg, z, shift);
++  svuint64_t ki = svreinterpret_u64 (kd);
++  kd = svsub_x (pg, kd, shift);
++  svfloat64_t r = x;
++  r = svmls_x (pg, r, kd, __v_pow_exp_data.ln2_over_n_hi);
++  r = svmls_x (pg, r, kd, __v_pow_exp_data.ln2_over_n_lo);
++  /* The code assumes 2^-200 < |xtail| < 2^-8/N.  */
++  r = svadd_x (pg, r, xtail);
++  /* 2^(k/N) ~= scale.  */
++  svuint64_t idx = svand_x (pg, ki, N_EXP - 1);
++  svuint64_t top
++      = svlsl_x (pg, svadd_x (pg, ki, sign_bias), 52 - V_POW_EXP_TABLE_BITS);
++  /* This is only a valid scale when -1023*N < k < 1024*N.  */
++  svuint64_t sbits = svld1_gather_index (pg, __v_pow_exp_data.sbits, idx);
++  sbits = svadd_x (pg, sbits, top);
++  /* exp(x) = 2^(k/N) * exp(r) ~= scale + scale * (exp(r) - 1).  */
++  svfloat64_t r2 = svmul_x (pg, r, r);
++  svfloat64_t tmp = svmla_x (pg, sv_f64 (C[1]), r, C[2]);
++  tmp = svmla_x (pg, sv_f64 (C[0]), r, tmp);
++  tmp = svmla_x (pg, r, r2, tmp);
++  svfloat64_t scale = svreinterpret_f64 (sbits);
++  /* Note: tmp == 0 or |tmp| > 2^-200 and scale > 2^-739, so there
++     is no spurious underflow here even without fma.  */
++  z = svmla_x (pg, scale, scale, tmp);
++
++  /* Update result with special and large cases.  */
++  if (__glibc_unlikely (svptest_any (pg, special)))
++    z = sv_call_specialcase (tmp, sbits, ki, z, special);
++
++  /* Handle underflow and overflow.  */
++  svuint64_t sign_bit = svlsr_x (pg, svreinterpret_u64 (x), 63);
++  svbool_t x_is_neg = svcmpne (pg, sign_bit, 0);
++  svuint64_t sign_mask = svlsl_x (pg, sign_bias, 52 - V_POW_EXP_TABLE_BITS);
++  svfloat64_t res_uoflow = svsel (x_is_neg, sv_f64 (0.0), sv_f64 (INFINITY));
++  res_uoflow = svreinterpret_f64 (
++      svorr_x (pg, svreinterpret_u64 (res_uoflow), sign_mask));
++  z = svsel (oflow, res_uoflow, z);
++  /* Avoid spurious underflow for tiny x.  */
++  svfloat64_t res_spurious_uflow
++      = svreinterpret_f64 (svorr_x (pg, sign_mask, 0x3ff0000000000000));
++  z = svsel (uflow, res_spurious_uflow, z);
++
++  return z;
++}
++
++static inline double
++pow_sc (double x, double y)
++{
++  uint64_t ix = asuint64 (x);
++  uint64_t iy = asuint64 (y);
++  /* Special cases: |x| or |y| is 0, inf or nan.  */
++  if (__glibc_unlikely (zeroinfnan (iy)))
++    {
++      if (2 * iy == 0)
++	return issignaling_inline (x) ? x + y : 1.0;
++      if (ix == asuint64 (1.0))
++	return issignaling_inline (y) ? x + y : 1.0;
++      if (2 * ix > 2 * asuint64 (INFINITY) || 2 * iy > 2 * asuint64 (INFINITY))
++	return x + y;
++      if (2 * ix == 2 * asuint64 (1.0))
++	return 1.0;
++      if ((2 * ix < 2 * asuint64 (1.0)) == !(iy >> 63))
++	return 0.0; /* |x|<1 && y==inf or |x|>1 && y==-inf.  */
++      return y * y;
++    }
++  if (__glibc_unlikely (zeroinfnan (ix)))
++    {
++      double_t x2 = x * x;
++      if (ix >> 63 && checkint (iy) == 1)
++	x2 = -x2;
++      return (iy >> 63) ? 1 / x2 : x2;
++    }
++  return x;
++}
++
++svfloat64_t SV_NAME_D2 (pow) (svfloat64_t x, svfloat64_t y, const svbool_t pg)
++{
++  /* This preamble handles special case conditions used in the final scalar
++     fallbacks. It also updates ix and sign_bias, that are used in the core
++     computation too, i.e., exp( y * log (x) ).  */
++  svuint64_t vix0 = svreinterpret_u64 (x);
++  svuint64_t viy0 = svreinterpret_u64 (y);
++  svuint64_t vtopx0 = svlsr_x (svptrue_b64 (), vix0, 52);
++
++  /* Negative x cases.  */
++  svuint64_t sign_bit = svlsr_m (pg, vix0, 63);
++  svbool_t xisneg = svcmpeq (pg, sign_bit, 1);
++
++  /* Set sign_bias and ix depending on sign of x and nature of y.  */
++  svbool_t yisnotint_xisneg = svpfalse_b ();
++  svuint64_t sign_bias = sv_u64 (0);
++  svuint64_t vix = vix0;
++  svuint64_t vtopx1 = vtopx0;
++  if (__glibc_unlikely (svptest_any (pg, xisneg)))
++    {
++      /* Determine nature of y.  */
++      yisnotint_xisneg = sv_isnotint (xisneg, y);
++      svbool_t yisint_xisneg = sv_isint (xisneg, y);
++      svbool_t yisodd_xisneg = sv_isodd (xisneg, y);
++      /* ix set to abs(ix) if y is integer.  */
++      vix = svand_m (yisint_xisneg, vix0, 0x7fffffffffffffff);
++      vtopx1 = svand_m (yisint_xisneg, vtopx0, 0x7ff);
++      /* Set to SignBias if x is negative and y is odd.  */
++      sign_bias = svsel (yisodd_xisneg, sv_u64 (SignBias), sv_u64 (0));
++    }
++
++  /* Special cases of x or y: zero, inf and nan.  */
++  svbool_t xspecial = sv_zeroinfnan (pg, vix0);
++  svbool_t yspecial = sv_zeroinfnan (pg, viy0);
++  svbool_t special = svorr_z (pg, xspecial, yspecial);
++
++  /* Small cases of x: |x| < 0x1p-126.  */
++  svuint64_t vabstopx0 = svand_x (pg, vtopx0, 0x7ff);
++  svbool_t xsmall = svcmplt (pg, vabstopx0, SmallPowX);
++  if (__glibc_unlikely (svptest_any (pg, xsmall)))
++    {
++      /* Normalize subnormal x so exponent becomes negative.  */
++      svbool_t topx_is_null = svcmpeq (xsmall, vtopx1, 0);
++
++      svuint64_t vix_norm = svreinterpret_u64 (svmul_m (xsmall, x, 0x1p52));
++      vix_norm = svand_m (xsmall, vix_norm, 0x7fffffffffffffff);
++      vix_norm = svsub_m (xsmall, vix_norm, 52ULL << 52);
++      vix = svsel (topx_is_null, vix_norm, vix);
++    }
++
++  /* y_hi = log(ix, &y_lo).  */
++  svfloat64_t vlo;
++  svfloat64_t vhi = sv_log_inline (pg, vix, &vlo);
++
++  /* z = exp(y_hi, y_lo, sign_bias).  */
++  svfloat64_t vehi = svmul_x (pg, y, vhi);
++  svfloat64_t velo = svmul_x (pg, y, vlo);
++  svfloat64_t vemi = svmls_x (pg, vehi, y, vhi);
++  velo = svsub_x (pg, velo, vemi);
++  svfloat64_t vz = sv_exp_inline (pg, vehi, velo, sign_bias);
++
++  /* Cases of finite y and finite negative x.  */
++  vz = svsel (yisnotint_xisneg, sv_f64 (__builtin_nan ("")), vz);
++
++  /* Cases of zero/inf/nan x or y.  */
++  if (__glibc_unlikely (svptest_any (pg, special)))
++    vz = sv_call2_f64 (pow_sc, x, y, vz, special);
++
++  return vz;
++}
+diff --git a/sysdeps/aarch64/fpu/powf_advsimd.c b/sysdeps/aarch64/fpu/powf_advsimd.c
+new file mode 100644
+index 0000000000000000..8232e70436dd5ef4
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/powf_advsimd.c
+@@ -0,0 +1,210 @@
++/* Single-precision vector (AdvSIMD) pow function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "math_config.h"
++#include "v_math.h"
++
++#define Min v_u32 (0x00800000)
++#define Max v_u32 (0x7f800000)
++#define Thresh v_u32 (0x7f000000) /* Max - Min.  */
++#define MantissaMask v_u32 (0x007fffff)
++
++#define A d->log2_poly
++#define C d->exp2f_poly
++
++/* 2.6 ulp ~ 0.5 + 2^24 (128*Ln2*relerr_log2 + relerr_exp2).  */
++#define Off v_u32 (0x3f35d000)
++
++#define V_POWF_LOG2_TABLE_BITS 5
++#define V_EXP2F_TABLE_BITS 5
++#define Log2IdxMask ((1 << V_POWF_LOG2_TABLE_BITS) - 1)
++#define Scale ((double) (1 << V_EXP2F_TABLE_BITS))
++
++static const struct data
++{
++  struct
++  {
++    double invc, logc;
++  } log2_tab[1 << V_POWF_LOG2_TABLE_BITS];
++  float64x2_t log2_poly[4];
++  uint64_t exp2f_tab[1 << V_EXP2F_TABLE_BITS];
++  float64x2_t exp2f_poly[3];
++} data = {
++  .log2_tab = {{0x1.6489890582816p+0, -0x1.e960f97b22702p-2 * Scale},
++	       {0x1.5cf19b35e3472p+0, -0x1.c993406cd4db6p-2 * Scale},
++	       {0x1.55aac0e956d65p+0, -0x1.aa711d9a7d0f3p-2 * Scale},
++	       {0x1.4eb0022977e01p+0, -0x1.8bf37bacdce9bp-2 * Scale},
++	       {0x1.47fcccda1dd1fp+0, -0x1.6e13b3519946ep-2 * Scale},
++	       {0x1.418ceabab68c1p+0, -0x1.50cb8281e4089p-2 * Scale},
++	       {0x1.3b5c788f1edb3p+0, -0x1.341504a237e2bp-2 * Scale},
++	       {0x1.3567de48e9c9ap+0, -0x1.17eaab624ffbbp-2 * Scale},
++	       {0x1.2fabc80fd19bap+0, -0x1.f88e708f8c853p-3 * Scale},
++	       {0x1.2a25200ce536bp+0, -0x1.c24b6da113914p-3 * Scale},
++	       {0x1.24d108e0152e3p+0, -0x1.8d02ee397cb1dp-3 * Scale},
++	       {0x1.1facd8ab2fbe1p+0, -0x1.58ac1223408b3p-3 * Scale},
++	       {0x1.1ab614a03efdfp+0, -0x1.253e6fd190e89p-3 * Scale},
++	       {0x1.15ea6d03af9ffp+0, -0x1.e5641882c12ffp-4 * Scale},
++	       {0x1.1147b994bb776p+0, -0x1.81fea712926f7p-4 * Scale},
++	       {0x1.0ccbf650593aap+0, -0x1.203e240de64a3p-4 * Scale},
++	       {0x1.0875408477302p+0, -0x1.8029b86a78281p-5 * Scale},
++	       {0x1.0441d42a93328p+0, -0x1.85d713190fb9p-6 * Scale},
++	       {0x1p+0, 0x0p+0 * Scale},
++	       {0x1.f1d006c855e86p-1, 0x1.4c1cc07312997p-5 * Scale},
++	       {0x1.e28c3341aa301p-1, 0x1.5e1848ccec948p-4 * Scale},
++	       {0x1.d4bdf9aa64747p-1, 0x1.04cfcb7f1196fp-3 * Scale},
++	       {0x1.c7b45a24e5803p-1, 0x1.582813d463c21p-3 * Scale},
++	       {0x1.bb5f5eb2ed60ap-1, 0x1.a936fa68760ccp-3 * Scale},
++	       {0x1.afb0bff8fe6b4p-1, 0x1.f81bc31d6cc4ep-3 * Scale},
++	       {0x1.a49badf7ab1f5p-1, 0x1.2279a09fae6b1p-2 * Scale},
++	       {0x1.9a14a111fc4c9p-1, 0x1.47ec0b6df5526p-2 * Scale},
++	       {0x1.901131f5b2fdcp-1, 0x1.6c71762280f1p-2 * Scale},
++	       {0x1.8687f73f6d865p-1, 0x1.90155070798dap-2 * Scale},
++	       {0x1.7d7067eb77986p-1, 0x1.b2e23b1d3068cp-2 * Scale},
++	       {0x1.74c2c1cf97b65p-1, 0x1.d4e21b0daa86ap-2 * Scale},
++	       {0x1.6c77f37cff2a1p-1, 0x1.f61e2a2f67f3fp-2 * Scale},},
++  .log2_poly = { /* rel err: 1.5 * 2^-30.  */
++		 V2 (-0x1.6ff5daa3b3d7cp-2 * Scale),
++		 V2 (0x1.ec81d03c01aebp-2 * Scale),
++		 V2 (-0x1.71547bb43f101p-1 * Scale),
++		 V2 (0x1.7154764a815cbp0 * Scale)},
++  .exp2f_tab = {0x3ff0000000000000, 0x3fefd9b0d3158574, 0x3fefb5586cf9890f,
++		0x3fef9301d0125b51, 0x3fef72b83c7d517b, 0x3fef54873168b9aa,
++		0x3fef387a6e756238, 0x3fef1e9df51fdee1, 0x3fef06fe0a31b715,
++		0x3feef1a7373aa9cb, 0x3feedea64c123422, 0x3feece086061892d,
++		0x3feebfdad5362a27, 0x3feeb42b569d4f82, 0x3feeab07dd485429,
++		0x3feea47eb03a5585, 0x3feea09e667f3bcd, 0x3fee9f75e8ec5f74,
++		0x3feea11473eb0187, 0x3feea589994cce13, 0x3feeace5422aa0db,
++		0x3feeb737b0cdc5e5, 0x3feec49182a3f090, 0x3feed503b23e255d,
++		0x3feee89f995ad3ad, 0x3feeff76f2fb5e47, 0x3fef199bdd85529c,
++		0x3fef3720dcef9069, 0x3fef5818dcfba487, 0x3fef7c97337b9b5f,
++		0x3fefa4afa2a490da, 0x3fefd0765b6e4540,},
++  .exp2f_poly = { /* rel err: 1.69 * 2^-34.  */
++		  V2 (0x1.c6af84b912394p-5 / Scale / Scale / Scale),
++		  V2 (0x1.ebfce50fac4f3p-3 / Scale / Scale),
++		  V2 (0x1.62e42ff0c52d6p-1 / Scale)}};
++
++static float32x4_t VPCS_ATTR NOINLINE
++special_case (float32x4_t x, float32x4_t y, float32x4_t ret, uint32x4_t cmp)
++{
++  return v_call2_f32 (powf, x, y, ret, cmp);
++}
++
++static inline float64x2_t
++ylogx_core (const struct data *d, float64x2_t iz, float64x2_t k,
++	    float64x2_t invc, float64x2_t logc, float64x2_t y)
++{
++
++  /* log2(x) = log1p(z/c-1)/ln2 + log2(c) + k.  */
++  float64x2_t r = vfmaq_f64 (v_f64 (-1.0), iz, invc);
++  float64x2_t y0 = vaddq_f64 (logc, k);
++
++  /* Polynomial to approximate log1p(r)/ln2.  */
++  float64x2_t logx = vfmaq_f64 (A[1], r, A[0]);
++  logx = vfmaq_f64 (A[2], logx, r);
++  logx = vfmaq_f64 (A[3], logx, r);
++  logx = vfmaq_f64 (y0, logx, r);
++
++  return vmulq_f64 (logx, y);
++}
++
++static inline float64x2_t
++log2_lookup (const struct data *d, uint32_t i)
++{
++  return vld1q_f64 (
++      &d->log2_tab[(i >> (23 - V_POWF_LOG2_TABLE_BITS)) & Log2IdxMask].invc);
++}
++
++static inline uint64x1_t
++exp2f_lookup (const struct data *d, uint64_t i)
++{
++  return vld1_u64 (&d->exp2f_tab[i % (1 << V_EXP2F_TABLE_BITS)]);
++}
++
++static inline float32x2_t
++powf_core (const struct data *d, float64x2_t ylogx)
++{
++  /* N*x = k + r with r in [-1/2, 1/2].  */
++  float64x2_t kd = vrndnq_f64 (ylogx);
++  int64x2_t ki = vcvtaq_s64_f64 (ylogx);
++  float64x2_t r = vsubq_f64 (ylogx, kd);
++
++  /* exp2(x) = 2^(k/N) * 2^r ~= s * (C0*r^3 + C1*r^2 + C2*r + 1).  */
++  uint64x2_t t = vcombine_u64 (exp2f_lookup (d, vgetq_lane_s64 (ki, 0)),
++			       exp2f_lookup (d, vgetq_lane_s64 (ki, 1)));
++  t = vaddq_u64 (
++      t, vreinterpretq_u64_s64 (vshlq_n_s64 (ki, 52 - V_EXP2F_TABLE_BITS)));
++  float64x2_t s = vreinterpretq_f64_u64 (t);
++  float64x2_t p = vfmaq_f64 (C[1], r, C[0]);
++  p = vfmaq_f64 (C[2], r, p);
++  p = vfmaq_f64 (s, p, vmulq_f64 (s, r));
++  return vcvt_f32_f64 (p);
++}
++
++float32x4_t VPCS_ATTR V_NAME_F2 (pow) (float32x4_t x, float32x4_t y)
++{
++  const struct data *d = ptr_barrier (&data);
++  uint32x4_t u = vreinterpretq_u32_f32 (x);
++  uint32x4_t cmp = vcgeq_u32 (vsubq_u32 (u, Min), Thresh);
++  uint32x4_t tmp = vsubq_u32 (u, Off);
++  uint32x4_t top = vbicq_u32 (tmp, MantissaMask);
++  float32x4_t iz = vreinterpretq_f32_u32 (vsubq_u32 (u, top));
++  int32x4_t k = vshrq_n_s32 (vreinterpretq_s32_u32 (top),
++			     23 - V_EXP2F_TABLE_BITS); /* arithmetic shift.  */
++
++  /* Use double precision for each lane: split input vectors into lo and hi
++     halves and promote.  */
++  float64x2_t tab0 = log2_lookup (d, vgetq_lane_u32 (tmp, 0)),
++	      tab1 = log2_lookup (d, vgetq_lane_u32 (tmp, 1)),
++	      tab2 = log2_lookup (d, vgetq_lane_u32 (tmp, 2)),
++	      tab3 = log2_lookup (d, vgetq_lane_u32 (tmp, 3));
++
++  float64x2_t iz_lo = vcvt_f64_f32 (vget_low_f32 (iz)),
++	      iz_hi = vcvt_high_f64_f32 (iz);
++
++  float64x2_t k_lo = vcvtq_f64_s64 (vmovl_s32 (vget_low_s32 (k))),
++	      k_hi = vcvtq_f64_s64 (vmovl_high_s32 (k));
++
++  float64x2_t invc_lo = vzip1q_f64 (tab0, tab1),
++	      invc_hi = vzip1q_f64 (tab2, tab3),
++	      logc_lo = vzip2q_f64 (tab0, tab1),
++	      logc_hi = vzip2q_f64 (tab2, tab3);
++
++  float64x2_t y_lo = vcvt_f64_f32 (vget_low_f32 (y)),
++	      y_hi = vcvt_high_f64_f32 (y);
++
++  float64x2_t ylogx_lo = ylogx_core (d, iz_lo, k_lo, invc_lo, logc_lo, y_lo);
++  float64x2_t ylogx_hi = ylogx_core (d, iz_hi, k_hi, invc_hi, logc_hi, y_hi);
++
++  uint32x4_t ylogx_top = vuzp2q_u32 (vreinterpretq_u32_f64 (ylogx_lo),
++				     vreinterpretq_u32_f64 (ylogx_hi));
++
++  cmp = vorrq_u32 (
++      cmp, vcgeq_u32 (vandq_u32 (vshrq_n_u32 (ylogx_top, 15), v_u32 (0xffff)),
++		      vdupq_n_u32 (asuint64 (126.0 * (1 << V_EXP2F_TABLE_BITS))
++				   >> 47)));
++
++  float32x2_t p_lo = powf_core (d, ylogx_lo);
++  float32x2_t p_hi = powf_core (d, ylogx_hi);
++
++  if (__glibc_unlikely (v_any_u32 (cmp)))
++    return special_case (x, y, vcombine_f32 (p_lo, p_hi), cmp);
++  return vcombine_f32 (p_lo, p_hi);
++}
++libmvec_hidden_def (V_NAME_F2 (pow))
++HALF_WIDTH_ALIAS_F2(pow)
+diff --git a/sysdeps/aarch64/fpu/powf_sve.c b/sysdeps/aarch64/fpu/powf_sve.c
+new file mode 100644
+index 0000000000000000..4f6a142325ae719b
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/powf_sve.c
+@@ -0,0 +1,335 @@
++/* Single-precision vector (SVE) pow function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "../ieee754/flt-32/math_config.h"
++#include "sv_math.h"
++
++/* The following data is used in the SVE pow core computation
++   and special case detection.  */
++#define Tinvc __v_powf_data.invc
++#define Tlogc __v_powf_data.logc
++#define Texp __v_powf_data.scale
++#define SignBias (1 << (V_POWF_EXP2_TABLE_BITS + 11))
++#define Shift 0x1.8p52
++#define Norm 0x1p23f /* 0x4b000000.  */
++
++/* Overall ULP error bound for pow is 2.6 ulp
++   ~ 0.5 + 2^24 (128*Ln2*relerr_log2 + relerr_exp2).  */
++static const struct data
++{
++  double log_poly[4];
++  double exp_poly[3];
++  float uflow_bound, oflow_bound, small_bound;
++  uint32_t sign_bias, sign_mask, subnormal_bias, off;
++} data = {
++  /* rel err: 1.5 * 2^-30. Each coefficients is multiplied the value of
++     V_POWF_EXP2_N.  */
++  .log_poly = { -0x1.6ff5daa3b3d7cp+3, 0x1.ec81d03c01aebp+3,
++		-0x1.71547bb43f101p+4, 0x1.7154764a815cbp+5 },
++  /* rel err: 1.69 * 2^-34.  */
++  .exp_poly = {
++    0x1.c6af84b912394p-20, /* A0 / V_POWF_EXP2_N^3.  */
++    0x1.ebfce50fac4f3p-13, /* A1 / V_POWF_EXP2_N^2.  */
++    0x1.62e42ff0c52d6p-6,   /* A3 / V_POWF_EXP2_N.  */
++  },
++  .uflow_bound = -0x1.2cp+12f, /* -150.0 * V_POWF_EXP2_N.  */
++  .oflow_bound = 0x1p+12f, /* 128.0 * V_POWF_EXP2_N.  */
++  .small_bound = 0x1p-126f,
++  .off = 0x3f35d000,
++  .sign_bias = SignBias,
++  .sign_mask = 0x80000000,
++  .subnormal_bias = 0x0b800000, /* 23 << 23.  */
++};
++
++#define A(i) sv_f64 (d->log_poly[i])
++#define C(i) sv_f64 (d->exp_poly[i])
++
++/* Check if x is an integer.  */
++static inline svbool_t
++svisint (svbool_t pg, svfloat32_t x)
++{
++  return svcmpeq (pg, svrintz_z (pg, x), x);
++}
++
++/* Check if x is real not integer valued.  */
++static inline svbool_t
++svisnotint (svbool_t pg, svfloat32_t x)
++{
++  return svcmpne (pg, svrintz_z (pg, x), x);
++}
++
++/* Check if x is an odd integer.  */
++static inline svbool_t
++svisodd (svbool_t pg, svfloat32_t x)
++{
++  svfloat32_t y = svmul_x (pg, x, 0.5f);
++  return svisnotint (pg, y);
++}
++
++/* Check if zero, inf or nan.  */
++static inline svbool_t
++sv_zeroinfnan (svbool_t pg, svuint32_t i)
++{
++  return svcmpge (pg, svsub_x (pg, svmul_x (pg, i, 2u), 1),
++		  2u * 0x7f800000 - 1);
++}
++
++/* Returns 0 if not int, 1 if odd int, 2 if even int.  The argument is
++   the bit representation of a non-zero finite floating-point value.  */
++static inline int
++checkint (uint32_t iy)
++{
++  int e = iy >> 23 & 0xff;
++  if (e < 0x7f)
++    return 0;
++  if (e > 0x7f + 23)
++    return 2;
++  if (iy & ((1 << (0x7f + 23 - e)) - 1))
++    return 0;
++  if (iy & (1 << (0x7f + 23 - e)))
++    return 1;
++  return 2;
++}
++
++/* Check if zero, inf or nan.  */
++static inline int
++zeroinfnan (uint32_t ix)
++{
++  return 2 * ix - 1 >= 2u * 0x7f800000 - 1;
++}
++
++/* A scalar subroutine used to fix main power special cases. Similar to the
++   preamble of scalar powf except that we do not update ix and sign_bias. This
++   is done in the preamble of the SVE powf.  */
++static inline float
++powf_specialcase (float x, float y, float z)
++{
++  uint32_t ix = asuint (x);
++  uint32_t iy = asuint (y);
++  /* Either (x < 0x1p-126 or inf or nan) or (y is 0 or inf or nan).  */
++  if (__glibc_unlikely (zeroinfnan (iy)))
++    {
++      if (2 * iy == 0)
++	return issignalingf_inline (x) ? x + y : 1.0f;
++      if (ix == 0x3f800000)
++	return issignalingf_inline (y) ? x + y : 1.0f;
++      if (2 * ix > 2u * 0x7f800000 || 2 * iy > 2u * 0x7f800000)
++	return x + y;
++      if (2 * ix == 2 * 0x3f800000)
++	return 1.0f;
++      if ((2 * ix < 2 * 0x3f800000) == !(iy & 0x80000000))
++	return 0.0f; /* |x|<1 && y==inf or |x|>1 && y==-inf.  */
++      return y * y;
++    }
++  if (__glibc_unlikely (zeroinfnan (ix)))
++    {
++      float_t x2 = x * x;
++      if (ix & 0x80000000 && checkint (iy) == 1)
++	x2 = -x2;
++      return iy & 0x80000000 ? 1 / x2 : x2;
++    }
++  /* We need a return here in case x<0 and y is integer, but all other tests
++   need to be run.  */
++  return z;
++}
++
++/* Scalar fallback for special case routines with custom signature.  */
++static inline svfloat32_t
++sv_call_powf_sc (svfloat32_t x1, svfloat32_t x2, svfloat32_t y, svbool_t cmp)
++{
++  svbool_t p = svpfirst (cmp, svpfalse ());
++  while (svptest_any (cmp, p))
++    {
++      float sx1 = svclastb (p, 0, x1);
++      float sx2 = svclastb (p, 0, x2);
++      float elem = svclastb (p, 0, y);
++      elem = powf_specialcase (sx1, sx2, elem);
++      svfloat32_t y2 = sv_f32 (elem);
++      y = svsel (p, y2, y);
++      p = svpnext_b32 (cmp, p);
++    }
++  return y;
++}
++
++/* Compute core for half of the lanes in double precision.  */
++static inline svfloat64_t
++sv_powf_core_ext (const svbool_t pg, svuint64_t i, svfloat64_t z, svint64_t k,
++		  svfloat64_t y, svuint64_t sign_bias, svfloat64_t *pylogx,
++		  const struct data *d)
++{
++  svfloat64_t invc = svld1_gather_index (pg, Tinvc, i);
++  svfloat64_t logc = svld1_gather_index (pg, Tlogc, i);
++
++  /* log2(x) = log1p(z/c-1)/ln2 + log2(c) + k.  */
++  svfloat64_t r = svmla_x (pg, sv_f64 (-1.0), z, invc);
++  svfloat64_t y0 = svadd_x (pg, logc, svcvt_f64_x (pg, k));
++
++  /* Polynomial to approximate log1p(r)/ln2.  */
++  svfloat64_t logx = A (0);
++  logx = svmla_x (pg, A (1), r, logx);
++  logx = svmla_x (pg, A (2), r, logx);
++  logx = svmla_x (pg, A (3), r, logx);
++  logx = svmla_x (pg, y0, r, logx);
++  *pylogx = svmul_x (pg, y, logx);
++
++  /* z - kd is in [-1, 1] in non-nearest rounding modes.  */
++  svfloat64_t kd = svadd_x (pg, *pylogx, Shift);
++  svuint64_t ki = svreinterpret_u64 (kd);
++  kd = svsub_x (pg, kd, Shift);
++
++  r = svsub_x (pg, *pylogx, kd);
++
++  /* exp2(x) = 2^(k/N) * 2^r ~= s * (C0*r^3 + C1*r^2 + C2*r + 1).  */
++  svuint64_t t
++      = svld1_gather_index (pg, Texp, svand_x (pg, ki, V_POWF_EXP2_N - 1));
++  svuint64_t ski = svadd_x (pg, ki, sign_bias);
++  t = svadd_x (pg, t, svlsl_x (pg, ski, 52 - V_POWF_EXP2_TABLE_BITS));
++  svfloat64_t s = svreinterpret_f64 (t);
++
++  svfloat64_t p = C (0);
++  p = svmla_x (pg, C (1), p, r);
++  p = svmla_x (pg, C (2), p, r);
++  p = svmla_x (pg, s, p, svmul_x (pg, s, r));
++
++  return p;
++}
++
++/* Widen vector to double precision and compute core on both halves of the
++   vector. Lower cost of promotion by considering all lanes active.  */
++static inline svfloat32_t
++sv_powf_core (const svbool_t pg, svuint32_t i, svuint32_t iz, svint32_t k,
++	      svfloat32_t y, svuint32_t sign_bias, svfloat32_t *pylogx,
++	      const struct data *d)
++{
++  const svbool_t ptrue = svptrue_b64 ();
++
++  /* Unpack and promote input vectors (pg, y, z, i, k and sign_bias) into two in
++     order to perform core computation in double precision.  */
++  const svbool_t pg_lo = svunpklo (pg);
++  const svbool_t pg_hi = svunpkhi (pg);
++  svfloat64_t y_lo = svcvt_f64_x (
++      ptrue, svreinterpret_f32 (svunpklo (svreinterpret_u32 (y))));
++  svfloat64_t y_hi = svcvt_f64_x (
++      ptrue, svreinterpret_f32 (svunpkhi (svreinterpret_u32 (y))));
++  svfloat32_t z = svreinterpret_f32 (iz);
++  svfloat64_t z_lo = svcvt_f64_x (
++      ptrue, svreinterpret_f32 (svunpklo (svreinterpret_u32 (z))));
++  svfloat64_t z_hi = svcvt_f64_x (
++      ptrue, svreinterpret_f32 (svunpkhi (svreinterpret_u32 (z))));
++  svuint64_t i_lo = svunpklo (i);
++  svuint64_t i_hi = svunpkhi (i);
++  svint64_t k_lo = svunpklo (k);
++  svint64_t k_hi = svunpkhi (k);
++  svuint64_t sign_bias_lo = svunpklo (sign_bias);
++  svuint64_t sign_bias_hi = svunpkhi (sign_bias);
++
++  /* Compute each part in double precision.  */
++  svfloat64_t ylogx_lo, ylogx_hi;
++  svfloat64_t lo = sv_powf_core_ext (pg_lo, i_lo, z_lo, k_lo, y_lo,
++				     sign_bias_lo, &ylogx_lo, d);
++  svfloat64_t hi = sv_powf_core_ext (pg_hi, i_hi, z_hi, k_hi, y_hi,
++				     sign_bias_hi, &ylogx_hi, d);
++
++  /* Convert back to single-precision and interleave.  */
++  svfloat32_t ylogx_lo_32 = svcvt_f32_x (ptrue, ylogx_lo);
++  svfloat32_t ylogx_hi_32 = svcvt_f32_x (ptrue, ylogx_hi);
++  *pylogx = svuzp1 (ylogx_lo_32, ylogx_hi_32);
++  svfloat32_t lo_32 = svcvt_f32_x (ptrue, lo);
++  svfloat32_t hi_32 = svcvt_f32_x (ptrue, hi);
++  return svuzp1 (lo_32, hi_32);
++}
++
++/* Implementation of SVE powf.
++   Provides the same accuracy as AdvSIMD powf, since it relies on the same
++   algorithm. The theoretical maximum error is under 2.60 ULPs.
++   Maximum measured error is 2.56 ULPs:
++   SV_NAME_F2 (pow) (0x1.004118p+0, 0x1.5d14a4p+16) got 0x1.fd4bp+127
++						   want 0x1.fd4b06p+127.  */
++svfloat32_t SV_NAME_F2 (pow) (svfloat32_t x, svfloat32_t y, const svbool_t pg)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  svuint32_t vix0 = svreinterpret_u32 (x);
++  svuint32_t viy0 = svreinterpret_u32 (y);
++
++  /* Negative x cases.  */
++  svuint32_t sign_bit = svand_m (pg, vix0, d->sign_mask);
++  svbool_t xisneg = svcmpeq (pg, sign_bit, d->sign_mask);
++
++  /* Set sign_bias and ix depending on sign of x and nature of y.  */
++  svbool_t yisnotint_xisneg = svpfalse_b ();
++  svuint32_t sign_bias = sv_u32 (0);
++  svuint32_t vix = vix0;
++  if (__glibc_unlikely (svptest_any (pg, xisneg)))
++    {
++      /* Determine nature of y.  */
++      yisnotint_xisneg = svisnotint (xisneg, y);
++      svbool_t yisint_xisneg = svisint (xisneg, y);
++      svbool_t yisodd_xisneg = svisodd (xisneg, y);
++      /* ix set to abs(ix) if y is integer.  */
++      vix = svand_m (yisint_xisneg, vix0, 0x7fffffff);
++      /* Set to SignBias if x is negative and y is odd.  */
++      sign_bias = svsel (yisodd_xisneg, sv_u32 (d->sign_bias), sv_u32 (0));
++    }
++
++  /* Special cases of x or y: zero, inf and nan.  */
++  svbool_t xspecial = sv_zeroinfnan (pg, vix0);
++  svbool_t yspecial = sv_zeroinfnan (pg, viy0);
++  svbool_t cmp = svorr_z (pg, xspecial, yspecial);
++
++  /* Small cases of x: |x| < 0x1p-126.  */
++  svbool_t xsmall = svaclt (pg, x, d->small_bound);
++  if (__glibc_unlikely (svptest_any (pg, xsmall)))
++    {
++      /* Normalize subnormal x so exponent becomes negative.  */
++      svuint32_t vix_norm = svreinterpret_u32 (svmul_x (xsmall, x, Norm));
++      vix_norm = svand_x (xsmall, vix_norm, 0x7fffffff);
++      vix_norm = svsub_x (xsmall, vix_norm, d->subnormal_bias);
++      vix = svsel (xsmall, vix_norm, vix);
++    }
++  /* Part of core computation carried in working precision.  */
++  svuint32_t tmp = svsub_x (pg, vix, d->off);
++  svuint32_t i = svand_x (pg, svlsr_x (pg, tmp, (23 - V_POWF_LOG2_TABLE_BITS)),
++			  V_POWF_LOG2_N - 1);
++  svuint32_t top = svand_x (pg, tmp, 0xff800000);
++  svuint32_t iz = svsub_x (pg, vix, top);
++  svint32_t k
++      = svasr_x (pg, svreinterpret_s32 (top), (23 - V_POWF_EXP2_TABLE_BITS));
++
++  /* Compute core in extended precision and return intermediate ylogx results to
++      handle cases of underflow and underflow in exp.  */
++  svfloat32_t ylogx;
++  svfloat32_t ret = sv_powf_core (pg, i, iz, k, y, sign_bias, &ylogx, d);
++
++  /* Handle exp special cases of underflow and overflow.  */
++  svuint32_t sign = svlsl_x (pg, sign_bias, 20 - V_POWF_EXP2_TABLE_BITS);
++  svfloat32_t ret_oflow
++      = svreinterpret_f32 (svorr_x (pg, sign, asuint (INFINITY)));
++  svfloat32_t ret_uflow = svreinterpret_f32 (sign);
++  ret = svsel (svcmple (pg, ylogx, d->uflow_bound), ret_uflow, ret);
++  ret = svsel (svcmpgt (pg, ylogx, d->oflow_bound), ret_oflow, ret);
++
++  /* Cases of finite y and finite negative x.  */
++  ret = svsel (yisnotint_xisneg, sv_f32 (__builtin_nanf ("")), ret);
++
++  if (__glibc_unlikely (svptest_any (pg, cmp)))
++    return sv_call_powf_sc (x, y, ret, cmp);
++
++  return ret;
++}
+diff --git a/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c b/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
+index 1877db3ac6932037..8c98161662dada80 100644
+--- a/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
+@@ -44,6 +44,7 @@ VPCS_VECTOR_WRAPPER (log_advsimd, _ZGVnN2v_log)
+ VPCS_VECTOR_WRAPPER (log10_advsimd, _ZGVnN2v_log10)
+ VPCS_VECTOR_WRAPPER (log1p_advsimd, _ZGVnN2v_log1p)
+ VPCS_VECTOR_WRAPPER (log2_advsimd, _ZGVnN2v_log2)
++VPCS_VECTOR_WRAPPER_ff (pow_advsimd, _ZGVnN2vv_pow)
+ VPCS_VECTOR_WRAPPER (sin_advsimd, _ZGVnN2v_sin)
+ VPCS_VECTOR_WRAPPER (sinh_advsimd, _ZGVnN2v_sinh)
+ VPCS_VECTOR_WRAPPER (tan_advsimd, _ZGVnN2v_tan)
+diff --git a/sysdeps/aarch64/fpu/test-double-sve-wrappers.c b/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
+index b702f942dea0749f..2583428af5cb13c8 100644
+--- a/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
+@@ -63,6 +63,7 @@ SVE_VECTOR_WRAPPER (log_sve, _ZGVsMxv_log)
+ SVE_VECTOR_WRAPPER (log10_sve, _ZGVsMxv_log10)
+ SVE_VECTOR_WRAPPER (log1p_sve, _ZGVsMxv_log1p)
+ SVE_VECTOR_WRAPPER (log2_sve, _ZGVsMxv_log2)
++SVE_VECTOR_WRAPPER_ff (pow_sve, _ZGVsMxvv_pow)
+ SVE_VECTOR_WRAPPER (sin_sve, _ZGVsMxv_sin)
+ SVE_VECTOR_WRAPPER (sinh_sve, _ZGVsMxv_sinh)
+ SVE_VECTOR_WRAPPER (tan_sve, _ZGVsMxv_tan)
+diff --git a/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c b/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
+index 9cb451b4f045e625..26679018d6994c5a 100644
+--- a/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
+@@ -44,6 +44,7 @@ VPCS_VECTOR_WRAPPER (logf_advsimd, _ZGVnN4v_logf)
+ VPCS_VECTOR_WRAPPER (log10f_advsimd, _ZGVnN4v_log10f)
+ VPCS_VECTOR_WRAPPER (log1pf_advsimd, _ZGVnN4v_log1pf)
+ VPCS_VECTOR_WRAPPER (log2f_advsimd, _ZGVnN4v_log2f)
++VPCS_VECTOR_WRAPPER_ff (powf_advsimd, _ZGVnN4vv_powf)
+ VPCS_VECTOR_WRAPPER (sinf_advsimd, _ZGVnN4v_sinf)
+ VPCS_VECTOR_WRAPPER (sinhf_advsimd, _ZGVnN4v_sinhf)
+ VPCS_VECTOR_WRAPPER (tanf_advsimd, _ZGVnN4v_tanf)
+diff --git a/sysdeps/aarch64/fpu/test-float-sve-wrappers.c b/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
+index 5b3dd22916d2a50d..0f972b788690d9fb 100644
+--- a/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
+@@ -63,6 +63,7 @@ SVE_VECTOR_WRAPPER (logf_sve, _ZGVsMxv_logf)
+ SVE_VECTOR_WRAPPER (log10f_sve, _ZGVsMxv_log10f)
+ SVE_VECTOR_WRAPPER (log1pf_sve, _ZGVsMxv_log1pf)
+ SVE_VECTOR_WRAPPER (log2f_sve, _ZGVsMxv_log2f)
++SVE_VECTOR_WRAPPER_ff (powf_sve, _ZGVsMxvv_powf)
+ SVE_VECTOR_WRAPPER (sinf_sve, _ZGVsMxv_sinf)
+ SVE_VECTOR_WRAPPER (sinhf_sve, _ZGVsMxv_sinhf)
+ SVE_VECTOR_WRAPPER (tanf_sve, _ZGVsMxv_tanf)
+diff --git a/sysdeps/aarch64/fpu/v_pow_exp_data.c b/sysdeps/aarch64/fpu/v_pow_exp_data.c
+new file mode 100644
+index 0000000000000000..8b7fb836687752bd
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/v_pow_exp_data.c
+@@ -0,0 +1,301 @@
++/* Shared data between exp, exp2 and pow.
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "vecmath_config.h"
++
++#define N (1 << V_POW_EXP_TABLE_BITS)
++
++const struct v_pow_exp_data __v_pow_exp_data = {
++// exp polynomial coefficients.
++.poly = {
++// abs error: 1.43*2^-58
++// ulp error: 0.549 (0.550 without fma)
++// if |x| < ln2/512
++0x1.fffffffffffd4p-2,
++0x1.5555571d6ef9p-3,
++0x1.5555576a5adcep-5,
++},
++// N/ln2
++.n_over_ln2 = 0x1.71547652b82fep0 * N,
++// ln2/N
++.ln2_over_n_hi = 0x1.62e42fefc0000p-9,
++.ln2_over_n_lo = -0x1.c610ca86c3899p-45,
++// Used for rounding to nearest integer without using intrinsics.
++.shift = 0x1.8p52,
++// 2^(k/N) ~= H[k]*(1 + T[k]) for int k in [0,N)
++// sbits[k] = asuint64(H[k]) - (k << 52)/N
++.sbits = {
++0x3ff0000000000000,
++0x3feffb1afa5abcbf,
++0x3feff63da9fb3335,
++0x3feff168143b0281,
++0x3fefec9a3e778061,
++0x3fefe7d42e11bbcc,
++0x3fefe315e86e7f85,
++0x3fefde5f72f654b1,
++0x3fefd9b0d3158574,
++0x3fefd50a0e3c1f89,
++0x3fefd06b29ddf6de,
++0x3fefcbd42b72a836,
++0x3fefc74518759bc8,
++0x3fefc2bdf66607e0,
++0x3fefbe3ecac6f383,
++0x3fefb9c79b1f3919,
++0x3fefb5586cf9890f,
++0x3fefb0f145e46c85,
++0x3fefac922b7247f7,
++0x3fefa83b23395dec,
++0x3fefa3ec32d3d1a2,
++0x3fef9fa55fdfa9c5,
++0x3fef9b66affed31b,
++0x3fef973028d7233e,
++0x3fef9301d0125b51,
++0x3fef8edbab5e2ab6,
++0x3fef8abdc06c31cc,
++0x3fef86a814f204ab,
++0x3fef829aaea92de0,
++0x3fef7e95934f312e,
++0x3fef7a98c8a58e51,
++0x3fef76a45471c3c2,
++0x3fef72b83c7d517b,
++0x3fef6ed48695bbc0,
++0x3fef6af9388c8dea,
++0x3fef672658375d2f,
++0x3fef635beb6fcb75,
++0x3fef5f99f8138a1c,
++0x3fef5be084045cd4,
++0x3fef582f95281c6b,
++0x3fef54873168b9aa,
++0x3fef50e75eb44027,
++0x3fef4d5022fcd91d,
++0x3fef49c18438ce4d,
++0x3fef463b88628cd6,
++0x3fef42be3578a819,
++0x3fef3f49917ddc96,
++0x3fef3bdda27912d1,
++0x3fef387a6e756238,
++0x3fef351ffb82140a,
++0x3fef31ce4fb2a63f,
++0x3fef2e85711ece75,
++0x3fef2b4565e27cdd,
++0x3fef280e341ddf29,
++0x3fef24dfe1f56381,
++0x3fef21ba7591bb70,
++0x3fef1e9df51fdee1,
++0x3fef1b8a66d10f13,
++0x3fef187fd0dad990,
++0x3fef157e39771b2f,
++0x3fef1285a6e4030b,
++0x3fef0f961f641589,
++0x3fef0cafa93e2f56,
++0x3fef09d24abd886b,
++0x3fef06fe0a31b715,
++0x3fef0432edeeb2fd,
++0x3fef0170fc4cd831,
++0x3feefeb83ba8ea32,
++0x3feefc08b26416ff,
++0x3feef96266e3fa2d,
++0x3feef6c55f929ff1,
++0x3feef431a2de883b,
++0x3feef1a7373aa9cb,
++0x3feeef26231e754a,
++0x3feeecae6d05d866,
++0x3feeea401b7140ef,
++0x3feee7db34e59ff7,
++0x3feee57fbfec6cf4,
++0x3feee32dc313a8e5,
++0x3feee0e544ede173,
++0x3feedea64c123422,
++0x3feedc70df1c5175,
++0x3feeda4504ac801c,
++0x3feed822c367a024,
++0x3feed60a21f72e2a,
++0x3feed3fb2709468a,
++0x3feed1f5d950a897,
++0x3feecffa3f84b9d4,
++0x3feece086061892d,
++0x3feecc2042a7d232,
++0x3feeca41ed1d0057,
++0x3feec86d668b3237,
++0x3feec6a2b5c13cd0,
++0x3feec4e1e192aed2,
++0x3feec32af0d7d3de,
++0x3feec17dea6db7d7,
++0x3feebfdad5362a27,
++0x3feebe41b817c114,
++0x3feebcb299fddd0d,
++0x3feebb2d81d8abff,
++0x3feeb9b2769d2ca7,
++0x3feeb8417f4531ee,
++0x3feeb6daa2cf6642,
++0x3feeb57de83f4eef,
++0x3feeb42b569d4f82,
++0x3feeb2e2f4f6ad27,
++0x3feeb1a4ca5d920f,
++0x3feeb070dde910d2,
++0x3feeaf4736b527da,
++0x3feeae27dbe2c4cf,
++0x3feead12d497c7fd,
++0x3feeac0827ff07cc,
++0x3feeab07dd485429,
++0x3feeaa11fba87a03,
++0x3feea9268a5946b7,
++0x3feea84590998b93,
++0x3feea76f15ad2148,
++0x3feea6a320dceb71,
++0x3feea5e1b976dc09,
++0x3feea52ae6cdf6f4,
++0x3feea47eb03a5585,
++0x3feea3dd1d1929fd,
++0x3feea34634ccc320,
++0x3feea2b9febc8fb7,
++0x3feea23882552225,
++0x3feea1c1c70833f6,
++0x3feea155d44ca973,
++0x3feea0f4b19e9538,
++0x3feea09e667f3bcd,
++0x3feea052fa75173e,
++0x3feea012750bdabf,
++0x3fee9fdcddd47645,
++0x3fee9fb23c651a2f,
++0x3fee9f9298593ae5,
++0x3fee9f7df9519484,
++0x3fee9f7466f42e87,
++0x3fee9f75e8ec5f74,
++0x3fee9f8286ead08a,
++0x3fee9f9a48a58174,
++0x3fee9fbd35d7cbfd,
++0x3fee9feb564267c9,
++0x3feea024b1ab6e09,
++0x3feea0694fde5d3f,
++0x3feea0b938ac1cf6,
++0x3feea11473eb0187,
++0x3feea17b0976cfdb,
++0x3feea1ed0130c132,
++0x3feea26a62ff86f0,
++0x3feea2f336cf4e62,
++0x3feea3878491c491,
++0x3feea427543e1a12,
++0x3feea4d2add106d9,
++0x3feea589994cce13,
++0x3feea64c1eb941f7,
++0x3feea71a4623c7ad,
++0x3feea7f4179f5b21,
++0x3feea8d99b4492ed,
++0x3feea9cad931a436,
++0x3feeaac7d98a6699,
++0x3feeabd0a478580f,
++0x3feeace5422aa0db,
++0x3feeae05bad61778,
++0x3feeaf3216b5448c,
++0x3feeb06a5e0866d9,
++0x3feeb1ae99157736,
++0x3feeb2fed0282c8a,
++0x3feeb45b0b91ffc6,
++0x3feeb5c353aa2fe2,
++0x3feeb737b0cdc5e5,
++0x3feeb8b82b5f98e5,
++0x3feeba44cbc8520f,
++0x3feebbdd9a7670b3,
++0x3feebd829fde4e50,
++0x3feebf33e47a22a2,
++0x3feec0f170ca07ba,
++0x3feec2bb4d53fe0d,
++0x3feec49182a3f090,
++0x3feec674194bb8d5,
++0x3feec86319e32323,
++0x3feeca5e8d07f29e,
++0x3feecc667b5de565,
++0x3feece7aed8eb8bb,
++0x3feed09bec4a2d33,
++0x3feed2c980460ad8,
++0x3feed503b23e255d,
++0x3feed74a8af46052,
++0x3feed99e1330b358,
++0x3feedbfe53c12e59,
++0x3feede6b5579fdbf,
++0x3feee0e521356eba,
++0x3feee36bbfd3f37a,
++0x3feee5ff3a3c2774,
++0x3feee89f995ad3ad,
++0x3feeeb4ce622f2ff,
++0x3feeee07298db666,
++0x3feef0ce6c9a8952,
++0x3feef3a2b84f15fb,
++0x3feef68415b749b1,
++0x3feef9728de5593a,
++0x3feefc6e29f1c52a,
++0x3feeff76f2fb5e47,
++0x3fef028cf22749e4,
++0x3fef05b030a1064a,
++0x3fef08e0b79a6f1f,
++0x3fef0c1e904bc1d2,
++0x3fef0f69c3f3a207,
++0x3fef12c25bd71e09,
++0x3fef16286141b33d,
++0x3fef199bdd85529c,
++0x3fef1d1cd9fa652c,
++0x3fef20ab5fffd07a,
++0x3fef244778fafb22,
++0x3fef27f12e57d14b,
++0x3fef2ba88988c933,
++0x3fef2f6d9406e7b5,
++0x3fef33405751c4db,
++0x3fef3720dcef9069,
++0x3fef3b0f2e6d1675,
++0x3fef3f0b555dc3fa,
++0x3fef43155b5bab74,
++0x3fef472d4a07897c,
++0x3fef4b532b08c968,
++0x3fef4f87080d89f2,
++0x3fef53c8eacaa1d6,
++0x3fef5818dcfba487,
++0x3fef5c76e862e6d3,
++0x3fef60e316c98398,
++0x3fef655d71ff6075,
++0x3fef69e603db3285,
++0x3fef6e7cd63a8315,
++0x3fef7321f301b460,
++0x3fef77d5641c0658,
++0x3fef7c97337b9b5f,
++0x3fef81676b197d17,
++0x3fef864614f5a129,
++0x3fef8b333b16ee12,
++0x3fef902ee78b3ff6,
++0x3fef953924676d76,
++0x3fef9a51fbc74c83,
++0x3fef9f7977cdb740,
++0x3fefa4afa2a490da,
++0x3fefa9f4867cca6e,
++0x3fefaf482d8e67f1,
++0x3fefb4aaa2188510,
++0x3fefba1bee615a27,
++0x3fefbf9c1cb6412a,
++0x3fefc52b376bba97,
++0x3fefcac948dd7274,
++0x3fefd0765b6e4540,
++0x3fefd632798844f8,
++0x3fefdbfdad9cbe14,
++0x3fefe1d802243c89,
++0x3fefe7c1819e90d8,
++0x3fefedba3692d514,
++0x3feff3c22b8f71f1,
++0x3feff9d96b2a23d9,
++},
++};
+diff --git a/sysdeps/aarch64/fpu/v_pow_log_data.c b/sysdeps/aarch64/fpu/v_pow_log_data.c
+new file mode 100644
+index 0000000000000000..0242fff477ce1298
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/v_pow_log_data.c
+@@ -0,0 +1,186 @@
++/* Data for the log part of pow.
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "vecmath_config.h"
++
++#define N (1 << V_POW_LOG_TABLE_BITS)
++
++/* Algorithm:
++
++	x = 2^k z
++	log(x) = k ln2 + log(c) + log(z/c)
++	log(z/c) = poly(z/c - 1)
++
++   where z is in [0x1.69555p-1; 0x1.69555p0] which is split into N subintervals
++   and z falls into the ith one, then table entries are computed as
++
++	tab[i].invc = 1/c
++	tab[i].logc = round(0x1p43*log(c))/0x1p43
++	tab[i].logctail = (double)(log(c) - logc)
++
++   where c is chosen near the center of the subinterval such that 1/c has only
++   a few precision bits so z/c - 1 is exactly representible as double:
++
++	1/c = center < 1 ? round(N/center)/N : round(2*N/center)/N/2
++
++   Note: |z/c - 1| < 1/N for the chosen c, |log(c) - logc - logctail| <
++   0x1p-97, the last few bits of logc are rounded away so k*ln2hi + logc has no
++   rounding error and the interval for z is selected such that near x == 1,
++   where log(x)
++   is tiny, large cancellation error is avoided in logc + poly(z/c - 1).  */
++const struct v_pow_log_data __v_pow_log_data = {
++  /* relative error: 0x1.11922ap-70 in [-0x1.6bp-8, 0x1.6bp-8]
++     Coefficients are scaled to match the scaling during evaluation.  */
++  .poly = { -0x1p-1, -0x1.555555555556p-1, 0x1.0000000000006p-1,
++	    0x1.999999959554ep-1, -0x1.555555529a47ap-1, -0x1.2495b9b4845e9p0,
++	    0x1.0002b8b263fc3p0, },
++  .ln2_hi = 0x1.62e42fefa3800p-1,
++  .ln2_lo = 0x1.ef35793c76730p-45,
++  .invc = { 0x1.6a00000000000p+0, 0x1.6800000000000p+0, 0x1.6600000000000p+0,
++	    0x1.6400000000000p+0, 0x1.6200000000000p+0, 0x1.6000000000000p+0,
++	    0x1.5e00000000000p+0, 0x1.5c00000000000p+0, 0x1.5a00000000000p+0,
++	    0x1.5800000000000p+0, 0x1.5600000000000p+0, 0x1.5600000000000p+0,
++	    0x1.5400000000000p+0, 0x1.5200000000000p+0, 0x1.5000000000000p+0,
++	    0x1.4e00000000000p+0, 0x1.4c00000000000p+0, 0x1.4a00000000000p+0,
++	    0x1.4a00000000000p+0, 0x1.4800000000000p+0, 0x1.4600000000000p+0,
++	    0x1.4400000000000p+0, 0x1.4200000000000p+0, 0x1.4000000000000p+0,
++	    0x1.4000000000000p+0, 0x1.3e00000000000p+0, 0x1.3c00000000000p+0,
++	    0x1.3a00000000000p+0, 0x1.3a00000000000p+0, 0x1.3800000000000p+0,
++	    0x1.3600000000000p+0, 0x1.3400000000000p+0, 0x1.3400000000000p+0,
++	    0x1.3200000000000p+0, 0x1.3000000000000p+0, 0x1.3000000000000p+0,
++	    0x1.2e00000000000p+0, 0x1.2c00000000000p+0, 0x1.2c00000000000p+0,
++	    0x1.2a00000000000p+0, 0x1.2800000000000p+0, 0x1.2600000000000p+0,
++	    0x1.2600000000000p+0, 0x1.2400000000000p+0, 0x1.2400000000000p+0,
++	    0x1.2200000000000p+0, 0x1.2000000000000p+0, 0x1.2000000000000p+0,
++	    0x1.1e00000000000p+0, 0x1.1c00000000000p+0, 0x1.1c00000000000p+0,
++	    0x1.1a00000000000p+0, 0x1.1a00000000000p+0, 0x1.1800000000000p+0,
++	    0x1.1600000000000p+0, 0x1.1600000000000p+0, 0x1.1400000000000p+0,
++	    0x1.1400000000000p+0, 0x1.1200000000000p+0, 0x1.1000000000000p+0,
++	    0x1.1000000000000p+0, 0x1.0e00000000000p+0, 0x1.0e00000000000p+0,
++	    0x1.0c00000000000p+0, 0x1.0c00000000000p+0, 0x1.0a00000000000p+0,
++	    0x1.0a00000000000p+0, 0x1.0800000000000p+0, 0x1.0800000000000p+0,
++	    0x1.0600000000000p+0, 0x1.0400000000000p+0, 0x1.0400000000000p+0,
++	    0x1.0200000000000p+0, 0x1.0200000000000p+0, 0x1.0000000000000p+0,
++	    0x1.0000000000000p+0, 0x1.fc00000000000p-1, 0x1.f800000000000p-1,
++	    0x1.f400000000000p-1, 0x1.f000000000000p-1, 0x1.ec00000000000p-1,
++	    0x1.e800000000000p-1, 0x1.e400000000000p-1, 0x1.e200000000000p-1,
++	    0x1.de00000000000p-1, 0x1.da00000000000p-1, 0x1.d600000000000p-1,
++	    0x1.d400000000000p-1, 0x1.d000000000000p-1, 0x1.cc00000000000p-1,
++	    0x1.ca00000000000p-1, 0x1.c600000000000p-1, 0x1.c400000000000p-1,
++	    0x1.c000000000000p-1, 0x1.be00000000000p-1, 0x1.ba00000000000p-1,
++	    0x1.b800000000000p-1, 0x1.b400000000000p-1, 0x1.b200000000000p-1,
++	    0x1.ae00000000000p-1, 0x1.ac00000000000p-1, 0x1.aa00000000000p-1,
++	    0x1.a600000000000p-1, 0x1.a400000000000p-1, 0x1.a000000000000p-1,
++	    0x1.9e00000000000p-1, 0x1.9c00000000000p-1, 0x1.9a00000000000p-1,
++	    0x1.9600000000000p-1, 0x1.9400000000000p-1, 0x1.9200000000000p-1,
++	    0x1.9000000000000p-1, 0x1.8c00000000000p-1, 0x1.8a00000000000p-1,
++	    0x1.8800000000000p-1, 0x1.8600000000000p-1, 0x1.8400000000000p-1,
++	    0x1.8200000000000p-1, 0x1.7e00000000000p-1, 0x1.7c00000000000p-1,
++	    0x1.7a00000000000p-1, 0x1.7800000000000p-1, 0x1.7600000000000p-1,
++	    0x1.7400000000000p-1, 0x1.7200000000000p-1, 0x1.7000000000000p-1,
++	    0x1.6e00000000000p-1, 0x1.6c00000000000p-1, },
++  .logc
++  = { -0x1.62c82f2b9c800p-2, -0x1.5d1bdbf580800p-2, -0x1.5767717455800p-2,
++      -0x1.51aad872df800p-2, -0x1.4be5f95777800p-2, -0x1.4618bc21c6000p-2,
++      -0x1.404308686a800p-2, -0x1.3a64c55694800p-2, -0x1.347dd9a988000p-2,
++      -0x1.2e8e2bae12000p-2, -0x1.2895a13de8800p-2, -0x1.2895a13de8800p-2,
++      -0x1.22941fbcf7800p-2, -0x1.1c898c1699800p-2, -0x1.1675cababa800p-2,
++      -0x1.1058bf9ae4800p-2, -0x1.0a324e2739000p-2, -0x1.0402594b4d000p-2,
++      -0x1.0402594b4d000p-2, -0x1.fb9186d5e4000p-3, -0x1.ef0adcbdc6000p-3,
++      -0x1.e27076e2af000p-3, -0x1.d5c216b4fc000p-3, -0x1.c8ff7c79aa000p-3,
++      -0x1.c8ff7c79aa000p-3, -0x1.bc286742d9000p-3, -0x1.af3c94e80c000p-3,
++      -0x1.a23bc1fe2b000p-3, -0x1.a23bc1fe2b000p-3, -0x1.9525a9cf45000p-3,
++      -0x1.87fa06520d000p-3, -0x1.7ab890210e000p-3, -0x1.7ab890210e000p-3,
++      -0x1.6d60fe719d000p-3, -0x1.5ff3070a79000p-3, -0x1.5ff3070a79000p-3,
++      -0x1.526e5e3a1b000p-3, -0x1.44d2b6ccb8000p-3, -0x1.44d2b6ccb8000p-3,
++      -0x1.371fc201e9000p-3, -0x1.29552f81ff000p-3, -0x1.1b72ad52f6000p-3,
++      -0x1.1b72ad52f6000p-3, -0x1.0d77e7cd09000p-3, -0x1.0d77e7cd09000p-3,
++      -0x1.fec9131dbe000p-4, -0x1.e27076e2b0000p-4, -0x1.e27076e2b0000p-4,
++      -0x1.c5e548f5bc000p-4, -0x1.a926d3a4ae000p-4, -0x1.a926d3a4ae000p-4,
++      -0x1.8c345d631a000p-4, -0x1.8c345d631a000p-4, -0x1.6f0d28ae56000p-4,
++      -0x1.51b073f062000p-4, -0x1.51b073f062000p-4, -0x1.341d7961be000p-4,
++      -0x1.341d7961be000p-4, -0x1.16536eea38000p-4, -0x1.f0a30c0118000p-5,
++      -0x1.f0a30c0118000p-5, -0x1.b42dd71198000p-5, -0x1.b42dd71198000p-5,
++      -0x1.77458f632c000p-5, -0x1.77458f632c000p-5, -0x1.39e87b9fec000p-5,
++      -0x1.39e87b9fec000p-5, -0x1.f829b0e780000p-6, -0x1.f829b0e780000p-6,
++      -0x1.7b91b07d58000p-6, -0x1.fc0a8b0fc0000p-7, -0x1.fc0a8b0fc0000p-7,
++      -0x1.fe02a6b100000p-8, -0x1.fe02a6b100000p-8, 0x0.0000000000000p+0,
++      0x0.0000000000000p+0,  0x1.0101575890000p-7,  0x1.0205658938000p-6,
++      0x1.8492528c90000p-6,  0x1.0415d89e74000p-5,  0x1.466aed42e0000p-5,
++      0x1.894aa149fc000p-5,  0x1.ccb73cdddc000p-5,  0x1.eea31c006c000p-5,
++      0x1.1973bd1466000p-4,  0x1.3bdf5a7d1e000p-4,  0x1.5e95a4d97a000p-4,
++      0x1.700d30aeac000p-4,  0x1.9335e5d594000p-4,  0x1.b6ac88dad6000p-4,
++      0x1.c885801bc4000p-4,  0x1.ec739830a2000p-4,  0x1.fe89139dbe000p-4,
++      0x1.1178e8227e000p-3,  0x1.1aa2b7e23f000p-3,  0x1.2d1610c868000p-3,
++      0x1.365fcb0159000p-3,  0x1.4913d8333b000p-3,  0x1.527e5e4a1b000p-3,
++      0x1.6574ebe8c1000p-3,  0x1.6f0128b757000p-3,  0x1.7898d85445000p-3,
++      0x1.8beafeb390000p-3,  0x1.95a5adcf70000p-3,  0x1.a93ed3c8ae000p-3,
++      0x1.b31d8575bd000p-3,  0x1.bd087383be000p-3,  0x1.c6ffbc6f01000p-3,
++      0x1.db13db0d49000p-3,  0x1.e530effe71000p-3,  0x1.ef5ade4dd0000p-3,
++      0x1.f991c6cb3b000p-3,  0x1.07138604d5800p-2,  0x1.0c42d67616000p-2,
++      0x1.1178e8227e800p-2,  0x1.16b5ccbacf800p-2,  0x1.1bf99635a6800p-2,
++      0x1.214456d0eb800p-2,  0x1.2bef07cdc9000p-2,  0x1.314f1e1d36000p-2,
++      0x1.36b6776be1000p-2,  0x1.3c25277333000p-2,  0x1.419b423d5e800p-2,
++      0x1.4718dc271c800p-2,  0x1.4c9e09e173000p-2,  0x1.522ae0738a000p-2,
++      0x1.57bf753c8d000p-2,  0x1.5d5bddf596000p-2, },
++  .logctail
++  = { 0x1.ab42428375680p-48,  -0x1.ca508d8e0f720p-46, -0x1.362a4d5b6506dp-45,
++      -0x1.684e49eb067d5p-49, -0x1.41b6993293ee0p-47, 0x1.3d82f484c84ccp-46,
++      0x1.c42f3ed820b3ap-50,  0x1.0b1c686519460p-45,  0x1.5594dd4c58092p-45,
++      0x1.67b1e99b72bd8p-45,  0x1.5ca14b6cfb03fp-46,  0x1.5ca14b6cfb03fp-46,
++      -0x1.65a242853da76p-46, -0x1.fafbc68e75404p-46, 0x1.f1fc63382a8f0p-46,
++      -0x1.6a8c4fd055a66p-45, -0x1.c6bee7ef4030ep-47, -0x1.036b89ef42d7fp-48,
++      -0x1.036b89ef42d7fp-48, 0x1.d572aab993c87p-47,  0x1.b26b79c86af24p-45,
++      -0x1.72f4f543fff10p-46, 0x1.1ba91bbca681bp-45,  0x1.7794f689f8434p-45,
++      0x1.7794f689f8434p-45,  0x1.94eb0318bb78fp-46,  0x1.a4e633fcd9066p-52,
++      -0x1.58c64dc46c1eap-45, -0x1.58c64dc46c1eap-45, -0x1.ad1d904c1d4e3p-45,
++      0x1.bbdbf7fdbfa09p-45,  0x1.bdb9072534a58p-45,  0x1.bdb9072534a58p-45,
++      -0x1.0e46aa3b2e266p-46, -0x1.e9e439f105039p-46, -0x1.e9e439f105039p-46,
++      -0x1.0de8b90075b8fp-45, 0x1.70cc16135783cp-46,  0x1.70cc16135783cp-46,
++      0x1.178864d27543ap-48,  -0x1.48d301771c408p-45, -0x1.e80a41811a396p-45,
++      -0x1.e80a41811a396p-45, 0x1.a699688e85bf4p-47,  0x1.a699688e85bf4p-47,
++      -0x1.575545ca333f2p-45, 0x1.a342c2af0003cp-45,  0x1.a342c2af0003cp-45,
++      -0x1.d0c57585fbe06p-46, 0x1.53935e85baac8p-45,  0x1.53935e85baac8p-45,
++      0x1.37c294d2f5668p-46,  0x1.37c294d2f5668p-46,  -0x1.69737c93373dap-45,
++      0x1.f025b61c65e57p-46,  0x1.f025b61c65e57p-46,  0x1.c5edaccf913dfp-45,
++      0x1.c5edaccf913dfp-45,  0x1.47c5e768fa309p-46,  0x1.d599e83368e91p-45,
++      0x1.d599e83368e91p-45,  0x1.c827ae5d6704cp-46,  0x1.c827ae5d6704cp-46,
++      -0x1.cfc4634f2a1eep-45, -0x1.cfc4634f2a1eep-45, 0x1.502b7f526feaap-48,
++      0x1.502b7f526feaap-48,  -0x1.980267c7e09e4p-45, -0x1.980267c7e09e4p-45,
++      -0x1.88d5493faa639p-45, -0x1.f1e7cf6d3a69cp-50, -0x1.f1e7cf6d3a69cp-50,
++      -0x1.9e23f0dda40e4p-46, -0x1.9e23f0dda40e4p-46, 0x0.0000000000000p+0,
++      0x0.0000000000000p+0,   -0x1.0c76b999d2be8p-46, -0x1.3dc5b06e2f7d2p-45,
++      -0x1.aa0ba325a0c34p-45, 0x1.111c05cf1d753p-47,  -0x1.c167375bdfd28p-45,
++      -0x1.97995d05a267dp-46, -0x1.a68f247d82807p-46, -0x1.e113e4fc93b7bp-47,
++      -0x1.5325d560d9e9bp-45, 0x1.cc85ea5db4ed7p-45,  -0x1.c69063c5d1d1ep-45,
++      0x1.c1e8da99ded32p-49,  0x1.3115c3abd47dap-45,  -0x1.390802bf768e5p-46,
++      0x1.646d1c65aacd3p-45,  -0x1.dc068afe645e0p-45, -0x1.534d64fa10afdp-45,
++      0x1.1ef78ce2d07f2p-45,  0x1.ca78e44389934p-45,  0x1.39d6ccb81b4a1p-47,
++      0x1.62fa8234b7289p-51,  0x1.5837954fdb678p-45,  0x1.633e8e5697dc7p-45,
++      0x1.9cf8b2c3c2e78p-46,  -0x1.5118de59c21e1p-45, -0x1.c661070914305p-46,
++      -0x1.73d54aae92cd1p-47, 0x1.7f22858a0ff6fp-47,  -0x1.8724350562169p-45,
++      -0x1.c358d4eace1aap-47, -0x1.d4bc4595412b6p-45, -0x1.1ec72c5962bd2p-48,
++      -0x1.aff2af715b035p-45, 0x1.212276041f430p-51,  -0x1.a211565bb8e11p-51,
++      0x1.bcbecca0cdf30p-46,  0x1.89cdb16ed4e91p-48,  0x1.7188b163ceae9p-45,
++      -0x1.c210e63a5f01cp-45, 0x1.b9acdf7a51681p-45,  0x1.ca6ed5147bdb7p-45,
++      0x1.a87deba46baeap-47,  0x1.a9cfa4a5004f4p-45,  -0x1.8e27ad3213cb8p-45,
++      0x1.16ecdb0f177c8p-46,  0x1.83b54b606bd5cp-46,  0x1.8e436ec90e09dp-47,
++      -0x1.f27ce0967d675p-45, -0x1.e20891b0ad8a4p-45, 0x1.ebe708164c759p-45,
++      0x1.fadedee5d40efp-46,  -0x1.a0b2a08a465dcp-47, },
++};
+diff --git a/sysdeps/aarch64/fpu/v_powf_data.c b/sysdeps/aarch64/fpu/v_powf_data.c
+new file mode 100644
+index 0000000000000000..f789b84850545644
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/v_powf_data.c
+@@ -0,0 +1,102 @@
++/* Coefficients for single-precision SVE pow(x) function.
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++
++#include "vecmath_config.h"
++
++const struct v_powf_data __v_powf_data = {
++  .invc = { 0x1.6489890582816p+0,
++	    0x1.5cf19b35e3472p+0,
++	    0x1.55aac0e956d65p+0,
++	    0x1.4eb0022977e01p+0,
++	    0x1.47fcccda1dd1fp+0,
++	    0x1.418ceabab68c1p+0,
++	    0x1.3b5c788f1edb3p+0,
++	    0x1.3567de48e9c9ap+0,
++	    0x1.2fabc80fd19bap+0,
++	    0x1.2a25200ce536bp+0,
++	    0x1.24d108e0152e3p+0,
++	    0x1.1facd8ab2fbe1p+0,
++	    0x1.1ab614a03efdfp+0,
++	    0x1.15ea6d03af9ffp+0,
++	    0x1.1147b994bb776p+0,
++	    0x1.0ccbf650593aap+0,
++	    0x1.0875408477302p+0,
++	    0x1.0441d42a93328p+0,
++	    0x1p+0,
++	    0x1.f1d006c855e86p-1,
++	    0x1.e28c3341aa301p-1,
++	    0x1.d4bdf9aa64747p-1,
++	    0x1.c7b45a24e5803p-1,
++	    0x1.bb5f5eb2ed60ap-1,
++	    0x1.afb0bff8fe6b4p-1,
++	    0x1.a49badf7ab1f5p-1,
++	    0x1.9a14a111fc4c9p-1,
++	    0x1.901131f5b2fdcp-1,
++	    0x1.8687f73f6d865p-1,
++	    0x1.7d7067eb77986p-1,
++	    0x1.74c2c1cf97b65p-1,
++	    0x1.6c77f37cff2a1p-1
++  },
++  .logc = { -0x1.e960f97b22702p+3,
++	    -0x1.c993406cd4db6p+3,
++	    -0x1.aa711d9a7d0f3p+3,
++	    -0x1.8bf37bacdce9bp+3,
++	    -0x1.6e13b3519946ep+3,
++	    -0x1.50cb8281e4089p+3,
++	    -0x1.341504a237e2bp+3,
++	    -0x1.17eaab624ffbbp+3,
++	    -0x1.f88e708f8c853p+2,
++	    -0x1.c24b6da113914p+2,
++	    -0x1.8d02ee397cb1dp+2,
++	    -0x1.58ac1223408b3p+2,
++	    -0x1.253e6fd190e89p+2,
++	    -0x1.e5641882c12ffp+1,
++	    -0x1.81fea712926f7p+1,
++	    -0x1.203e240de64a3p+1,
++	    -0x1.8029b86a78281p0,
++	    -0x1.85d713190fb9p-1,
++	    0x0p+0,
++	    0x1.4c1cc07312997p0,
++	    0x1.5e1848ccec948p+1,
++	    0x1.04cfcb7f1196fp+2,
++	    0x1.582813d463c21p+2,
++	    0x1.a936fa68760ccp+2,
++	    0x1.f81bc31d6cc4ep+2,
++	    0x1.2279a09fae6b1p+3,
++	    0x1.47ec0b6df5526p+3,
++	    0x1.6c71762280f1p+3,
++	    0x1.90155070798dap+3,
++	    0x1.b2e23b1d3068cp+3,
++	    0x1.d4e21b0daa86ap+3,
++	    0x1.f61e2a2f67f3fp+3
++  },
++  .scale = { 0x3ff0000000000000, 0x3fefd9b0d3158574, 0x3fefb5586cf9890f,
++	     0x3fef9301d0125b51, 0x3fef72b83c7d517b, 0x3fef54873168b9aa,
++	     0x3fef387a6e756238, 0x3fef1e9df51fdee1, 0x3fef06fe0a31b715,
++	     0x3feef1a7373aa9cb, 0x3feedea64c123422, 0x3feece086061892d,
++	     0x3feebfdad5362a27, 0x3feeb42b569d4f82, 0x3feeab07dd485429,
++	     0x3feea47eb03a5585, 0x3feea09e667f3bcd, 0x3fee9f75e8ec5f74,
++	     0x3feea11473eb0187, 0x3feea589994cce13, 0x3feeace5422aa0db,
++	     0x3feeb737b0cdc5e5, 0x3feec49182a3f090, 0x3feed503b23e255d,
++	     0x3feee89f995ad3ad, 0x3feeff76f2fb5e47, 0x3fef199bdd85529c,
++	     0x3fef3720dcef9069, 0x3fef5818dcfba487, 0x3fef7c97337b9b5f,
++	     0x3fefa4afa2a490da, 0x3fefd0765b6e4540,
++  },
++};
+diff --git a/sysdeps/aarch64/fpu/vecmath_config.h b/sysdeps/aarch64/fpu/vecmath_config.h
+index c8cfc03bc0b949e9..7f0a8aa5f2e80ec5 100644
+--- a/sysdeps/aarch64/fpu/vecmath_config.h
++++ b/sysdeps/aarch64/fpu/vecmath_config.h
+@@ -35,17 +35,6 @@
+     __ptr;                                                                    \
+   })
+ 
+-static inline uint64_t
+-asuint64 (double f)
+-{
+-  union
+-  {
+-    double f;
+-    uint64_t i;
+-  } u = { f };
+-  return u.i;
+-}
+-
+ #define V_LOG_POLY_ORDER 6
+ #define V_LOG_TABLE_BITS 7
+ extern const struct v_log_data
+@@ -130,4 +119,35 @@ extern const struct erfcf_data
+   } tab[645];
+ } __erfcf_data attribute_hidden;
+ 
++/* Some data for AdvSIMD and SVE pow's internal exp and log.  */
++#define V_POW_EXP_TABLE_BITS 8
++extern const struct v_pow_exp_data
++{
++  double poly[3];
++  double n_over_ln2, ln2_over_n_hi, ln2_over_n_lo, shift;
++  uint64_t sbits[1 << V_POW_EXP_TABLE_BITS];
++} __v_pow_exp_data attribute_hidden;
++
++#define V_POW_LOG_TABLE_BITS 7
++extern const struct v_pow_log_data
++{
++  double poly[7]; /* First coefficient is 1.  */
++  double ln2_hi, ln2_lo;
++  double invc[1 << V_POW_LOG_TABLE_BITS];
++  double logc[1 << V_POW_LOG_TABLE_BITS];
++  double logctail[1 << V_POW_LOG_TABLE_BITS];
++} __v_pow_log_data attribute_hidden;
++
++/* Some data for SVE powf's internal exp and log.  */
++#define V_POWF_EXP2_TABLE_BITS 5
++#define V_POWF_EXP2_N (1 << V_POWF_EXP2_TABLE_BITS)
++#define V_POWF_LOG2_TABLE_BITS 5
++#define V_POWF_LOG2_N (1 << V_POWF_LOG2_TABLE_BITS)
++extern const struct v_powf_data
++{
++  double invc[V_POWF_LOG2_N];
++  double logc[V_POWF_LOG2_N];
++  uint64_t scale[V_POWF_EXP2_N];
++} __v_powf_data attribute_hidden;
++
+ #endif
+diff --git a/sysdeps/aarch64/libm-test-ulps b/sysdeps/aarch64/libm-test-ulps
+index a67cd7cd7399c533..bd7e43983fc242a1 100644
+--- a/sysdeps/aarch64/libm-test-ulps
++++ b/sysdeps/aarch64/libm-test-ulps
+@@ -1397,11 +1397,19 @@ double: 1
+ float: 1
+ ldouble: 2
+ 
++Function: "pow_advsimd":
++double: 1
++float: 2
++
+ Function: "pow_downward":
+ double: 1
+ float: 1
+ ldouble: 2
+ 
++Function: "pow_sve":
++double: 1
++float: 2
++
+ Function: "pow_towardzero":
+ double: 1
+ float: 1
+diff --git a/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist b/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
+index 89ac1dfa36279eb0..b68510695481cf13 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
++++ b/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
+@@ -93,6 +93,8 @@ GLIBC_2.40 _ZGVnN2v_tanh F
+ GLIBC_2.40 _ZGVnN2v_tanhf F
+ GLIBC_2.40 _ZGVnN2vv_hypot F
+ GLIBC_2.40 _ZGVnN2vv_hypotf F
++GLIBC_2.40 _ZGVnN2vv_pow F
++GLIBC_2.40 _ZGVnN2vv_powf F
+ GLIBC_2.40 _ZGVnN4v_acoshf F
+ GLIBC_2.40 _ZGVnN4v_asinhf F
+ GLIBC_2.40 _ZGVnN4v_atanhf F
+@@ -103,6 +105,7 @@ GLIBC_2.40 _ZGVnN4v_erff F
+ GLIBC_2.40 _ZGVnN4v_sinhf F
+ GLIBC_2.40 _ZGVnN4v_tanhf F
+ GLIBC_2.40 _ZGVnN4vv_hypotf F
++GLIBC_2.40 _ZGVnN4vv_powf F
+ GLIBC_2.40 _ZGVsMxv_acosh F
+ GLIBC_2.40 _ZGVsMxv_acoshf F
+ GLIBC_2.40 _ZGVsMxv_asinh F
+@@ -123,3 +126,5 @@ GLIBC_2.40 _ZGVsMxv_tanh F
+ GLIBC_2.40 _ZGVsMxv_tanhf F
+ GLIBC_2.40 _ZGVsMxvv_hypot F
+ GLIBC_2.40 _ZGVsMxvv_hypotf F
++GLIBC_2.40 _ZGVsMxvv_pow F
++GLIBC_2.40 _ZGVsMxvv_powf F

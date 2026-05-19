@@ -1,0 +1,251 @@
+commit c995686e2cbe2a3ab2a11877a61c14a2e1fc35cb
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Tue Mar 3 18:48:47 2026 +0100
+
+    support: no_override_resolv_conf_search flag for resolver test framework
+    
+    It is required to test "search ." in /etc/resolv.conf files.  The
+    default is to override the search path isolate from unexpected
+    settings in the test execution environment.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+Conflicts:
+	resolv/Makefile
+	  (fixup context)
+
+diff --git a/resolv/Makefile b/resolv/Makefile
+index dfe04d9efffcb8c3..7659862ab257f7d3 100644
+--- a/resolv/Makefile
++++ b/resolv/Makefile
+@@ -83,6 +83,7 @@ tests = tst-aton tst-leaks tst-inet_ntop
+ tests-container += \
+   tst-getaddrinfo-eai-again \
+   tst-leaks2 \
++  tst-resolv-no-search \
+   # tests-container
+ 
+ tests-internal += tst-inet_aton_exact
+@@ -314,6 +315,7 @@ $(objpfx)tst-resolv-invalid-cname: $(objpfx)libresolv.so \
+   $(shared-thread-library)
+ $(objpfx)tst-resolv-invalid-ptr: $(objpfx)libresolv.so \
+   $(shared-thread-library)
++$(objpfx)tst-resolv-no-search: $(objpfx)libresolv.so $(shared-thread-library)
+ $(objpfx)tst-resolv-noaaaa: $(objpfx)libresolv.so $(shared-thread-library)
+ $(objpfx)tst-resolv-noaaaa-vc: $(objpfx)libresolv.so $(shared-thread-library)
+ $(objpfx)tst-resolv-nondecimal: $(objpfx)libresolv.so $(shared-thread-library)
+diff --git a/resolv/tst-resolv-no-search.c b/resolv/tst-resolv-no-search.c
+new file mode 100644
+index 0000000000000000..29701d4772507507
+--- /dev/null
++++ b/resolv/tst-resolv-no-search.c
+@@ -0,0 +1,174 @@
++/* Test using "search ." in /etc/resolv.conf.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <netdb.h>
++#include <resolv.h>
++
++#include <stdlib.h>
++#include <string.h>
++#include <support/check.h>
++#include <support/check_nss.h>
++#include <support/namespace.h>
++#include <support/resolv_test.h>
++#include <support/support.h>
++
++/* Check that plain res_init loads the configuration as expected.  */
++static void
++test_res_init (void *ignored)
++{
++  res_init ();
++  TEST_COMPARE_STRING (_res.dnsrch[0], ".");
++  TEST_COMPARE_STRING (_res.dnsrch[1], NULL);
++}
++
++static void
++response (const struct resolv_response_context *ctx,
++          struct resolv_response_builder *b,
++          const char *qname, uint16_t qclass, uint16_t qtype)
++{
++  TEST_VERIFY_EXIT (qclass == C_IN);
++  TEST_COMPARE (ctx->server_index, 0);
++
++  if (strncmp (qname, "does-not-exist", strlen ("does-not-exist")) == 0)
++    {
++      resolv_response_init (b, (struct resolv_response_flags)
++                            { .rcode = ns_r_nxdomain });
++      resolv_response_add_question (b, qname, qclass, qtype);
++      return;
++    }
++
++  resolv_response_init (b, (struct resolv_response_flags) { });
++  resolv_response_add_question (b, qname, qclass, qtype);
++  resolv_response_section (b, ns_s_an);
++
++  resolv_response_open_record (b, qname, qclass, qtype, 0);
++  switch (qtype)
++    {
++    case T_A:
++      {
++        char ipv4[4] = {192, 0, 2, 17};
++        resolv_response_add_data (b, &ipv4, sizeof (ipv4));
++      }
++      break;
++    case T_AAAA:
++      {
++        char ipv6[16]
++          = {0x20, 0x01, 0xd, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
++        resolv_response_add_data (b, &ipv6, sizeof (ipv6));
++      }
++      break;
++    }
++  resolv_response_close_record (b);
++}
++
++static void
++check_h (const char *name, int family, const char *expected)
++{
++  if (family == AF_INET)
++    {
++      char *query = xasprintf ("gethostbyname (\"%s\")", name);
++      check_hostent (query, gethostbyname (name), expected);
++      free (query);
++    }
++  {
++    char *query = xasprintf ("gethostbyname2 (\"%s\", %d)", name, family);
++    check_hostent (query, gethostbyname2 (name, family), expected);
++    free (query);
++  }
++}
++
++static void
++check_ai (const char *name, int family, const char *expected)
++{
++  struct addrinfo hints = { .ai_family = family, .ai_socktype = SOCK_STREAM, };
++  struct addrinfo *ai;
++  char *query = xasprintf ("%s:80 [%d]", name, hints.ai_family);
++  int ret = getaddrinfo (name, "80", &hints, &ai);
++  check_addrinfo (query, ai, ret, expected);
++  if (ret == 0)
++    freeaddrinfo (ai);
++  free (query);
++}
++
++static int
++do_test (void)
++{
++  support_isolate_in_subprocess (test_res_init, NULL);
++
++  struct resolv_test *aux = resolv_test_start
++    ((struct resolv_redirect_config)
++     {
++       .response_callback = response,
++       .no_override_resolv_conf_search = true,
++     });
++
++  check_h ("www.example", AF_INET,
++           "name: www.example\n"
++           "address: 192.0.2.17\n");
++  check_h ("www.example", AF_INET6,
++           "name: www.example\n"
++           "address: 2001:db8::1\n");
++  check_ai ("www.example", AF_UNSPEC,
++            "address: STREAM/TCP 192.0.2.17 80\n"
++            "address: STREAM/TCP 2001:db8::1 80\n");
++  check_ai ("www.example", AF_INET,
++            "address: STREAM/TCP 192.0.2.17 80\n");
++  check_ai ("www.example", AF_INET6,
++            "address: STREAM/TCP 2001:db8::1 80\n");
++  check_h ("does-not-exist.example", AF_INET,
++           "error: HOST_NOT_FOUND\n");
++  check_h ("does-not-exist.example", AF_INET6,
++           "error: HOST_NOT_FOUND\n");
++  check_ai ("does-not-exist.example", AF_UNSPEC,
++            "error: Name or service not known\n");
++  check_ai ("does-not-exist.example", AF_INET,
++            "error: Name or service not known\n");
++  check_ai ("does-not-exist.example", AF_INET6,
++            "error: Name or service not known\n");
++
++  /* With trailing dot.  */
++  check_h ("www.example.", AF_INET,
++           "name: www.example\n"
++           "address: 192.0.2.17\n");
++  check_h ("www.example.", AF_INET6,
++           "name: www.example\n"
++           "address: 2001:db8::1\n");
++  check_ai ("www.example.", AF_UNSPEC,
++            "address: STREAM/TCP 192.0.2.17 80\n"
++            "address: STREAM/TCP 2001:db8::1 80\n");
++  check_ai ("www.example.", AF_INET,
++            "address: STREAM/TCP 192.0.2.17 80\n");
++  check_ai ("www.example.", AF_INET6,
++            "address: STREAM/TCP 2001:db8::1 80\n");
++  check_h ("does-not-exist.example.", AF_INET,
++           "error: HOST_NOT_FOUND\n");
++  check_h ("does-not-exist.example.", AF_INET6,
++           "error: HOST_NOT_FOUND\n");
++  check_ai ("does-not-exist.example.", AF_UNSPEC,
++            "error: Name or service not known\n");
++  check_ai ("does-not-exist.example.", AF_INET,
++            "error: Name or service not known\n");
++  check_ai ("does-not-exist.example.", AF_INET6,
++            "error: Name or service not known\n");
++
++  resolv_test_end (aux);
++
++  return 0;
++}
++
++#include <support/test-driver.c>
+diff --git a/resolv/tst-resolv-no-search.root/etc/resolv.conf b/resolv/tst-resolv-no-search.root/etc/resolv.conf
+new file mode 100644
+index 0000000000000000..5ace648869a31edb
+--- /dev/null
++++ b/resolv/tst-resolv-no-search.root/etc/resolv.conf
+@@ -0,0 +1 @@
++search .
+diff --git a/support/resolv_test.c b/support/resolv_test.c
+index d4cc26b4aa24ce3a..a07c7bdd87358941 100644
+--- a/support/resolv_test.c
++++ b/support/resolv_test.c
+@@ -1098,6 +1098,9 @@ resolv_test_init (void)
+ static void
+ set_search_path (struct resolv_redirect_config config)
+ {
++  if (config.no_override_resolv_conf_search)
++    return;
++
+   memset (_res.defdname, 0, sizeof (_res.defdname));
+   memset (_res.dnsrch, 0, sizeof (_res.dnsrch));
+ 
+diff --git a/support/resolv_test.h b/support/resolv_test.h
+index 63ef13db7c947c31..84a31d090fbfd79a 100644
+--- a/support/resolv_test.h
++++ b/support/resolv_test.h
+@@ -96,6 +96,9 @@ struct resolv_redirect_config
+      domain name as well.  */
+   const char *search[7];
+ 
++  /* If true, do not override the search path loaded from /etc/resolv.conf.  */
++  bool no_override_resolv_conf_search;
++
+   /* Number of servers to activate in resolv.  0 means the default,
+      resolv_max_test_servers.  */
+   int nscount;

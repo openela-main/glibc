@@ -1,4 +1,4 @@
-commit e56ff82d5034ec66c6a78f517af6faa427f65b0b
+commit 831f63b94ceb92fb14c0d1a7ddad35a0d1404c71
 Author: Carlos O'Donell <carlos@redhat.com>
 Date:   Thu Jan 15 15:09:38 2026 -0500
 
@@ -28,6 +28,7 @@ Date:   Thu Jan 15 15:09:38 2026 -0500
     No regressions on x86_64.
     
     Reviewed-by: Florian Weimer <fweimer@redhat.com>
+    (cherry picked from commit e56ff82d5034ec66c6a78f517af6faa427f65b0b)
 
 diff --git a/resolv/nss_dns/dns-network.c b/resolv/nss_dns/dns-network.c
 index b32fd0fcab4fcc2c..71d67aa6f89722e2 100644

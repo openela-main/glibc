@@ -1,0 +1,28 @@
+commit 34d98aea6c1eaf7750a992bae55b2bca24898eab
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Sat Jan 24 10:29:22 2026 +0100
+
+    support: Fix memory leaks in support_subprogram, support_subprogram_wait
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+diff --git a/support/support_subprocess.c b/support/support_subprocess.c
+index b692a7f8b178502d..ec0c069470a586ac 100644
+--- a/support/support_subprocess.c
++++ b/support/support_subprocess.c
+@@ -86,6 +86,7 @@ support_subprogram (const char *file, char *const argv[], char *const envp[])
+ 
+   result.pid = xposix_spawn (file, &fa, NULL, argv,
+ 			     envp == NULL ? environ : envp);
++  posix_spawn_file_actions_destroy (&fa);
+ 
+   xclose (result.stdout_pipe[1]);
+   xclose (result.stderr_pipe[1]);
+@@ -102,6 +103,7 @@ support_subprogram_wait (const char *file, char *const argv[])
+   struct support_subprocess res = support_subprocess_init ();
+ 
+   res.pid = xposix_spawn (file, &fa, NULL, argv, environ);
++  posix_spawn_file_actions_destroy (&fa);
+ 
+   return support_process_wait (&res);
+ }

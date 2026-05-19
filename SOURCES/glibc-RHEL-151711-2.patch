@@ -1,0 +1,80 @@
+commit 521b4d6c4d5a7c84efd2742e0aac6311eaef005b
+Author: Matteo Croce <teknoraver@meta.com>
+Date:   Tue Jun 24 18:40:13 2025 +0200
+
+    fstat: add test and documentation for an edge case.
+    
+    The fstatat behaviour when the target is a dangling symlink is different
+    if flags contains AT_SYMLINK_NOFOLLOW or not.
+    Add a test for this and document it.
+
+diff --git a/io/tst-stat.c b/io/tst-stat.c
+index d6f5e83aa06a5fbe..b0f3d003c1d7127a 100644
+--- a/io/tst-stat.c
++++ b/io/tst-stat.c
+@@ -62,12 +62,23 @@ fstatat_check (int fd, const char *path, struct stat *st)
+   TEST_COMPARE (fstatat (fd, path, st, 0), 0);
+ }
+ 
++static void
++fstatat_link (const char *path, struct stat *st)
++{
++  TEST_COMPARE (fstatat (AT_FDCWD, path, st, 0), -1);
++  TEST_COMPARE (errno, ENOENT);
++
++  TEST_COMPARE (fstatat (AT_FDCWD, path, st, AT_SYMLINK_NOFOLLOW), 0);
++  TEST_COMPARE (!S_ISLNK(st->st_mode), 0);
++}
++
+ typedef void (*test_t)(int, const char *path, struct stat *);
+ 
+ static int
+ do_test (void)
+ {
+   char *path;
++  const char *linkame = "tst-fstat.linkname";
+   int fd = create_temp_file ("tst-fstat.", &path);
+   TEST_VERIFY_EXIT (fd >= 0);
+   support_write_file_string (path, "abc");
+@@ -81,13 +92,13 @@ do_test (void)
+     printf ("warning: timestamp with nanoseconds not supported\n");
+ 
+   struct statx stx;
++  struct stat st;
+   TEST_COMPARE (statx (fd, path, 0, STATX_BASIC_STATS, &stx), 0);
+ 
+   test_t tests[] = { stat_check, lstat_check, fstat_check, fstatat_check };
+ 
+   for (int i = 0; i < array_length (tests); i++)
+     {
+-      struct stat st;
+       tests[i](fd, path, &st);
+ 
+       TEST_COMPARE (stx.stx_dev_major, major (st.st_dev));
+@@ -111,6 +122,10 @@ do_test (void)
+ 	}
+     }
+ 
++  TEST_COMPARE (symlink ("tst-fstat.target", linkame), 0);
++  add_temp_file (linkame);
++  fstatat_link (linkame, &st);
++
+   return 0;
+ }
+ 
+diff --git a/manual/filesys.texi b/manual/filesys.texi
+index d0ced84bf6bdbf8e..4406201dab9ca3fb 100644
+--- a/manual/filesys.texi
++++ b/manual/filesys.texi
+@@ -2397,8 +2397,9 @@ The descriptor @var{filedes} is not associated with a directory, and
+ @var{filename} is a relative file name.
+ 
+ @item ENOENT
+-The file named by @var{filename} does not exist, or @var{filename} is an
+-empty string and @var{flags} does not contain @code{AT_EMPTY_PATH}.
++The file named by @var{filename} does not exist, it's a dangling symbolic link
++and @var{flags} does not contain @code{AT_SYMLINK_NOFOLLOW}, or @var{filename}
++is an empty string and @var{flags} does not contain @code{AT_EMPTY_PATH}.
+ @end table
+ 
+ When the sources are compiled with @code{_FILE_OFFSET_BITS == 64} this

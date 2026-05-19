@@ -1,0 +1,26 @@
+commit 907089ba369408fc7c2fbaada218a05df605d64a
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Thu Nov 20 16:42:04 2025 -0300
+
+    linux: Handle EINVAL as unsupported on tst-pidfd_getinfo
+    
+    Some kernels returns EINVAL for ioctl (PIDFD_GET_INFO) on pidfd
+    descriptors.
+    
+    Checked on aarch64-linux-gnu with Linux 6.12.
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+
+diff --git a/sysdeps/unix/sysv/linux/tst-pidfd_getinfo.c b/sysdeps/unix/sysv/linux/tst-pidfd_getinfo.c
+index 948a7cdb6b36ac03..f4a77816b43002d7 100644
+--- a/sysdeps/unix/sysv/linux/tst-pidfd_getinfo.c
++++ b/sysdeps/unix/sysv/linux/tst-pidfd_getinfo.c
+@@ -46,7 +46,7 @@ do_test (void)
+   };
+   if (ioctl (pidfd, PIDFD_GET_INFO, &info) != 0)
+     {
+-      if (errno == ENOTTY)
++      if (errno == ENOTTY || errno == EINVAL)
+ 	FAIL_UNSUPPORTED ("kernel does not support PIDFD_GET_INFO");
+       else
+ 	FAIL_EXIT1 ("ioctl (PIDFD_GET_INFO) failed: %m");

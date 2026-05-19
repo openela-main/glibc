@@ -1,0 +1,287 @@
+commit c0c9524a11c56889ec5b1de2e0b78112f2ebc0b7
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Fri Oct 3 16:38:53 2025 -0300
+
+    Update PIDFD_* constants for Linux 6.17
+    
+    The pidfd interface was extended with:
+    
+      * PIDFD_GET_INFO and pidfd_info (along with related extra flags) to
+        allow get information about the process without the need to parse
+        /proc (commit cdda1f26e74ba, Linux 6.13).
+    
+      * PIDFD_SELF_{THREAD,THREAD_GROUP,SELF,SELF_PROCESS} to allow
+        pidfd_send_signal refer to the own process or thread lead groups
+        without the need of allocating a file descriptor (commit f08d0c3a71114,
+        Linux 6.15).
+    
+      * PIDFD_INFO_COREDUMP that extends PIDFD_GET_INFO to obtain coredump
+        information.
+    
+    Linux uAPI header defines both PIDFD_SELF_THREAD and
+    PIDFD_SELF_THREAD_GROUP on linux/fcntl.h (since they reserve part of the
+    AT_* values), however for glibc I do not see any good reason to add pidfd
+    definitions on fcntl-linux.h.
+    
+    The tst-pidfd.c is extended with some PIDFD_SELF_* tests and a new
+    ‘tst-pidfd_getinfo.c’ test is added to check PIDFD_GET_INFO. The
+    PIDFD_INFO_COREDUMP tests would require very large and complex tests
+    that are already covered by kernel tests.
+    
+    Checked on aarch64-linux-gnu and x86_64-linux-gnu on kernels 6.8 and
+    6.17.
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/sysdeps/unix/sysv/linux/Makefile b/sysdeps/unix/sysv/linux/Makefile
+index a28b15ea16bc5045..ddc6f98001b2f4ae 100644
+--- a/sysdeps/unix/sysv/linux/Makefile
++++ b/sysdeps/unix/sysv/linux/Makefile
+@@ -224,6 +224,7 @@ tests += \
+   tst-ofdlocks \
+   tst-personality \
+   tst-pidfd \
++  tst-pidfd_getinfo \
+   tst-pidfd_getpid \
+   tst-pkey \
+   tst-ppoll \
+diff --git a/sysdeps/unix/sysv/linux/sys/pidfd.h b/sysdeps/unix/sysv/linux/sys/pidfd.h
+index 85d976939b6f01fa..8644f102c4576780 100644
+--- a/sysdeps/unix/sysv/linux/sys/pidfd.h
++++ b/sysdeps/unix/sysv/linux/sys/pidfd.h
+@@ -42,6 +42,64 @@
+ #define PIDFD_GET_USER_NAMESPACE              _IO(PIDFS_IOCTL_MAGIC, 9)
+ #define PIDFD_GET_UTS_NAMESPACE               _IO(PIDFS_IOCTL_MAGIC, 10)
+ 
++/* Sentinels to avoid allocating a file descriptor to refer to own process.  */
++#define PIDFD_SELF_THREAD                     -10000
++#define PIDFD_SELF_THREAD_GROUP               -10001
++#define PIDFD_SELF                            PIDFD_SELF_THREAD
++#define PIDFD_SELF_PROCESS                    PIDFD_SELF_THREAD_GROUP
++
++
++/* Flags for pidfd_info.  */
++
++/* Always returned, even if not requested */
++#define PIDFD_INFO_PID                        (1UL << 0)
++/* Always returned, even if not requested */
++#define PIDFD_INFO_CREDS                      (1UL << 1)
++/* Always returned if available, even if not requested */
++#define PIDFD_INFO_CGROUPID                   (1UL << 2)
++/* Only returned if requested. */
++#define PIDFD_INFO_EXIT                       (1UL << 3)
++/* Only returned if requested. */
++#define PIDFD_INFO_COREDUMP                   (1UL << 4)
++
++
++/* Value for coredump_mask in pidfd_info.  Only valid if PIDFD_INFO_COREDUMP
++   is set in mask.  */
++
++/* Did crash and... */
++#define PIDFD_COREDUMPED                      (1U << 0)
++/* coredumping generation was skipped. */
++#define PIDFD_COREDUMP_SKIP                   (1U << 1)
++/* coredump was done as the user. */
++#define PIDFD_COREDUMP_USER                   (1U << 2)
++/* coredump was done as root. */
++#define PIDFD_COREDUMP_ROOT                   (1U << 3)
++
++struct pidfd_info
++{
++  __uint64_t mask;
++  __uint64_t cgroupid;
++  __uint32_t pid;
++  __uint32_t tgid;
++  __uint32_t ppid;
++  __uint32_t ruid;
++  __uint32_t rgid;
++  __uint32_t euid;
++  __uint32_t egid;
++  __uint32_t suid;
++  __uint32_t sgid;
++  __uint32_t fsuid;
++  __uint32_t fsgid;
++  __int32_t  exit_code;
++  __uint32_t coredump_mask;
++  __uint32_t __spare1;
++};
++
++/* sizeof first published struct */
++#define PIDFD_INFO_SIZE_VER0                  64
++
++#define PIDFD_GET_INFO                        _IOWR(PIDFS_IOCTL_MAGIC, 11, struct pidfd_info)
++
+ /* Returns a file descriptor that refers to the process PID.  The
+    close-on-exec is set on the file descriptor.  */
+ extern int pidfd_open (__pid_t __pid, unsigned int __flags) __THROW;
+diff --git a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+index ef896394bdb12a25..5ef63acdd1c8a98e 100644
+--- a/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
++++ b/sysdeps/unix/sysv/linux/tst-pidfd-consts.py
+@@ -39,7 +39,7 @@ def main():
+         sys.exit (77)
+ 
+     linux_version_headers = glibcsyscalls.linux_kernel_version(args.cc)
+-    linux_version_glibc = (6, 12)
++    linux_version_glibc = (6, 17)
+     sys.exit(glibcextract.compare_macro_consts(
+                 '#include <sys/pidfd.h>\n',
+                 '#include <asm/fcntl.h>\n'
+diff --git a/sysdeps/unix/sysv/linux/tst-pidfd.c b/sysdeps/unix/sysv/linux/tst-pidfd.c
+index 2222ed5228c1bbbb..2a10774d0f3afd16 100644
+--- a/sysdeps/unix/sysv/linux/tst-pidfd.c
++++ b/sysdeps/unix/sysv/linux/tst-pidfd.c
+@@ -16,6 +16,7 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
++#include <array_length.h>
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <limits.h>
+@@ -41,15 +42,23 @@ static pid_t ppid;
+ static uid_t puid;
+ 
+ static void
+-sighandler (int sig)
++sighandler_subprocess (int sig)
+ {
+ }
+ 
++static sig_atomic_t pidfd_self_flag;
++
++static void
++sighandler_parent (int sig)
++{
++  pidfd_self_flag = 1;
++}
++
+ static void
+ subprocess (void)
+ {
+-  xsignal (SIGUSR1, sighandler);
+-  xsignal (SIGUSR2, sighandler);
++  xsignal (SIGUSR1, sighandler_subprocess);
++  xsignal (SIGUSR2, sighandler_subprocess);
+ 
+   /* Check first pidfd_send_signal with default NULL siginfo_t argument.  */
+   {
+@@ -102,6 +111,7 @@ do_test (void)
+       FAIL_UNSUPPORTED ("kernel does not support pidfd_getfd, skipping test");
+   }
+ 
++
+   ppid = getpid ();
+   puid = getuid ();
+ 
+@@ -115,6 +125,34 @@ do_test (void)
+     TEST_COMPARE (errno, EBADF);
+   }
+ 
++  xsignal (SIGUSR1, sighandler_parent);
++
++  {
++    sigset_t mask, oldmask;
++    sigemptyset (&mask);
++    sigaddset (&mask, SIGUSR1);
++    TEST_COMPARE (sigprocmask (SIG_BLOCK, &mask, &oldmask), 0);
++
++    /* PIDFD_SELF_{THREAD,THREAD_GROUP} were added on Linux 6.15.  On older
++       kernels pidfd_send_signal should return -1/EBADF.  */
++    const int pidfd_selfs[] = { PIDFD_SELF, PIDFD_SELF_PROCESS };
++    for (int i = 0; i < array_length (pidfd_selfs); i++)
++      {
++	pidfd_self_flag = 0;
++	int r = pidfd_send_signal (pidfd_selfs[i], SIGUSR1, NULL, 0);
++	if (r == -1)
++	  TEST_COMPARE (errno, EBADF);
++	else
++	  {
++	    while (pidfd_self_flag == 0)
++	      sigsuspend (&oldmask);
++	    TEST_COMPARE (pidfd_self_flag, 1);
++	  }
++      }
++
++    TEST_COMPARE (sigprocmask (SIG_SETMASK, &oldmask, NULL), 0);
++  }
++
+   /* Check if pidfd_getpid returns ESRCH for exited subprocess.  */
+   {
+     pid_t pidfork = xfork ();
+diff --git a/sysdeps/unix/sysv/linux/tst-pidfd_getinfo.c b/sysdeps/unix/sysv/linux/tst-pidfd_getinfo.c
+new file mode 100644
+index 0000000000000000..948a7cdb6b36ac03
+--- /dev/null
++++ b/sysdeps/unix/sysv/linux/tst-pidfd_getinfo.c
+@@ -0,0 +1,71 @@
++/* Basic tests for Linux PID_GET_INFO interfaces.
++   Copyright (C) 2022-2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <errno.h>
++#include <stdint.h>
++#include <sys/pidfd.h>
++#include <support/check.h>
++#include <support/xunistd.h>
++
++static int
++do_test (void)
++{
++  {
++    /* The pidfd_getfd syscall was the last in the set of pidfd related
++       syscalls added to the kernel.  Use pidfd_getfd to decide if this
++       kernel has pidfd support that we can test.  */
++    int r = pidfd_getfd (0, 0, 1);
++    TEST_VERIFY_EXIT (r == -1);
++    if (errno == ENOSYS)
++      FAIL_UNSUPPORTED ("kernel does not support pidfd_getfd, skipping test");
++  }
++
++  int pidfd = pidfd_open (getpid(), 0);
++  TEST_VERIFY (pidfd >= 0);
++
++  int pid = pidfd_getpid (pidfd);
++  TEST_VERIFY (pid >= 0);
++
++  struct pidfd_info info = {
++    .mask = PIDFD_INFO_CGROUPID,
++  };
++  if (ioctl (pidfd, PIDFD_GET_INFO, &info) != 0)
++    {
++      if (errno == ENOTTY)
++	FAIL_UNSUPPORTED ("kernel does not support PIDFD_GET_INFO");
++      else
++	FAIL_EXIT1 ("ioctl (PIDFD_GET_INFO) failed: %m");
++    }
++  
++  TEST_COMPARE (info.pid, pid);
++  TEST_COMPARE (info.ppid, getppid ());
++  TEST_COMPARE (info.ruid, getuid ());
++  TEST_COMPARE (info.rgid, getgid ());
++  TEST_COMPARE (info.euid, geteuid ());
++  TEST_COMPARE (info.egid, getegid ());
++  TEST_COMPARE (info.suid, geteuid ());
++  TEST_COMPARE (info.sgid, getegid ());
++  if (info.mask & PIDFD_INFO_CGROUPID)
++    TEST_VERIFY (info.cgroupid != 0);
++
++  xclose (pidfd);
++
++  return 0;
++}
++
++#include <support/test-driver.c>

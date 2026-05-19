@@ -13,7 +13,7 @@ Date:   Fri Sep 12 21:33:34 2025 +0200
     Reviewed-by: Collin Funk <collin.funk1@gmail.com>
 
 diff --git a/nss/getXXbyYY_r.c b/nss/getXXbyYY_r.c
-index fe7d5b7d0eddfb05..3a15b1a4ae151fcc 100644
+index eae6c3480e..2b0735fb6a 100644
 --- a/nss/getXXbyYY_r.c
 +++ b/nss/getXXbyYY_r.c
 @@ -157,19 +157,15 @@ __merge_einval (LOOKUP_TYPE *a,

@@ -1,0 +1,217 @@
+commit 4352e2cc934b2874dba37397157bf890fcee455a
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Fri Mar 28 14:27:45 2025 -0300
+
+    aarch64: Fix _dl_tlsdesc_dynamic unwind for pac-ret (BZ 32612)
+    
+    When libgcc is built with pac-ret, it requires to autenticate the
+    unwinding frame based on CFI information.  The _dl_tlsdesc_dynamic
+    uses a custom calling convention, where it is responsible to save
+    and restore all registers it might use (even volatile).
+    
+    The pac-ret support added by 1be3d6eb823d8b952fa54b7bbc90cbecb8981380
+    was added only on the slow-path, but the fast path also adds DWARF
+    Register Rule Instruction (cfi_adjust_cfa_offset) since it requires
+    to save/restore some auxiliary register.  It seems that this is not
+    fully supported neither by libgcc nor AArch64 ABI [1].
+    
+    Instead, move paciasp/autiasp to function prologue/epilogue to be
+    used on both fast and slow paths.
+    
+    I also corrected the _dl_tlsdesc_dynamic comment description, it was
+    copied from i386 implementation without any adjustment.
+    
+    Checked on aarch64-linux-gnu with a toolchain built with
+    --enable-standard-branch-protection on a system with pac-ret
+    support.
+    
+    [1]  https://github.com/ARM-software/abi-aa/blob/main/aadwarf64/aadwarf64.rst#id1
+    
+    Reviewed-by: Yury Khrustalev <yury.khrustalev@arm.com>
+
+Conflicts:
+        sysdeps/unix/sysv/linux/aarch64/Makefile
+          (Fixup context to apply without out-of-scope dependency f4d00dd60d)
+
+diff --git a/sysdeps/aarch64/dl-tlsdesc.S b/sysdeps/aarch64/dl-tlsdesc.S
+index 0aeaf64edd2594f1..36195c956855e024 100644
+--- a/sysdeps/aarch64/dl-tlsdesc.S
++++ b/sysdeps/aarch64/dl-tlsdesc.S
+@@ -119,20 +119,19 @@ _dl_tlsdesc_undefweak:
+ 	   object referenced by the argument.
+ 
+ 	   ptrdiff_t
+-	   __attribute__ ((__regparm__ (1)))
+ 	   _dl_tlsdesc_dynamic (struct tlsdesc *tdp)
+ 	   {
+ 	     struct tlsdesc_dynamic_arg *td = tdp->arg;
+-	     dtv_t *dtv = *(dtv_t **)((char *)__thread_pointer + TCBHEAD_DTV);
++	     dtv_t *dtv = *(dtv_t **)((char *)__thread_pointer() + TCBHEAD_DTV);
+ 	     if (__builtin_expect (td->gen_count <= dtv[0].counter
+ 		&& (dtv[td->tlsinfo.ti_module].pointer.val
+ 		    != TLS_DTV_UNALLOCATED),
+ 		1))
+ 	       return dtv[td->tlsinfo.ti_module].pointer.val
+ 		+ td->tlsinfo.ti_offset
+-		- __thread_pointer;
++		- __thread_pointer();
+ 
+-	     return ___tls_get_addr (&td->tlsinfo) - __thread_pointer;
++	     return __tls_get_addr (&td->tlsinfo) - __thread_pointer();
+ 	   }
+ 	 */
+ 
+@@ -142,7 +141,12 @@ _dl_tlsdesc_undefweak:
+ 	cfi_startproc
+ 	.align 2
+ _dl_tlsdesc_dynamic:
++# if HAVE_AARCH64_PAC_RET
++	PACIASP
++	cfi_window_save
++# else
+ 	BTI_C
++# endif
+ 
+ 	/* Save just enough registers to support fast path, if we fall
+ 	   into slow path we will save additional registers.  */
+@@ -173,6 +177,10 @@ _dl_tlsdesc_dynamic:
+ 1:
+ 	ldp	 x3,  x4, [sp, #16]
+ 	ldp	 x1,  x2, [sp], #32
++# if HAVE_AARCH64_PAC_RET
++	AUTIASP
++	cfi_window_save
++# endif
+ 	cfi_adjust_cfa_offset (-32)
+ 	RET
+ 2:
+@@ -182,10 +190,6 @@ _dl_tlsdesc_dynamic:
+ 
+ 	/* Save the remaining registers that we must treat as caller save.  */
+ 	cfi_restore_state
+-# if HAVE_AARCH64_PAC_RET
+-	PACIASP
+-	cfi_window_save
+-# endif
+ # define NSAVEXREGPAIRS 8
+ 	stp	x29, x30, [sp,#-16*NSAVEXREGPAIRS]!
+ 	cfi_adjust_cfa_offset (16*NSAVEXREGPAIRS)
+@@ -236,10 +240,6 @@ _dl_tlsdesc_dynamic:
+ 	cfi_adjust_cfa_offset (-16*NSAVEXREGPAIRS)
+ 	cfi_restore (x29)
+ 	cfi_restore (x30)
+-# if HAVE_AARCH64_PAC_RET
+-	AUTIASP
+-	cfi_window_save
+-# endif
+ 	b	1b
+ 	cfi_endproc
+ 	.size	_dl_tlsdesc_dynamic, .-_dl_tlsdesc_dynamic
+diff --git a/sysdeps/unix/sysv/linux/aarch64/Makefile b/sysdeps/unix/sysv/linux/aarch64/Makefile
+index 40b9a2e5dea1ea89..607a0c56d8dfad8d 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/Makefile
++++ b/sysdeps/unix/sysv/linux/aarch64/Makefile
+@@ -1,3 +1,16 @@
++ifeq ($(subdir),elf)
++tests += \
++  tst-tlsdesc-pac \
++  # tests
++modules-names += \
++  tst-tlsdesc-pac-mod \
++  # modules-names
++
++LDFLAGS-tst-tlsdesc-pac = -rdynamic
++
++$(objpfx)tst-tlsdesc-pac.out: $(objpfx)tst-tlsdesc-pac-mod.so
++endif
++
+ ifeq ($(subdir),misc)
+ sysdep_headers += sys/elf.h
+ endif
+diff --git a/sysdeps/unix/sysv/linux/aarch64/tst-tlsdesc-pac-mod.c b/sysdeps/unix/sysv/linux/aarch64/tst-tlsdesc-pac-mod.c
+new file mode 100644
+index 0000000000000000..d34c8beda9b1986d
+--- /dev/null
++++ b/sysdeps/unix/sysv/linux/aarch64/tst-tlsdesc-pac-mod.c
+@@ -0,0 +1,27 @@
++/* AArch64 tests for unwinding TLSDESC (BZ 32612)
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++_Thread_local int foo;
++/* Make the TLS segment large enough to trigger _dl_tlsdesc_dynamic.  */
++_Thread_local int foobar[1000];
++
++void
++bar (void)
++{
++  foo = 1;
++}
+diff --git a/sysdeps/unix/sysv/linux/aarch64/tst-tlsdesc-pac.c b/sysdeps/unix/sysv/linux/aarch64/tst-tlsdesc-pac.c
+new file mode 100644
+index 0000000000000000..24d656aafc2784b4
+--- /dev/null
++++ b/sysdeps/unix/sysv/linux/aarch64/tst-tlsdesc-pac.c
+@@ -0,0 +1,48 @@
++/* AArch64 tests for unwinding TLSDESC (BZ 32612)
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <stdlib.h>
++#include <unwind.h>
++#include <support/xdlfcn.h>
++
++static _Unwind_Reason_Code
++unwind_callback (struct _Unwind_Context* context, void* closure)
++{
++  return _URC_NO_REASON;
++}
++
++/* Assume that TLS variable from tst-tlsdesc-pac-mod.so will trigger
++   the slow-path that allocates the required memory with malloc.  */
++void *
++malloc (size_t s)
++{
++  _Unwind_Backtrace (unwind_callback, NULL);
++  return calloc (1, s);
++}
++
++static int
++do_test (void)
++{
++  void *h = xdlopen ("tst-tlsdesc-pac-mod.so", RTLD_LAZY);
++  void (*func)(void) = xdlsym (h, "bar");
++  func ();
++
++  return 0;
++}
++
++#include <support/test-driver.c>

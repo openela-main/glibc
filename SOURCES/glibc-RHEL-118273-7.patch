@@ -1,0 +1,624 @@
+commit 3d3a4fb8e4fe854a0bbb3df9c26ba482c10a7e22
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Tue Feb 20 16:59:44 2024 +0000
+
+    aarch64/fpu: Add vector variants of tanh
+    
+    Reviewed-by: Szabolcs Nagy <szabolcs.nagy@arm.com>
+
+diff --git a/math/auto-libm-test-in b/math/auto-libm-test-in
+index 5a690023e9a675cb..4584c5e498ab7194 100644
+--- a/math/auto-libm-test-in
++++ b/math/auto-libm-test-in
+@@ -7747,7 +7747,7 @@ tan min_subnorm
+ tan -min_subnorm
+ 
+ tanh 0
+-tanh -0
++tanh -0 no-mathvec
+ tanh 0.75
+ tanh -0.75
+ tanh 1.0
+diff --git a/math/auto-libm-test-out-tanh b/math/auto-libm-test-out-tanh
+index 8b9427c917f3b388..19ce2e7b9355963d 100644
+--- a/math/auto-libm-test-out-tanh
++++ b/math/auto-libm-test-out-tanh
+@@ -23,31 +23,31 @@ tanh 0
+ = tanh tonearest ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = tanh towardzero ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+ = tanh upward ibm128 0x0p+0 : 0x0p+0 : inexact-ok
+-tanh -0
+-= tanh downward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh tonearest binary32 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh towardzero binary32 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh upward binary32 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh downward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh tonearest binary64 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh towardzero binary64 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh upward binary64 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh downward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh tonearest intel96 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh towardzero intel96 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh upward intel96 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh downward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh tonearest m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh towardzero m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh upward m68k96 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh downward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh tonearest binary128 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh towardzero binary128 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh upward binary128 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh downward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh tonearest ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh towardzero ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
+-= tanh upward ibm128 -0x0p+0 : -0x0p+0 : inexact-ok
++tanh -0 no-mathvec
++= tanh downward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh tonearest binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh towardzero binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh upward binary32 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh downward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh tonearest binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh towardzero binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh upward binary64 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh downward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh tonearest intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh towardzero intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh upward intel96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh downward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh tonearest m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh towardzero m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh upward m68k96 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh downward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh tonearest binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh towardzero binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh upward binary128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh downward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh tonearest ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh towardzero ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
++= tanh upward ibm128 -0x0p+0 : -0x0p+0 : no-mathvec inexact-ok
+ tanh 0.75
+ = tanh downward binary32 0xcp-4 : 0xa.2991fp-4 : inexact-ok
+ = tanh tonearest binary32 0xcp-4 : 0xa.2991fp-4 : inexact-ok
+diff --git a/sysdeps/aarch64/fpu/Makefile b/sysdeps/aarch64/fpu/Makefile
+index fb5f3a365b27fdf3..e5f418ae4274edb2 100644
+--- a/sysdeps/aarch64/fpu/Makefile
++++ b/sysdeps/aarch64/fpu/Makefile
+@@ -18,7 +18,8 @@ libmvec-supported-funcs = acos \
+                           log2 \
+                           sin \
+                           sinh \
+-                          tan
++                          tan \
++                          tanh
+ 
+ float-advsimd-funcs = $(libmvec-supported-funcs)
+ double-advsimd-funcs = $(libmvec-supported-funcs)
+diff --git a/sysdeps/aarch64/fpu/Versions b/sysdeps/aarch64/fpu/Versions
+index 4774b3efeacf59fb..4dbf3d32441dd43a 100644
+--- a/sysdeps/aarch64/fpu/Versions
++++ b/sysdeps/aarch64/fpu/Versions
+@@ -109,5 +109,10 @@ libmvec {
+     _ZGVnN4v_sinhf;
+     _ZGVsMxv_sinh;
+     _ZGVsMxv_sinhf;
++    _ZGVnN2v_tanh;
++    _ZGVnN2v_tanhf;
++    _ZGVnN4v_tanhf;
++    _ZGVsMxv_tanh;
++    _ZGVsMxv_tanhf;
+   }
+ }
+diff --git a/sysdeps/aarch64/fpu/advsimd_f32_protos.h b/sysdeps/aarch64/fpu/advsimd_f32_protos.h
+index 7d9445d5c0c0c2a8..4ff191c324050b42 100644
+--- a/sysdeps/aarch64/fpu/advsimd_f32_protos.h
++++ b/sysdeps/aarch64/fpu/advsimd_f32_protos.h
+@@ -37,4 +37,5 @@ libmvec_hidden_proto (V_NAME_F1(log));
+ libmvec_hidden_proto (V_NAME_F1(sin));
+ libmvec_hidden_proto (V_NAME_F1(sinh));
+ libmvec_hidden_proto (V_NAME_F1(tan));
++libmvec_hidden_proto (V_NAME_F1(tanh));
+ libmvec_hidden_proto (V_NAME_F2(atan2));
+diff --git a/sysdeps/aarch64/fpu/bits/math-vector.h b/sysdeps/aarch64/fpu/bits/math-vector.h
+index 1e9b76cf41916365..585e022082d62a5d 100644
+--- a/sysdeps/aarch64/fpu/bits/math-vector.h
++++ b/sysdeps/aarch64/fpu/bits/math-vector.h
+@@ -113,6 +113,10 @@
+ # define __DECL_SIMD_tan __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_tanf
+ # define __DECL_SIMD_tanf __DECL_SIMD_aarch64
++# undef __DECL_SIMD_tanh
++# define __DECL_SIMD_tanh __DECL_SIMD_aarch64
++# undef __DECL_SIMD_tanhf
++# define __DECL_SIMD_tanhf __DECL_SIMD_aarch64
+ #endif
+ 
+ #if __GNUC_PREREQ(9, 0)
+@@ -160,6 +164,7 @@ __vpcs __f32x4_t _ZGVnN4v_log2f (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_sinf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_sinhf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_tanf (__f32x4_t);
++__vpcs __f32x4_t _ZGVnN4v_tanhf (__f32x4_t);
+ 
+ __vpcs __f64x2_t _ZGVnN2vv_atan2 (__f64x2_t, __f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_acos (__f64x2_t);
+@@ -182,6 +187,7 @@ __vpcs __f64x2_t _ZGVnN2v_log2 (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_sin (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_sinh (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_tan (__f64x2_t);
++__vpcs __f64x2_t _ZGVnN2v_tanh (__f64x2_t);
+ 
+ #  undef __ADVSIMD_VEC_MATH_SUPPORTED
+ #endif /* __ADVSIMD_VEC_MATH_SUPPORTED */
+@@ -209,6 +215,7 @@ __sv_f32_t _ZGVsMxv_log2f (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_sinf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_sinhf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_tanf (__sv_f32_t, __sv_bool_t);
++__sv_f32_t _ZGVsMxv_tanhf (__sv_f32_t, __sv_bool_t);
+ 
+ __sv_f64_t _ZGVsMxvv_atan2 (__sv_f64_t, __sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_acos (__sv_f64_t, __sv_bool_t);
+@@ -231,6 +238,7 @@ __sv_f64_t _ZGVsMxv_log2 (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_sin (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_sinh (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_tan (__sv_f64_t, __sv_bool_t);
++__sv_f64_t _ZGVsMxv_tanh (__sv_f64_t, __sv_bool_t);
+ 
+ #  undef __SVE_VEC_MATH_SUPPORTED
+ #endif /* __SVE_VEC_MATH_SUPPORTED */
+diff --git a/sysdeps/aarch64/fpu/tanh_advsimd.c b/sysdeps/aarch64/fpu/tanh_advsimd.c
+new file mode 100644
+index 0000000000000000..1da1dfa5dbe418b6
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/tanh_advsimd.c
+@@ -0,0 +1,109 @@
++/* Double-precision vector (Advanced SIMD) tanh function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "v_math.h"
++#include "poly_advsimd_f64.h"
++
++static const struct data
++{
++  float64x2_t poly[11];
++  float64x2_t inv_ln2, ln2_hi, ln2_lo, shift;
++  uint64x2_t onef;
++  uint64x2_t thresh, tiny_bound;
++} data = {
++  /* Generated using Remez, deg=12 in [-log(2)/2, log(2)/2].  */
++  .poly = { V2 (0x1p-1), V2 (0x1.5555555555559p-3), V2 (0x1.555555555554bp-5),
++	    V2 (0x1.111111110f663p-7), V2 (0x1.6c16c16c1b5f3p-10),
++	    V2 (0x1.a01a01affa35dp-13), V2 (0x1.a01a018b4ecbbp-16),
++	    V2 (0x1.71ddf82db5bb4p-19), V2 (0x1.27e517fc0d54bp-22),
++	    V2 (0x1.af5eedae67435p-26), V2 (0x1.1f143d060a28ap-29), },
++
++  .inv_ln2 = V2 (0x1.71547652b82fep0),
++  .ln2_hi = V2 (-0x1.62e42fefa39efp-1),
++  .ln2_lo = V2 (-0x1.abc9e3b39803fp-56),
++  .shift = V2 (0x1.8p52),
++
++  .onef = V2 (0x3ff0000000000000),
++  .tiny_bound = V2 (0x3e40000000000000), /* asuint64 (0x1p-27).  */
++  /* asuint64(0x1.241bf835f9d5fp+4) - asuint64(tiny_bound).  */
++  .thresh = V2 (0x01f241bf835f9d5f),
++};
++
++static inline float64x2_t
++expm1_inline (float64x2_t x, const struct data *d)
++{
++  /* Helper routine for calculating exp(x) - 1. Vector port of the helper from
++     the scalar variant of tanh.  */
++
++  /* Reduce argument: f in [-ln2/2, ln2/2], i is exact.  */
++  float64x2_t j = vsubq_f64 (vfmaq_f64 (d->shift, d->inv_ln2, x), d->shift);
++  int64x2_t i = vcvtq_s64_f64 (j);
++  float64x2_t f = vfmaq_f64 (x, j, d->ln2_hi);
++  f = vfmaq_f64 (f, j, d->ln2_lo);
++
++  /* Approximate expm1(f) using polynomial.  */
++  float64x2_t f2 = vmulq_f64 (f, f);
++  float64x2_t f4 = vmulq_f64 (f2, f2);
++  float64x2_t p = vfmaq_f64 (
++      f, f2, v_estrin_10_f64 (f, f2, f4, vmulq_f64 (f4, f4), d->poly));
++
++  /* t = 2 ^ i.  */
++  float64x2_t t = vreinterpretq_f64_u64 (
++      vaddq_u64 (vreinterpretq_u64_s64 (i << 52), d->onef));
++  /* expm1(x) = p * t + (t - 1).  */
++  return vfmaq_f64 (vsubq_f64 (t, v_f64 (1)), p, t);
++}
++
++static float64x2_t NOINLINE VPCS_ATTR
++special_case (float64x2_t x, float64x2_t y, uint64x2_t special)
++{
++  return v_call_f64 (tanh, x, y, special);
++}
++
++/* Vector approximation for double-precision tanh(x), using a simplified
++   version of expm1. The greatest observed error is 2.77 ULP:
++   _ZGVnN2v_tanh(-0x1.c4a4ca0f9f3b7p-3) got -0x1.bd6a21a163627p-3
++				       want -0x1.bd6a21a163624p-3.  */
++float64x2_t VPCS_ATTR V_NAME_D1 (tanh) (float64x2_t x)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  uint64x2_t ia = vreinterpretq_u64_f64 (vabsq_f64 (x));
++
++  float64x2_t u = x;
++
++  /* Trigger special-cases for tiny, boring and infinity/NaN.  */
++  uint64x2_t special = vcgtq_u64 (vsubq_u64 (ia, d->tiny_bound), d->thresh);
++#if WANT_SIMD_EXCEPT
++  /* To trigger fp exceptions correctly, set special lanes to a neutral value.
++     They will be fixed up later by the special-case handler.  */
++  if (__glibc_unlikely (v_any_u64 (special)))
++    u = v_zerofy_f64 (u, special);
++#endif
++
++  u = vaddq_f64 (u, u);
++
++  /* tanh(x) = (e^2x - 1) / (e^2x + 1).  */
++  float64x2_t q = expm1_inline (u, d);
++  float64x2_t qp2 = vaddq_f64 (q, v_f64 (2));
++
++  if (__glibc_unlikely (v_any_u64 (special)))
++    return special_case (x, vdivq_f64 (q, qp2), special);
++  return vdivq_f64 (q, qp2);
++}
+diff --git a/sysdeps/aarch64/fpu/tanh_sve.c b/sysdeps/aarch64/fpu/tanh_sve.c
+new file mode 100644
+index 0000000000000000..d25e011cea305094
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/tanh_sve.c
+@@ -0,0 +1,100 @@
++/* Double-precision vector (SVE) tanh function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "sv_math.h"
++#include "poly_sve_f64.h"
++
++static const struct data
++{
++  float64_t poly[11];
++  float64_t inv_ln2, ln2_hi, ln2_lo, shift;
++  uint64_t thresh, tiny_bound;
++} data = {
++  /* Generated using Remez, deg=12 in [-log(2)/2, log(2)/2].  */
++  .poly = { 0x1p-1, 0x1.5555555555559p-3, 0x1.555555555554bp-5,
++	    0x1.111111110f663p-7, 0x1.6c16c16c1b5f3p-10,
++	    0x1.a01a01affa35dp-13, 0x1.a01a018b4ecbbp-16,
++	    0x1.71ddf82db5bb4p-19, 0x1.27e517fc0d54bp-22,
++	    0x1.af5eedae67435p-26, 0x1.1f143d060a28ap-29, },
++
++  .inv_ln2 = 0x1.71547652b82fep0,
++  .ln2_hi = -0x1.62e42fefa39efp-1,
++  .ln2_lo = -0x1.abc9e3b39803fp-56,
++  .shift = 0x1.8p52,
++
++  .tiny_bound = 0x3e40000000000000, /* asuint64 (0x1p-27).  */
++  /* asuint64(0x1.241bf835f9d5fp+4) - asuint64(tiny_bound).  */
++  .thresh = 0x01f241bf835f9d5f,
++};
++
++static inline svfloat64_t
++expm1_inline (svfloat64_t x, const svbool_t pg, const struct data *d)
++{
++  /* Helper routine for calculating exp(x) - 1. Vector port of the helper from
++     the scalar variant of tanh.  */
++
++  /* Reduce argument: f in [-ln2/2, ln2/2], i is exact.  */
++  svfloat64_t j
++      = svsub_x (pg, svmla_x (pg, sv_f64 (d->shift), x, d->inv_ln2), d->shift);
++  svint64_t i = svcvt_s64_x (pg, j);
++  svfloat64_t f = svmla_x (pg, x, j, d->ln2_hi);
++  f = svmla_x (pg, f, j, d->ln2_lo);
++
++  /* Approximate expm1(f) using polynomial.  */
++  svfloat64_t f2 = svmul_x (pg, f, f);
++  svfloat64_t f4 = svmul_x (pg, f2, f2);
++  svfloat64_t p = svmla_x (
++      pg, f, f2,
++      sv_estrin_10_f64_x (pg, f, f2, f4, svmul_x (pg, f4, f4), d->poly));
++
++  /* t = 2 ^ i.  */
++  svfloat64_t t = svscale_x (pg, sv_f64 (1), i);
++  /* expm1(x) = p * t + (t - 1).  */
++  return svmla_x (pg, svsub_x (pg, t, 1), p, t);
++}
++
++static svfloat64_t NOINLINE
++special_case (svfloat64_t x, svfloat64_t y, svbool_t special)
++{
++  return sv_call_f64 (tanh, x, y, special);
++}
++
++/* SVE approximation for double-precision tanh(x), using a simplified
++   version of expm1. The greatest observed error is 2.77 ULP:
++   _ZGVsMxv_tanh(-0x1.c4a4ca0f9f3b7p-3) got -0x1.bd6a21a163627p-3
++				       want -0x1.bd6a21a163624p-3.  */
++svfloat64_t SV_NAME_D1 (tanh) (svfloat64_t x, svbool_t pg)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  svuint64_t ia = svreinterpret_u64 (svabs_x (pg, x));
++
++  /* Trigger special-cases for tiny, boring and infinity/NaN.  */
++  svbool_t special = svcmpgt (pg, svsub_x (pg, ia, d->tiny_bound), d->thresh);
++
++  svfloat64_t u = svadd_x (pg, x, x);
++
++  /* tanh(x) = (e^2x - 1) / (e^2x + 1).  */
++  svfloat64_t q = expm1_inline (u, pg, d);
++  svfloat64_t qp2 = svadd_x (pg, q, 2);
++
++  if (__glibc_unlikely (svptest_any (pg, special)))
++    return special_case (x, svdiv_x (pg, q, qp2), special);
++  return svdiv_x (pg, q, qp2);
++}
+diff --git a/sysdeps/aarch64/fpu/tanhf_advsimd.c b/sysdeps/aarch64/fpu/tanhf_advsimd.c
+new file mode 100644
+index 0000000000000000..50defd6ef03926f4
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/tanhf_advsimd.c
+@@ -0,0 +1,76 @@
++/* Single-precision vector (Advanced SIMD) tanh function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "v_expm1f_inline.h"
++
++static const struct data
++{
++  struct v_expm1f_data expm1f_consts;
++  uint32x4_t boring_bound, large_bound, onef;
++} data = {
++  .expm1f_consts = V_EXPM1F_DATA,
++  /* 0x1.205966p+3, above which tanhf rounds to 1 (or -1 for  negative).  */
++  .boring_bound = V4 (0x41102cb3),
++  .large_bound = V4 (0x7f800000),
++  .onef = V4 (0x3f800000),
++};
++
++static float32x4_t NOINLINE VPCS_ATTR
++special_case (float32x4_t x, float32x4_t y, uint32x4_t special)
++{
++  return v_call_f32 (tanhf, x, y, special);
++}
++
++/* Approximation for single-precision vector tanh(x), using a simplified
++   version of expm1f. The maximum error is 2.58 ULP:
++   _ZGVnN4v_tanhf (0x1.fa5eep-5) got 0x1.f9ba02p-5
++				want 0x1.f9ba08p-5.  */
++float32x4_t VPCS_ATTR NOINLINE V_NAME_F1 (tanh) (float32x4_t x)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  uint32x4_t ix = vreinterpretq_u32_f32 (x);
++  float32x4_t ax = vabsq_f32 (x);
++  uint32x4_t iax = vreinterpretq_u32_f32 (ax);
++  uint32x4_t sign = veorq_u32 (ix, iax);
++  uint32x4_t is_boring = vcgtq_u32 (iax, d->boring_bound);
++  float32x4_t boring = vreinterpretq_f32_u32 (vorrq_u32 (sign, d->onef));
++
++#if WANT_SIMD_EXCEPT
++  /* If fp exceptions are to be triggered properly, set all special and boring
++     lanes to 0, which will trigger no exceptions, and fix them up later.  */
++  uint32x4_t special = vorrq_u32 (vcgtq_u32 (iax, d->large_bound),
++				  vcltq_u32 (iax, v_u32 (0x34000000)));
++  x = v_zerofy_f32 (x, is_boring);
++  if (__glibc_unlikely (v_any_u32 (special)))
++    x = v_zerofy_f32 (x, special);
++#else
++  uint32x4_t special = vcgtq_u32 (iax, d->large_bound);
++#endif
++
++  /* tanh(x) = (e^2x - 1) / (e^2x + 1).  */
++  float32x4_t q = expm1f_inline (vmulq_n_f32 (x, 2), &d->expm1f_consts);
++  float32x4_t y = vdivq_f32 (q, vaddq_f32 (q, v_f32 (2.0)));
++  if (__glibc_unlikely (v_any_u32 (special)))
++    return special_case (vreinterpretq_f32_u32 (ix),
++			 vbslq_f32 (is_boring, boring, y), special);
++  return vbslq_f32 (is_boring, boring, y);
++}
++libmvec_hidden_def (V_NAME_F1 (tanh))
++HALF_WIDTH_ALIAS_F1 (tanh)
+diff --git a/sysdeps/aarch64/fpu/tanhf_sve.c b/sysdeps/aarch64/fpu/tanhf_sve.c
+new file mode 100644
+index 0000000000000000..0b94523cf5074200
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/tanhf_sve.c
+@@ -0,0 +1,61 @@
++/* Single-precision vector (SVE) tanh function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "sv_expm1f_inline.h"
++
++static const struct data
++{
++  struct sv_expm1f_data expm1f_consts;
++  uint32_t boring_bound, onef;
++} data = {
++  .expm1f_consts = SV_EXPM1F_DATA,
++  /* 0x1.205966p+3, above which tanhf rounds to 1 (or -1 for negative).  */
++  .boring_bound = 0x41102cb3,
++  .onef = 0x3f800000,
++};
++
++static svfloat32_t NOINLINE
++special_case (svfloat32_t x, svfloat32_t y, svbool_t special)
++{
++  return sv_call_f32 (tanhf, x, y, special);
++}
++
++/* Approximation for single-precision SVE tanh(x), using a simplified
++   version of expm1f. The maximum error is 2.57 ULP:
++   _ZGVsMxv_tanhf (0x1.fc1832p-5) got 0x1.fb71a4p-5
++				 want 0x1.fb71aap-5.  */
++svfloat32_t SV_NAME_F1 (tanh) (svfloat32_t x, const svbool_t pg)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  svfloat32_t ax = svabs_x (pg, x);
++  svuint32_t iax = svreinterpret_u32 (ax);
++  svuint32_t sign = sveor_x (pg, svreinterpret_u32 (x), iax);
++  svbool_t is_boring = svcmpgt (pg, iax, d->boring_bound);
++  svfloat32_t boring = svreinterpret_f32 (svorr_x (pg, sign, d->onef));
++
++  svbool_t special = svcmpgt (pg, iax, 0x7f800000);
++
++  /* tanh(x) = (e^2x - 1) / (e^2x + 1).  */
++  svfloat32_t q = expm1f_inline (svmul_x (pg, x, 2.0), pg, &d->expm1f_consts);
++  svfloat32_t y = svdiv_x (pg, q, svadd_x (pg, q, 2.0));
++  if (__glibc_unlikely (svptest_any (pg, special)))
++    return special_case (x, svsel_f32 (is_boring, boring, y), special);
++  return svsel_f32 (is_boring, boring, y);
++}
+diff --git a/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c b/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
+index 1a57b22c3a92f1e1..7aeda880bd885ce5 100644
+--- a/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
+@@ -44,3 +44,4 @@ VPCS_VECTOR_WRAPPER (log2_advsimd, _ZGVnN2v_log2)
+ VPCS_VECTOR_WRAPPER (sin_advsimd, _ZGVnN2v_sin)
+ VPCS_VECTOR_WRAPPER (sinh_advsimd, _ZGVnN2v_sinh)
+ VPCS_VECTOR_WRAPPER (tan_advsimd, _ZGVnN2v_tan)
++VPCS_VECTOR_WRAPPER (tanh_advsimd, _ZGVnN2v_tanh)
+diff --git a/sysdeps/aarch64/fpu/test-double-sve-wrappers.c b/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
+index 0c9858f6b74aaef6..95f1ec52221ba626 100644
+--- a/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
+@@ -63,3 +63,4 @@ SVE_VECTOR_WRAPPER (log2_sve, _ZGVsMxv_log2)
+ SVE_VECTOR_WRAPPER (sin_sve, _ZGVsMxv_sin)
+ SVE_VECTOR_WRAPPER (sinh_sve, _ZGVsMxv_sinh)
+ SVE_VECTOR_WRAPPER (tan_sve, _ZGVsMxv_tan)
++SVE_VECTOR_WRAPPER (tanh_sve, _ZGVsMxv_tanh)
+diff --git a/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c b/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
+index 4758490c6fc40fda..bd6800e91c64136f 100644
+--- a/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
+@@ -44,3 +44,4 @@ VPCS_VECTOR_WRAPPER (log2f_advsimd, _ZGVnN4v_log2f)
+ VPCS_VECTOR_WRAPPER (sinf_advsimd, _ZGVnN4v_sinf)
+ VPCS_VECTOR_WRAPPER (sinhf_advsimd, _ZGVnN4v_sinhf)
+ VPCS_VECTOR_WRAPPER (tanf_advsimd, _ZGVnN4v_tanf)
++VPCS_VECTOR_WRAPPER (tanhf_advsimd, _ZGVnN4v_tanhf)
+diff --git a/sysdeps/aarch64/fpu/test-float-sve-wrappers.c b/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
+index 7c04f07bbee84777..35ca305fddb7366c 100644
+--- a/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
+@@ -63,3 +63,4 @@ SVE_VECTOR_WRAPPER (log2f_sve, _ZGVsMxv_log2f)
+ SVE_VECTOR_WRAPPER (sinf_sve, _ZGVsMxv_sinf)
+ SVE_VECTOR_WRAPPER (sinhf_sve, _ZGVsMxv_sinhf)
+ SVE_VECTOR_WRAPPER (tanf_sve, _ZGVsMxv_tanf)
++SVE_VECTOR_WRAPPER (tanhf_sve, _ZGVsMxv_tanhf)
+diff --git a/sysdeps/aarch64/libm-test-ulps b/sysdeps/aarch64/libm-test-ulps
+index fec0972081af734a..8398b7bc7749808d 100644
+--- a/sysdeps/aarch64/libm-test-ulps
++++ b/sysdeps/aarch64/libm-test-ulps
+@@ -1496,11 +1496,19 @@ double: 2
+ float: 2
+ ldouble: 2
+ 
++Function: "tanh_advsimd":
++double: 2
++float: 2
++
+ Function: "tanh_downward":
+ double: 3
+ float: 3
+ ldouble: 4
+ 
++Function: "tanh_sve":
++double: 2
++float: 2
++
+ Function: "tanh_towardzero":
+ double: 2
+ float: 2
+diff --git a/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist b/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
+index 1db5ba61d64067a2..396082f6a7981686 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
++++ b/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
+@@ -85,12 +85,15 @@ GLIBC_2.40 _ZGVnN2v_erf F
+ GLIBC_2.40 _ZGVnN2v_erff F
+ GLIBC_2.40 _ZGVnN2v_sinh F
+ GLIBC_2.40 _ZGVnN2v_sinhf F
++GLIBC_2.40 _ZGVnN2v_tanh F
++GLIBC_2.40 _ZGVnN2v_tanhf F
+ GLIBC_2.40 _ZGVnN4v_acoshf F
+ GLIBC_2.40 _ZGVnN4v_asinhf F
+ GLIBC_2.40 _ZGVnN4v_atanhf F
+ GLIBC_2.40 _ZGVnN4v_coshf F
+ GLIBC_2.40 _ZGVnN4v_erff F
+ GLIBC_2.40 _ZGVnN4v_sinhf F
++GLIBC_2.40 _ZGVnN4v_tanhf F
+ GLIBC_2.40 _ZGVsMxv_acosh F
+ GLIBC_2.40 _ZGVsMxv_acoshf F
+ GLIBC_2.40 _ZGVsMxv_asinh F
+@@ -103,3 +106,5 @@ GLIBC_2.40 _ZGVsMxv_erf F
+ GLIBC_2.40 _ZGVsMxv_erff F
+ GLIBC_2.40 _ZGVsMxv_sinh F
+ GLIBC_2.40 _ZGVsMxv_sinhf F
++GLIBC_2.40 _ZGVsMxv_tanh F
++GLIBC_2.40 _ZGVsMxv_tanhf F

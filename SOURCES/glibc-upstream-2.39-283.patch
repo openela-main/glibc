@@ -1,0 +1,24 @@
+commit 4a53354eaf26a6b5c4e1c67f92ea41eae949ac09
+Author: Collin Funk <collin.funk1@gmail.com>
+Date:   Wed Oct 22 01:51:09 2025 -0700
+
+    sprof: fix -Wformat warnings on 32-bit hosts
+    
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+    (cherry picked from commit 9681f645ba20fc3c18eb12ffebf94e3df1f888e3)
+
+diff --git a/elf/sprof.c b/elf/sprof.c
+index 0c687eab491101a2..1f5ab25ac39bfff4 100644
+--- a/elf/sprof.c
++++ b/elf/sprof.c
+@@ -573,8 +573,8 @@ load_shobj (const char *name)
+ 	|| INT_ADD_WRAPV (sz, off, &end_off)				\
+ 	|| end_off > st.st_size)					\
+       error (EXIT_FAILURE, ERANGE,					\
+-	     _("read outside of file extents %zu + %zd > %zu"),		\
+-	     sz, off, st.st_size);					\
++	     _("read outside of file extents %zu + %jd > %jd"),		\
++	     sz, (intmax_t) off, (intmax_t) st.st_size);		\
+ 	}
+ 
+   /* Map the section header.  */

@@ -1,0 +1,514 @@
+commit 157f89fa3d616729c8d7797168a9b3eaaa6ebf6e
+Author: Joe Ramsay <Joe.Ramsay@arm.com>
+Date:   Tue Apr 30 13:49:58 2024 +0100
+
+    aarch64/fpu: Add vector variants of hypot
+    
+    Reviewed-by: Szabolcs Nagy <szabolcs.nagy@arm.com>
+
+diff --git a/sysdeps/aarch64/fpu/Makefile b/sysdeps/aarch64/fpu/Makefile
+index e8af35099d7b9f8f..06657782a1ee7106 100644
+--- a/sysdeps/aarch64/fpu/Makefile
++++ b/sysdeps/aarch64/fpu/Makefile
+@@ -13,6 +13,7 @@ libmvec-supported-funcs = acos \
+                           exp10 \
+                           exp2 \
+                           expm1 \
++                          hypot \
+                           log \
+                           log10 \
+                           log1p \
+diff --git a/sysdeps/aarch64/fpu/Versions b/sysdeps/aarch64/fpu/Versions
+index 3cb1b82bd2785a4b..aedae9457b148983 100644
+--- a/sysdeps/aarch64/fpu/Versions
++++ b/sysdeps/aarch64/fpu/Versions
+@@ -109,6 +109,11 @@ libmvec {
+     _ZGVnN4v_erfcf;
+     _ZGVsMxv_erfc;
+     _ZGVsMxv_erfcf;
++    _ZGVnN4vv_hypotf;
++    _ZGVnN2vv_hypotf;
++    _ZGVnN2vv_hypot;
++    _ZGVsMxvv_hypotf;
++    _ZGVsMxvv_hypot;
+     _ZGVnN2v_sinh;
+     _ZGVnN2v_sinhf;
+     _ZGVnN4v_sinhf;
+diff --git a/sysdeps/aarch64/fpu/advsimd_f32_protos.h b/sysdeps/aarch64/fpu/advsimd_f32_protos.h
+index 383c4369729a3452..a8889a92fd041585 100644
+--- a/sysdeps/aarch64/fpu/advsimd_f32_protos.h
++++ b/sysdeps/aarch64/fpu/advsimd_f32_protos.h
+@@ -31,6 +31,7 @@ libmvec_hidden_proto (V_NAME_F1(exp10));
+ libmvec_hidden_proto (V_NAME_F1(exp2));
+ libmvec_hidden_proto (V_NAME_F1(exp));
+ libmvec_hidden_proto (V_NAME_F1(expm1));
++libmvec_hidden_proto (V_NAME_F2(hypot));
+ libmvec_hidden_proto (V_NAME_F1(log10));
+ libmvec_hidden_proto (V_NAME_F1(log1p));
+ libmvec_hidden_proto (V_NAME_F1(log2));
+diff --git a/sysdeps/aarch64/fpu/bits/math-vector.h b/sysdeps/aarch64/fpu/bits/math-vector.h
+index e29b2d1c09273969..ca3017733959702f 100644
+--- a/sysdeps/aarch64/fpu/bits/math-vector.h
++++ b/sysdeps/aarch64/fpu/bits/math-vector.h
+@@ -89,6 +89,10 @@
+ # define __DECL_SIMD_expm1 __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_expm1f
+ # define __DECL_SIMD_expm1f __DECL_SIMD_aarch64
++# undef __DECL_SIMD_hypot
++# define __DECL_SIMD_hypot __DECL_SIMD_aarch64
++# undef __DECL_SIMD_hypotf
++# define __DECL_SIMD_hypotf __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_log
+ # define __DECL_SIMD_log __DECL_SIMD_aarch64
+ # undef __DECL_SIMD_logf
+@@ -162,6 +166,7 @@ __vpcs __f32x4_t _ZGVnN4v_expf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_exp10f (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_exp2f (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_expm1f (__f32x4_t);
++__vpcs __f32x4_t _ZGVnN4vv_hypotf (__f32x4_t, __f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_logf (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_log10f (__f32x4_t);
+ __vpcs __f32x4_t _ZGVnN4v_log1pf (__f32x4_t);
+@@ -186,6 +191,7 @@ __vpcs __f64x2_t _ZGVnN2v_exp (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_exp10 (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_exp2 (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_expm1 (__f64x2_t);
++__vpcs __f64x2_t _ZGVnN2vv_hypot (__f64x2_t, __f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_log (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_log10 (__f64x2_t);
+ __vpcs __f64x2_t _ZGVnN2v_log1p (__f64x2_t);
+@@ -215,6 +221,7 @@ __sv_f32_t _ZGVsMxv_expf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_exp10f (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_exp2f (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_expm1f (__sv_f32_t, __sv_bool_t);
++__sv_f32_t _ZGVsMxvv_hypotf (__sv_f32_t, __sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_logf (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_log10f (__sv_f32_t, __sv_bool_t);
+ __sv_f32_t _ZGVsMxv_log1pf (__sv_f32_t, __sv_bool_t);
+@@ -239,6 +246,7 @@ __sv_f64_t _ZGVsMxv_exp (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_exp10 (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_exp2 (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_expm1 (__sv_f64_t, __sv_bool_t);
++__sv_f64_t _ZGVsMxvv_hypot (__sv_f64_t, __sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_log (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_log10 (__sv_f64_t, __sv_bool_t);
+ __sv_f64_t _ZGVsMxv_log1p (__sv_f64_t, __sv_bool_t);
+diff --git a/sysdeps/aarch64/fpu/hypot_advsimd.c b/sysdeps/aarch64/fpu/hypot_advsimd.c
+new file mode 100644
+index 0000000000000000..e4e279fa0c362336
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/hypot_advsimd.c
+@@ -0,0 +1,97 @@
++/* Double-precision vector (Advanced SIMD) hypot function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "v_math.h"
++
++#if WANT_SIMD_EXCEPT
++static const struct data
++{
++  uint64x2_t tiny_bound, thres;
++} data = {
++  .tiny_bound = V2 (0x2000000000000000), /* asuint (0x1p-511).  */
++  .thres = V2 (0x3fe0000000000000), /* asuint (0x1p511) - tiny_bound.  */
++};
++#else
++static const struct data
++{
++  uint64x2_t tiny_bound;
++  uint32x4_t thres;
++} data = {
++  .tiny_bound = V2 (0x0360000000000000), /* asuint (0x1p-969).  */
++  .thres = V4 (0x7c900000),	 /* asuint (inf) - tiny_bound.  */
++};
++#endif
++
++static float64x2_t VPCS_ATTR NOINLINE
++special_case (float64x2_t x, float64x2_t y, float64x2_t sqsum,
++	      uint32x2_t special)
++{
++  return v_call2_f64 (hypot, x, y, vsqrtq_f64 (sqsum), vmovl_u32 (special));
++}
++
++/* Vector implementation of double-precision hypot.
++   Maximum error observed is 1.21 ULP:
++   _ZGVnN2vv_hypot (0x1.6a1b193ff85b5p-204, 0x1.bc50676c2a447p-222)
++    got 0x1.6a1b19400964ep-204
++   want 0x1.6a1b19400964dp-204.  */
++#if WANT_SIMD_EXCEPT
++
++float64x2_t VPCS_ATTR V_NAME_D2 (hypot) (float64x2_t x, float64x2_t y)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  float64x2_t ax = vabsq_f64 (x);
++  float64x2_t ay = vabsq_f64 (y);
++
++  uint64x2_t ix = vreinterpretq_u64_f64 (ax);
++  uint64x2_t iy = vreinterpretq_u64_f64 (ay);
++
++  /* Extreme values, NaNs, and infinities should be handled by the scalar
++     fallback for correct flag handling.  */
++  uint64x2_t specialx = vcgeq_u64 (vsubq_u64 (ix, d->tiny_bound), d->thres);
++  uint64x2_t specialy = vcgeq_u64 (vsubq_u64 (iy, d->tiny_bound), d->thres);
++  ax = v_zerofy_f64 (ax, specialx);
++  ay = v_zerofy_f64 (ay, specialy);
++  uint32x2_t special = vaddhn_u64 (specialx, specialy);
++
++  float64x2_t sqsum = vfmaq_f64 (vmulq_f64 (ax, ax), ay, ay);
++
++  if (__glibc_unlikely (v_any_u32h (special)))
++    return special_case (x, y, sqsum, special);
++
++  return vsqrtq_f64 (sqsum);
++}
++#else
++
++float64x2_t VPCS_ATTR V_NAME_D2 (hypot) (float64x2_t x, float64x2_t y)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  float64x2_t sqsum = vfmaq_f64 (vmulq_f64 (x, x), y, y);
++
++  uint32x2_t special = vcge_u32 (
++      vsubhn_u64 (vreinterpretq_u64_f64 (sqsum), d->tiny_bound),
++      vget_low_u32 (d->thres));
++
++  if (__glibc_unlikely (v_any_u32h (special)))
++    return special_case (x, y, sqsum, special);
++
++  return vsqrtq_f64 (sqsum);
++}
++#endif
+diff --git a/sysdeps/aarch64/fpu/hypot_sve.c b/sysdeps/aarch64/fpu/hypot_sve.c
+new file mode 100644
+index 0000000000000000..74417040acb2f32f
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/hypot_sve.c
+@@ -0,0 +1,54 @@
++/* Double-precision vector (SVE) hypot function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "sv_math.h"
++
++static const struct data
++{
++  uint64_t tiny_bound, thres;
++} data = {
++  .tiny_bound = 0x0c80000000000000, /* asuint (0x1p-102).  */
++  .thres = 0x7300000000000000,	    /* asuint (inf) - tiny_bound.  */
++};
++
++static svfloat64_t NOINLINE
++special_case (svfloat64_t sqsum, svfloat64_t x, svfloat64_t y, svbool_t pg,
++	      svbool_t special)
++{
++  return sv_call2_f64 (hypot, x, y, svsqrt_x (pg, sqsum), special);
++}
++
++/* SVE implementation of double-precision hypot.
++   Maximum error observed is 1.21 ULP:
++   _ZGVsMxvv_hypot (-0x1.6a22d0412cdd3p+352, 0x1.d3d89bd66fb1ap+330)
++    got 0x1.6a22d0412cfp+352
++   want 0x1.6a22d0412cf01p+352.  */
++svfloat64_t SV_NAME_D2 (hypot) (svfloat64_t x, svfloat64_t y, svbool_t pg)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  svfloat64_t sqsum = svmla_x (pg, svmul_x (pg, x, x), y, y);
++
++  svbool_t special = svcmpge (
++      pg, svsub_x (pg, svreinterpret_u64 (sqsum), d->tiny_bound), d->thres);
++
++  if (__glibc_unlikely (svptest_any (pg, special)))
++    return special_case (sqsum, x, y, pg, special);
++  return svsqrt_x (pg, sqsum);
++}
+diff --git a/sysdeps/aarch64/fpu/hypotf_advsimd.c b/sysdeps/aarch64/fpu/hypotf_advsimd.c
+new file mode 100644
+index 0000000000000000..34818b021abce1b7
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/hypotf_advsimd.c
+@@ -0,0 +1,98 @@
++/* Single-precision vector (Advanced SIMD) hypot function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "v_math.h"
++
++#if WANT_SIMD_EXCEPT
++static const struct data
++{
++  uint32x4_t tiny_bound, thres;
++} data = {
++  .tiny_bound = V4 (0x20000000), /* asuint (0x1p-63).  */
++  .thres = V4 (0x3f000000), /* asuint (0x1p63) - tiny_bound.  */
++};
++#else
++static const struct data
++{
++  uint32x4_t tiny_bound;
++  uint16x8_t thres;
++} data = {
++  .tiny_bound = V4 (0x0C800000), /* asuint (0x1p-102).  */
++  .thres = V8 (0x7300), /* asuint (inf) - tiny_bound.  */
++};
++#endif
++
++static float32x4_t VPCS_ATTR NOINLINE
++special_case (float32x4_t x, float32x4_t y, float32x4_t sqsum,
++	      uint16x4_t special)
++{
++  return v_call2_f32 (hypotf, x, y, vsqrtq_f32 (sqsum), vmovl_u16 (special));
++}
++
++/* Vector implementation of single-precision hypot.
++   Maximum error observed is 1.21 ULP:
++   _ZGVnN4vv_hypotf (0x1.6a419cp-13, 0x1.82a852p-22) got 0x1.6a41d2p-13
++						    want 0x1.6a41dp-13.  */
++#if WANT_SIMD_EXCEPT
++
++float32x4_t VPCS_ATTR V_NAME_F2 (hypot) (float32x4_t x, float32x4_t y)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  float32x4_t ax = vabsq_f32 (x);
++  float32x4_t ay = vabsq_f32 (y);
++
++  uint32x4_t ix = vreinterpretq_u32_f32 (ax);
++  uint32x4_t iy = vreinterpretq_u32_f32 (ay);
++
++  /* Extreme values, NaNs, and infinities should be handled by the scalar
++     fallback for correct flag handling.  */
++  uint32x4_t specialx = vcgeq_u32 (vsubq_u32 (ix, d->tiny_bound), d->thres);
++  uint32x4_t specialy = vcgeq_u32 (vsubq_u32 (iy, d->tiny_bound), d->thres);
++  ax = v_zerofy_f32 (ax, specialx);
++  ay = v_zerofy_f32 (ay, specialy);
++  uint16x4_t special = vaddhn_u32 (specialx, specialy);
++
++  float32x4_t sqsum = vfmaq_f32 (vmulq_f32 (ax, ax), ay, ay);
++
++  if (__glibc_unlikely (v_any_u16h (special)))
++    return special_case (x, y, sqsum, special);
++
++  return vsqrtq_f32 (sqsum);
++}
++#else
++
++float32x4_t VPCS_ATTR V_NAME_F2 (hypot) (float32x4_t x, float32x4_t y)
++{
++  const struct data *d = ptr_barrier (&data);
++
++  float32x4_t sqsum = vfmaq_f32 (vmulq_f32 (x, x), y, y);
++
++  uint16x4_t special = vcge_u16 (
++      vsubhn_u32 (vreinterpretq_u32_f32 (sqsum), d->tiny_bound),
++      vget_low_u16 (d->thres));
++
++  if (__glibc_unlikely (v_any_u16h (special)))
++    return special_case (x, y, sqsum, special);
++
++  return vsqrtq_f32 (sqsum);
++}
++#endif
++libmvec_hidden_def (V_NAME_F2 (hypot))
++HALF_WIDTH_ALIAS_F2(hypot)
+diff --git a/sysdeps/aarch64/fpu/hypotf_sve.c b/sysdeps/aarch64/fpu/hypotf_sve.c
+new file mode 100644
+index 0000000000000000..3a403de66eb091f4
+--- /dev/null
++++ b/sysdeps/aarch64/fpu/hypotf_sve.c
+@@ -0,0 +1,48 @@
++/* Single-precision vector (SVE) hypot function
++
++   Copyright (C) 2024 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include "sv_math.h"
++
++#define TinyBound 0x0c800000 /* asuint (0x1p-102).  */
++#define Thres 0x73000000     /* 0x70000000 - TinyBound.  */
++
++static svfloat32_t NOINLINE
++special_case (svfloat32_t sqsum, svfloat32_t x, svfloat32_t y, svbool_t pg,
++	      svbool_t special)
++{
++  return sv_call2_f32 (hypotf, x, y, svsqrt_x (pg, sqsum), special);
++}
++
++/* SVE implementation of single-precision hypot.
++   Maximum error observed is 1.21 ULP:
++   _ZGVsMxvv_hypotf (0x1.6a213cp-19, -0x1.32b982p-26) got 0x1.6a2346p-19
++						     want 0x1.6a2344p-19.  */
++svfloat32_t SV_NAME_F2 (hypot) (svfloat32_t x, svfloat32_t y,
++				const svbool_t pg)
++{
++  svfloat32_t sqsum = svmla_x (pg, svmul_x (pg, x, x), y, y);
++
++  svbool_t special = svcmpge (
++      pg, svsub_x (pg, svreinterpret_u32 (sqsum), TinyBound), Thres);
++
++  if (__glibc_unlikely (svptest_any (pg, special)))
++    return special_case (sqsum, x, y, pg, special);
++
++  return svsqrt_x (pg, sqsum);
++}
+diff --git a/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c b/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
+index f2d8714075ab99b8..417125be476cd75f 100644
+--- a/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-double-advsimd-wrappers.c
+@@ -38,6 +38,7 @@ VPCS_VECTOR_WRAPPER (exp_advsimd, _ZGVnN2v_exp)
+ VPCS_VECTOR_WRAPPER (exp10_advsimd, _ZGVnN2v_exp10)
+ VPCS_VECTOR_WRAPPER (exp2_advsimd, _ZGVnN2v_exp2)
+ VPCS_VECTOR_WRAPPER (expm1_advsimd, _ZGVnN2v_expm1)
++VPCS_VECTOR_WRAPPER_ff (hypot_advsimd, _ZGVnN2vv_hypot)
+ VPCS_VECTOR_WRAPPER (log_advsimd, _ZGVnN2v_log)
+ VPCS_VECTOR_WRAPPER (log10_advsimd, _ZGVnN2v_log10)
+ VPCS_VECTOR_WRAPPER (log1p_advsimd, _ZGVnN2v_log1p)
+diff --git a/sysdeps/aarch64/fpu/test-double-sve-wrappers.c b/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
+index 37873d5e432ae9e8..31ebf18705f68856 100644
+--- a/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-double-sve-wrappers.c
+@@ -57,6 +57,7 @@ SVE_VECTOR_WRAPPER (exp_sve, _ZGVsMxv_exp)
+ SVE_VECTOR_WRAPPER (exp10_sve, _ZGVsMxv_exp10)
+ SVE_VECTOR_WRAPPER (exp2_sve, _ZGVsMxv_exp2)
+ SVE_VECTOR_WRAPPER (expm1_sve, _ZGVsMxv_expm1)
++SVE_VECTOR_WRAPPER_ff (hypot_sve, _ZGVsMxvv_hypot)
+ SVE_VECTOR_WRAPPER (log_sve, _ZGVsMxv_log)
+ SVE_VECTOR_WRAPPER (log10_sve, _ZGVsMxv_log10)
+ SVE_VECTOR_WRAPPER (log1p_sve, _ZGVsMxv_log1p)
+diff --git a/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c b/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
+index 08e33115b9dc6f5e..dab0f1cfcb79a305 100644
+--- a/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-float-advsimd-wrappers.c
+@@ -38,6 +38,7 @@ VPCS_VECTOR_WRAPPER (expf_advsimd, _ZGVnN4v_expf)
+ VPCS_VECTOR_WRAPPER (exp10f_advsimd, _ZGVnN4v_exp10f)
+ VPCS_VECTOR_WRAPPER (exp2f_advsimd, _ZGVnN4v_exp2f)
+ VPCS_VECTOR_WRAPPER (expm1f_advsimd, _ZGVnN4v_expm1f)
++VPCS_VECTOR_WRAPPER_ff (hypotf_advsimd, _ZGVnN4vv_hypotf)
+ VPCS_VECTOR_WRAPPER (logf_advsimd, _ZGVnN4v_logf)
+ VPCS_VECTOR_WRAPPER (log10f_advsimd, _ZGVnN4v_log10f)
+ VPCS_VECTOR_WRAPPER (log1pf_advsimd, _ZGVnN4v_log1pf)
+diff --git a/sysdeps/aarch64/fpu/test-float-sve-wrappers.c b/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
+index 025daa662efd6f7f..2aa6cbcc28d69cf8 100644
+--- a/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
++++ b/sysdeps/aarch64/fpu/test-float-sve-wrappers.c
+@@ -57,6 +57,7 @@ SVE_VECTOR_WRAPPER (expf_sve, _ZGVsMxv_expf)
+ SVE_VECTOR_WRAPPER (exp10f_sve, _ZGVsMxv_exp10f)
+ SVE_VECTOR_WRAPPER (exp2f_sve, _ZGVsMxv_exp2f)
+ SVE_VECTOR_WRAPPER (expm1f_sve, _ZGVsMxv_expm1f)
++SVE_VECTOR_WRAPPER_ff (hypotf_sve, _ZGVsMxvv_hypotf)
+ SVE_VECTOR_WRAPPER (logf_sve, _ZGVsMxv_logf)
+ SVE_VECTOR_WRAPPER (log10f_sve, _ZGVsMxv_log10f)
+ SVE_VECTOR_WRAPPER (log1pf_sve, _ZGVsMxv_log1pf)
+diff --git a/sysdeps/aarch64/libm-test-ulps b/sysdeps/aarch64/libm-test-ulps
+index 055da83d639a2430..17723d0c9e2dfcf5 100644
+--- a/sysdeps/aarch64/libm-test-ulps
++++ b/sysdeps/aarch64/libm-test-ulps
+@@ -1174,10 +1174,18 @@ double: 1
+ float: 1
+ ldouble: 1
+ 
++Function: "hypot_advsimd":
++double: 1
++float: 1
++
+ Function: "hypot_downward":
+ double: 1
+ ldouble: 1
+ 
++Function: "hypot_sve":
++double: 1
++float: 1
++
+ Function: "hypot_towardzero":
+ double: 1
+ ldouble: 1
+diff --git a/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist b/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
+index 26c3fbf18b2f12a9..1184374efd25cfa6 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
++++ b/sysdeps/unix/sysv/linux/aarch64/libmvec.abilist
+@@ -89,6 +89,8 @@ GLIBC_2.40 _ZGVnN2v_sinh F
+ GLIBC_2.40 _ZGVnN2v_sinhf F
+ GLIBC_2.40 _ZGVnN2v_tanh F
+ GLIBC_2.40 _ZGVnN2v_tanhf F
++GLIBC_2.40 _ZGVnN2vv_hypot F
++GLIBC_2.40 _ZGVnN2vv_hypotf F
+ GLIBC_2.40 _ZGVnN4v_acoshf F
+ GLIBC_2.40 _ZGVnN4v_asinhf F
+ GLIBC_2.40 _ZGVnN4v_atanhf F
+@@ -97,6 +99,7 @@ GLIBC_2.40 _ZGVnN4v_erfcf F
+ GLIBC_2.40 _ZGVnN4v_erff F
+ GLIBC_2.40 _ZGVnN4v_sinhf F
+ GLIBC_2.40 _ZGVnN4v_tanhf F
++GLIBC_2.40 _ZGVnN4vv_hypotf F
+ GLIBC_2.40 _ZGVsMxv_acosh F
+ GLIBC_2.40 _ZGVsMxv_acoshf F
+ GLIBC_2.40 _ZGVsMxv_asinh F
+@@ -113,3 +116,5 @@ GLIBC_2.40 _ZGVsMxv_sinh F
+ GLIBC_2.40 _ZGVsMxv_sinhf F
+ GLIBC_2.40 _ZGVsMxv_tanh F
+ GLIBC_2.40 _ZGVsMxv_tanhf F
++GLIBC_2.40 _ZGVsMxvv_hypot F
++GLIBC_2.40 _ZGVsMxvv_hypotf F

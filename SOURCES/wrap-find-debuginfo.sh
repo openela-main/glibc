@@ -114,6 +114,13 @@ for ldso_debug_candidate in `find "$sysroot_path" -maxdepth 2 \
     fi
 done
 rm -f "$ldso_debug"
+# Same logic, but for installed ld-linux*.debug files, where the depth
+# is more and there may be more than one (32-bit and 64-bit)
+for ldso_debug_candidate in `find "$sysroot_path/usr/lib/debug" \
+    -regextype posix-extended \
+  -regex '.*/ld(-.*|64|)\.so\.[0-9]+.*debug$' -type f` ; do
+    rm -f "$ldso_debug_candidate"
+done
 
 # ld.so: Rewrite the source file paths to match the extracted
 # locations.  First compute the arguments for invoking debugedit.

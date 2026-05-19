@@ -1,0 +1,50 @@
+commit c1dc4412f887ef1e3c1dbe95d9afb8f666860d3f
+Author: Yury Khrustalev <yury.khrustalev@arm.com>
+Date:   Tue Oct 28 11:01:50 2025 +0000
+
+    aarch64: fix cfi directives around __libc_arm_za_disable
+    
+    Incorrect CFI directive corrupted call stack information
+    and prevented debuggers from correctly displaying call
+    stack information.
+    
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+    (cherry picked from commit 2f77aec043f61e8533487850b11941a640ae2dea)
+    (cherry picked from commit de1fe81f471496366580ad728b8986a3424b2fd7)
+    (cherry picked from commit 5bf8ee7ad559fd60bedd3f5ec831d0b12b5000b8)
+    (cherry picked from commit 1c0ad5ea63b2e5d39eb55f734b0e2bea7f766523)
+
+diff --git a/sysdeps/unix/sysv/linux/aarch64/sysdep.h b/sysdeps/unix/sysv/linux/aarch64/sysdep.h
+index 19e66f77202add1a..4e70101b7cadd5fe 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/sysdep.h
++++ b/sysdeps/unix/sysv/linux/aarch64/sysdep.h
+@@ -155,11 +155,12 @@
+    that allows to call it without stack manipulation and preserving
+    most of the registers.  */
+ 	.macro CALL_LIBC_ARM_ZA_DISABLE
++	cfi_remember_state
+ 	mov		x13, x30
+-	.cfi_register	x30, x13
++	cfi_register(x30, x13)
+ 	bl		__libc_arm_za_disable
+ 	mov		x30, x13
+-	.cfi_register	x13, x30
++	cfi_restore_state
+ 	.endm
+ 
+ #else /* not __ASSEMBLER__ */
+@@ -255,11 +256,12 @@
+ ({							\
+   unsigned long int __tmp;				\
+   asm volatile (					\
++  "	.cfi_remember_state\n"			\
+   "	mov		%0, x30\n"			\
+-  "	.cfi_register	x30, %0\n"			\
++  "	.cfi_register x30, %0\n"      \
+   "	bl		__libc_arm_za_disable\n"	\
+   "	mov		x30, %0\n"			\
+-  "	.cfi_register	%0, x30\n"			\
++  "	.cfi_restore_state\n"			\
+   : "=r" (__tmp)					\
+   :							\
+   : "x14", "x15", "x16", "x17", "x18", "memory" );	\

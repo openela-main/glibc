@@ -1,0 +1,25 @@
+commit efff7cb65907125f0fb46840e8c44f0b5b6ef6f9
+Author: Sachin Monga <smonga@linux.ibm.com>
+Date:   Thu Nov 27 11:10:01 2025 -0500
+
+    ppc64le: Power 10 rawmemchr clobbers v20 (bug #33091)
+    
+    Replace non-volatile(v20) by volatile(v17)
+    since v20 is not restored
+    
+    Reviewed-by: Peter Bergner <bergner@tenstorrent.com>
+    (cherry picked from commit b59799f14f97f697c3a36b4380bd4ce2fbe65f11)
+
+diff --git a/sysdeps/powerpc/powerpc64/le/power10/strlen.S b/sysdeps/powerpc/powerpc64/le/power10/strlen.S
+index 0bd794540f846236..574a24b586d32c56 100644
+--- a/sysdeps/powerpc/powerpc64/le/power10/strlen.S
++++ b/sysdeps/powerpc/powerpc64/le/power10/strlen.S
+@@ -31,7 +31,7 @@
+ #  define FUNCNAME RAWMEMCHR
+ # endif
+ # define MCOUNT_NARGS 2
+-# define VREG_ZERO v20
++# define VREG_ZERO v17
+ # define OFF_START_LOOP 256
+ # define RAWMEMCHR_SUBTRACT_VECTORS \
+ 	vsububm   v4,v4,v18;	    \
