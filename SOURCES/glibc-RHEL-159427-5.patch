@@ -1,0 +1,177 @@
+commit 9181dc6eb6084da95d8c14d9defe96189fd0360d
+Author: Frédéric Bérat <berat.fred@gmail.com>
+Date:   Tue Jan 27 23:07:17 2026 +0100
+
+    feat(rtld): Allow LD_DEBUG category exclusion
+    
+    Adds support for excluding specific categories from `LD_DEBUG` output.
+    
+    The `LD_DEBUG` environment variable now accepts category names prefixed
+    with a dash (`-`) to disable their debugging output. This allows users
+    to enable broad categories (e.g., `all`) while suppressing verbose or
+    irrelevant information from specific sub-categories (e.g., `-tls`).
+    
+    The `process_dl_debug` function in `rtld.c` has been updated to parse
+    these exclusion options and unset the corresponding bits in
+    `GLRO(dl_debug_mask)`. The `LD_DEBUG=help` output has also been updated
+    to document this new functionality. A new test `tst-dl-debug-exclude.sh`
+    is added to verify the correct behavior of category exclusion.
+    
+     Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+diff --git a/elf/Makefile b/elf/Makefile
+index 8651a96bf260416c..46bf893b8f6eb537 100644
+--- a/elf/Makefile
++++ b/elf/Makefile
+@@ -1353,6 +1353,7 @@ $(objpfx)tst-glibcelf.out: tst-glibcelf.py elf.h $(..)/scripts/glibcelf.py \
+ ifeq ($(run-built-tests),yes)
+ tests-special += $(objpfx)tst-tls-allocation-failure-static-patched.out
+ tests-special += $(objpfx)tst-tls-debug-recursive.out
++tests-special += $(objpfx)tst-dl-debug-exclude.out
+ endif
+ 
+ # The test requires shared _and_ PIE because the executable
+@@ -3351,4 +3352,14 @@ $(objpfx)tst-tls-debug-recursive.out: tst-tls-debug-recursive.sh \
+ 		 '$(rtld-prefix)' '$(run_program_env)' \
+ 		 $(objpfx)tst-recursive-tls > $@; \
+ 	$(evaluate-test)
++
++$(objpfx)tst-dl-debug-exclude.out: tst-dl-debug-exclude.sh \
++				  $(objpfx)tst-recursive-tls \
++				  $(objpfx)tst-recursive-tlsmallocmod.so \
++				  $(patsubst %,$(objpfx)tst-recursive-tlsmod%.so, \
++				    0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)
++	$(SHELL) $< $(common-objpfx) '$(test-wrapper-env)' \
++		 '$(rtld-prefix)' '$(run_program_env)' \
++		 $(objpfx)tst-recursive-tls > $@; \
++	$(evaluate-test)
+ endif
+diff --git a/elf/rtld.c b/elf/rtld.c
+index 8b09d8389a7050d2..e18f70349b337173 100644
+--- a/elf/rtld.c
++++ b/elf/rtld.c
+@@ -2501,11 +2501,18 @@ process_dl_debug (struct dl_main_state *state, const char *dl_debug)
+ 		 && dl_debug[len] != ',' && dl_debug[len] != ':')
+ 	    ++len;
+ 
++	  bool exclude = *dl_debug == '-';
++	  const char *name = exclude ? dl_debug + 1 : dl_debug;
++	  size_t name_len = exclude ? len - 1 : len;
++
+ 	  for (cnt = 0; cnt < ndebopts; ++cnt)
+-	    if (debopts[cnt].len == len
+-		&& memcmp (dl_debug, debopts[cnt].name, len) == 0)
++	    if (debopts[cnt].len == name_len
++		&& memcmp (name, debopts[cnt].name, name_len) == 0)
+ 	      {
+-		GLRO(dl_debug_mask) |= debopts[cnt].mask;
++		if (exclude)
++		  GLRO(dl_debug_mask) &= ~debopts[cnt].mask;
++		else
++		  GLRO(dl_debug_mask) |= debopts[cnt].mask;
+ 		break;
+ 	      }
+ 
+@@ -2547,7 +2554,8 @@ Valid options for the LD_DEBUG environment variable are:\n\n");
+ 
+       _dl_printf ("\n\
+ To direct the debugging output into a file instead of standard output\n\
+-a filename can be specified using the LD_DEBUG_OUTPUT environment variable.\n");
++a filename can be specified using the LD_DEBUG_OUTPUT environment variable.\n\
++Categories can be excluded by prefixing them with a dash (-).\n");
+       _exit (0);
+     }
+ }
+diff --git a/elf/tst-dl-debug-exclude.sh b/elf/tst-dl-debug-exclude.sh
+new file mode 100644
+index 0000000000000000..9837ffcea8e07933
+--- /dev/null
++++ b/elf/tst-dl-debug-exclude.sh
+@@ -0,0 +1,87 @@
++#!/bin/sh
++# Test for LD_DEBUG category exclusion.
++# Copyright (C) 2026 Free Software Foundation, Inc.
++# This file is part of the GNU C Library.
++#
++# The GNU C Library is free software; you can redistribute it and/or
++# modify it under the terms of the GNU Lesser General Public
++# License as published by the Free Software Foundation; either
++# version 2.1 of the License, or (at your option) any later version.
++#
++# The GNU C Library is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++# Lesser General Public License for more details.
++#
++# You should have received a copy of the GNU Lesser General Public
++# License along with the GNU C Library; if not, see
++# <https://www.gnu.org/licenses/>.
++
++# This script verifies the LD_DEBUG category exclusion functionality.
++# It checks that:
++# 1. Categories can be excluded using the '-' prefix.
++# 2. Options are processed sequentially, meaning the last specified
++#    option for a category (enable or exclude) takes precedence.
++
++set -e
++
++common_objpfx="$1"
++test_wrapper_env="$2"
++rtld_prefix="$3"
++run_program_env="$4"
++test_program="$5"
++
++debug_output="${common_objpfx}elf/tst-dl-debug-exclude.debug"
++rm -f "${debug_output}".*
++
++# Run the test program with LD_DEBUG=all,-tls.
++# We expect general logs but no TLS logs.
++eval "${test_wrapper_env}" LD_DEBUG=all,-tls LD_DEBUG_OUTPUT="${debug_output}" \
++    "${rtld_prefix}" "${test_program}"
++
++fail=0
++
++# 1. Check that general logs are present (e.g., file loading)
++if ! grep -q 'file=' "${debug_output}".*; then
++  echo "FAIL: 'file=' message not found (LD_DEBUG=all failed)"
++  fail=1
++fi
++
++# 2. Check that TLS logs are NOT present
++if grep -q 'tls: ' "${debug_output}".*; then
++  echo "FAIL: TLS message found (exclusion of -tls failed)"
++  fail=1
++fi
++
++rm -f "${debug_output}".*
++# 3. Check for LD_DEBUG=all,-tls,tls (ordering verification)
++# We expect TLS logs to BE present
++eval "${test_wrapper_env}" LD_DEBUG=all,-tls,tls LD_DEBUG_OUTPUT="${debug_output}" \
++    "${rtld_prefix}" "${test_program}"
++
++if ! grep -q 'tls: ' "${debug_output}".*; then
++  echo "FAIL: TLS message not found (ordering -tls,tls failed)"
++  fail=1
++fi
++
++rm -f "${debug_output}".*
++# 4. Check for LD_DEBUG=tls,-tls
++# We expect TLS logs to NOT be present
++eval "${test_wrapper_env}" LD_DEBUG=tls,-tls LD_DEBUG_OUTPUT="${debug_output}" \
++    "${rtld_prefix}" "${test_program}"
++
++if grep -q 'tls: ' "${debug_output}".*; then
++  echo "FAIL: TLS message found (ordering tls,-tls failed)"
++  fail=1
++fi
++
++if [ $fail -ne 0 ]; then
++  echo "Test FAILED"
++  cat "${debug_output}".*
++  rm -f "${debug_output}".*
++  exit 1
++fi
++
++echo "Test PASSED"
++rm -f "${debug_output}".*
++exit 0
