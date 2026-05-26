@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.34
+Release: %{glibcrelease}.37
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1323,6 +1323,13 @@ Patch1088: glibc-RHEL-24169-21.patch
 Patch1089: glibc-RHEL-24169-22.patch
 Patch1090: glibc-RHEL-137185.patch
 Patch1091: glibc-RHEL-140104.patch
+Patch1092: glibc-RHEL-162891-1.patch
+Patch1093: glibc-RHEL-162891-2.patch
+Patch1094: glibc-RHEL-162891-3.patch
+Patch1095: glibc-RHEL-162891-4.patch
+Patch1096: glibc-RHEL-168095.patch
+Patch1097: glibc-RHEL-173358-1.patch
+Patch1098: glibc-RHEL-173358-2.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2984,6 +2991,17 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+* Mon May 11 2026 Arjun Shankar <arjun@redhat.com> - 2.28-251.37
+- Add tests for CVE-2026-4437 and CVE-2026-4438 (RHEL-173358)
+
+* Mon May 11 2026 Frédéric Bérat <fberat@redhat.com> - 2.28-251.36
+- Fix __nss_get_default_domain logic to restore netgroup user enumeration
+  (RHEL-168095)
+
+* Mon May 04 2026 Frédéric Bérat <fberat@redhat.com> - 2.28-251.35
+- CVE-2026-4046: Fix assertion failure in IBM1390 and IBM1399 iconv modules
+  (RHEL-162891)
+
 * Wed Apr 15 2026 Patsy Griffin <patsy@redhat.com> - 2.28-251.34
 - Update locales for Croatia to use EUR as currency symbol. (RHEL-140104)
 

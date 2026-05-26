@@ -1,0 +1,77 @@
+commit 7ac6fad987c28dc5e0e7964084260f163179be68
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Wed May 15 07:16:47 2019 +0200
+
+    iconv: Remove public declaration of __gconv_transliterate
+    
+    Commit ba7b4d294b01870ce3497971e9d07ee261cdc540 ("Complete the
+    removal of __gconv_translit_find") added a declaration of the
+    GLIBC_PRIVATE function, __gconv_transliterate, to the installed
+    header <gconv.h>.  It should have been added to the internal
+    <gconv_int.h> header.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/iconv/gconv.h b/iconv/gconv.h
+index e53f4dba0e3530fc..9dcc509c12c4a343 100644
+--- a/iconv/gconv.h
++++ b/iconv/gconv.h
+@@ -142,13 +142,4 @@ typedef struct __gconv_info
+   __extension__ struct __gconv_step_data __data[0];
+ } *__gconv_t;
+ 
+-/* Transliteration using the locale's data.  */
+-extern int __gconv_transliterate (struct __gconv_step *step,
+-				  struct __gconv_step_data *step_data,
+-				  const unsigned char *inbufstart,
+-				  const unsigned char **inbufp,
+-				  const unsigned char *inbufend,
+-				  unsigned char **outbufstart,
+-				  size_t *irreversible);
+-
+ #endif /* gconv.h */
+diff --git a/iconv/gconv_int.h b/iconv/gconv_int.h
+index 8067a341b0903e1b..6f908f283720520a 100644
+--- a/iconv/gconv_int.h
++++ b/iconv/gconv_int.h
+@@ -276,6 +276,14 @@ extern void __gconv_get_builtin_trans (const char *name,
+ 				       struct __gconv_step *step)
+      attribute_hidden;
+ 
++/* Transliteration using the locale's data.  */
++extern int __gconv_transliterate (struct __gconv_step *step,
++                                  struct __gconv_step_data *step_data,
++                                  const unsigned char *inbufstart,
++                                  const unsigned char **inbufp,
++                                  const unsigned char *inbufend,
++                                  unsigned char **outbufstart,
++                                  size_t *irreversible);
+ libc_hidden_proto (__gconv_transliterate)
+ 
+ /* If NAME is an codeset alias expand it.  */
+diff --git a/iconv/loop.c b/iconv/loop.c
+index d571b593c7b8da93..4adbe04ae3698411 100644
+--- a/iconv/loop.c
++++ b/iconv/loop.c
+@@ -49,7 +49,7 @@
+ 
+ #include <assert.h>
+ #include <endian.h>
+-#include <gconv.h>
++#include <iconv/gconv_int.h>
+ #include <stdint.h>
+ #include <string.h>
+ #include <wchar.h>
+diff --git a/iconv/skeleton.c b/iconv/skeleton.c
+index fa799305236001c7..9eb0200cc50a0afc 100644
+--- a/iconv/skeleton.c
++++ b/iconv/skeleton.c
+@@ -133,7 +133,7 @@
+  */
+ 
+ #include <assert.h>
+-#include <gconv.h>
++#include <iconv/gconv_int.h>
+ #include <string.h>
+ #define __need_size_t
+ #define __need_NULL
