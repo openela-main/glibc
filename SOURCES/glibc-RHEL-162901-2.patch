@@ -1,0 +1,694 @@
+commit 3e20ddade31d9c392d8ccf7ec902172f4bb01c2b
+Author: Adhemerval Zanella <adhemerval.zanella@linaro.org>
+Date:   Fri Feb 10 16:37:36 2023 -0300
+
+    iconv: Remove _STRING_ARCH_unaligned usage
+    
+    Use put/get macros __builtin_bswap32 instead.  It allows to remove
+    the unaligned routines, the compiler will generate unaligned access
+    if the ABI allows it.
+    
+    Checked on x86_64-linux-gnu and i686-linux-gnu.
+    
+    Reviewed-by: Wilco Dijkstra  <Wilco.Dijkstra@arm.com>
+
+diff --git a/iconv/gconv_simple.c b/iconv/gconv_simple.c
+index 882d3642e445b107..d368284411c79282 100644
+--- a/iconv/gconv_simple.c
++++ b/iconv/gconv_simple.c
+@@ -87,69 +87,22 @@ internal_ucs4_loop (struct __gconv_step *step,
+ #if __BYTE_ORDER == __LITTLE_ENDIAN
+   /* Sigh, we have to do some real work.  */
+   size_t cnt;
+-  uint32_t *outptr32 = (uint32_t *) outptr;
+-
+-  for (cnt = 0; cnt < n_convert; ++cnt, inptr += 4)
+-    *outptr32++ = bswap_32 (*(const uint32_t *) inptr);
+-
+-  *inptrp = inptr;
+-  *outptrp = (unsigned char *) outptr32;
+-#elif __BYTE_ORDER == __BIG_ENDIAN
+-  /* Simply copy the data.  */
+-  *inptrp = inptr + n_convert * 4;
+-  *outptrp = __mempcpy (outptr, inptr, n_convert * 4);
+-#else
+-# error "This endianness is not supported."
+-#endif
+-
+-  /* Determine the status.  */
+-  if (*inptrp == inend)
+-    result = __GCONV_EMPTY_INPUT;
+-  else if (*outptrp + 4 > outend)
+-    result = __GCONV_FULL_OUTPUT;
+-  else
+-    result = __GCONV_INCOMPLETE_INPUT;
+-
+-  return result;
+-}
+-
+-#if !_STRING_ARCH_unaligned
+-static inline int
+-__attribute ((always_inline))
+-internal_ucs4_loop_unaligned (struct __gconv_step *step,
+-			      struct __gconv_step_data *step_data,
+-			      const unsigned char **inptrp,
+-			      const unsigned char *inend,
+-			      unsigned char **outptrp,
+-			      const unsigned char *outend,
+-			      size_t *irreversible)
+-{
+-  const unsigned char *inptr = *inptrp;
+-  unsigned char *outptr = *outptrp;
+-  size_t n_convert = MIN (inend - inptr, outend - outptr) / 4;
+-  int result;
+-
+-# if __BYTE_ORDER == __LITTLE_ENDIAN
+-  /* Sigh, we have to do some real work.  */
+-  size_t cnt;
+ 
+   for (cnt = 0; cnt < n_convert; ++cnt, inptr += 4, outptr += 4)
+     {
+-      outptr[0] = inptr[3];
+-      outptr[1] = inptr[2];
+-      outptr[2] = inptr[1];
+-      outptr[3] = inptr[0];
++      uint32_t val = get32 (inptr);
++      put32 (outptr, __builtin_bswap32 (val));
+     }
+ 
+   *inptrp = inptr;
+   *outptrp = outptr;
+-# elif __BYTE_ORDER == __BIG_ENDIAN
++#elif __BYTE_ORDER == __BIG_ENDIAN
+   /* Simply copy the data.  */
+   *inptrp = inptr + n_convert * 4;
+   *outptrp = __mempcpy (outptr, inptr, n_convert * 4);
+-# else
+-#  error "This endianess is not supported."
+-# endif
++#else
++# error "This endianness is not supported."
++#endif
+ 
+   /* Determine the status.  */
+   if (*inptrp == inend)
+@@ -161,7 +114,6 @@ internal_ucs4_loop_unaligned (struct __gconv_step *step,
+ 
+   return result;
+ }
+-#endif
+ 
+ 
+ static inline int
+@@ -243,12 +195,9 @@ ucs4_internal_loop (struct __gconv_step *step,
+ 
+   for (; inptr + 4 <= inend && outptr + 4 <= outend; inptr += 4)
+     {
+-      uint32_t inval;
+-
++      uint32_t inval = get32 (inptr);
+ #if __BYTE_ORDER == __LITTLE_ENDIAN
+-      inval = bswap_32 (*(const uint32_t *) inptr);
+-#else
+-      inval = *(const uint32_t *) inptr;
++      inval = __builtin_bswap32 (inval);
+ #endif
+ 
+       if (__glibc_unlikely (inval > 0x7fffffff))
+@@ -273,7 +222,7 @@ ucs4_internal_loop (struct __gconv_step *step,
+ 	  return __gconv_mark_illegal_input (step_data);
+ 	}
+ 
+-      *((uint32_t *) outptr) = inval;
++      put32 (outptr, inval);
+       outptr += sizeof (uint32_t);
+     }
+ 
+@@ -291,75 +240,6 @@ ucs4_internal_loop (struct __gconv_step *step,
+   return result;
+ }
+ 
+-#if !_STRING_ARCH_unaligned
+-static inline int
+-__attribute ((always_inline))
+-ucs4_internal_loop_unaligned (struct __gconv_step *step,
+-			      struct __gconv_step_data *step_data,
+-			      const unsigned char **inptrp,
+-			      const unsigned char *inend,
+-			      unsigned char **outptrp,
+-			      const unsigned char *outend,
+-			      size_t *irreversible)
+-{
+-  int flags = step_data->__flags;
+-  const unsigned char *inptr = *inptrp;
+-  unsigned char *outptr = *outptrp;
+-  int result;
+-
+-  for (; inptr + 4 <= inend && outptr + 4 <= outend; inptr += 4)
+-    {
+-      if (__glibc_unlikely (inptr[0] > 0x80))
+-	{
+-	  /* The value is too large.  We don't try transliteration here since
+-	     this is not an error because of the lack of possibilities to
+-	     represent the result.  This is a genuine bug in the input since
+-	     UCS4 does not allow such values.  */
+-	  if (irreversible == NULL)
+-	    /* We are transliterating, don't try to correct anything.  */
+-	    return __GCONV_ILLEGAL_INPUT;
+-
+-	  if (flags & __GCONV_IGNORE_ERRORS)
+-	    {
+-	      /* Just ignore this character.  */
+-	      ++*irreversible;
+-	      continue;
+-	    }
+-
+-	  *inptrp = inptr;
+-	  *outptrp = outptr;
+-	  return __GCONV_ILLEGAL_INPUT;
+-	}
+-
+-# if __BYTE_ORDER == __LITTLE_ENDIAN
+-      outptr[3] = inptr[0];
+-      outptr[2] = inptr[1];
+-      outptr[1] = inptr[2];
+-      outptr[0] = inptr[3];
+-# else
+-      outptr[0] = inptr[0];
+-      outptr[1] = inptr[1];
+-      outptr[2] = inptr[2];
+-      outptr[3] = inptr[3];
+-# endif
+-      outptr += 4;
+-    }
+-
+-  *inptrp = inptr;
+-  *outptrp = outptr;
+-
+-  /* Determine the status.  */
+-  if (*inptrp == inend)
+-    result = __GCONV_EMPTY_INPUT;
+-  else if (*outptrp + 4 > outend)
+-    result = __GCONV_FULL_OUTPUT;
+-  else
+-    result = __GCONV_INCOMPLETE_INPUT;
+-
+-  return result;
+-}
+-#endif
+-
+ 
+ static inline int
+ __attribute ((always_inline))
+@@ -454,11 +334,12 @@ internal_ucs4le_loop (struct __gconv_step *step,
+ #if __BYTE_ORDER == __BIG_ENDIAN
+   /* Sigh, we have to do some real work.  */
+   size_t cnt;
+-  uint32_t *outptr32 = (uint32_t *) outptr;
+ 
+-  for (cnt = 0; cnt < n_convert; ++cnt, inptr += 4)
+-    *outptr32++ = bswap_32 (*(const uint32_t *) inptr);
+-  outptr = (unsigned char *) outptr32;
++  for (cnt = 0; cnt < n_convert; ++cnt, inptr += 4, outptr += 4)
++    {
++      uint32_t val = get32 (inptr);
++      put32 (outptr, __builtin_bswap32 (val));
++    }
+ 
+   *inptrp = inptr;
+   *outptrp = outptr;
+@@ -481,59 +362,6 @@ internal_ucs4le_loop (struct __gconv_step *step,
+   return result;
+ }
+ 
+-#if !_STRING_ARCH_unaligned
+-static inline int
+-__attribute ((always_inline))
+-internal_ucs4le_loop_unaligned (struct __gconv_step *step,
+-				struct __gconv_step_data *step_data,
+-				const unsigned char **inptrp,
+-				const unsigned char *inend,
+-				unsigned char **outptrp,
+-				const unsigned char *outend,
+-				size_t *irreversible)
+-{
+-  const unsigned char *inptr = *inptrp;
+-  unsigned char *outptr = *outptrp;
+-  size_t n_convert = MIN (inend - inptr, outend - outptr) / 4;
+-  int result;
+-
+-# if __BYTE_ORDER == __BIG_ENDIAN
+-  /* Sigh, we have to do some real work.  */
+-  size_t cnt;
+-
+-  for (cnt = 0; cnt < n_convert; ++cnt, inptr += 4, outptr += 4)
+-    {
+-      outptr[0] = inptr[3];
+-      outptr[1] = inptr[2];
+-      outptr[2] = inptr[1];
+-      outptr[3] = inptr[0];
+-    }
+-
+-  *inptrp = inptr;
+-  *outptrp = outptr;
+-# elif __BYTE_ORDER == __LITTLE_ENDIAN
+-  /* Simply copy the data.  */
+-  *inptrp = inptr + n_convert * 4;
+-  *outptrp = __mempcpy (outptr, inptr, n_convert * 4);
+-# else
+-#  error "This endianess is not supported."
+-# endif
+-
+-  /* Determine the status.  */
+-  if (*inptrp == inend)
+-    result = __GCONV_EMPTY_INPUT;
+-  else if (*inptrp + 4 > inend)
+-    result = __GCONV_INCOMPLETE_INPUT;
+-  else
+-    {
+-      assert (*outptrp + 4 > outend);
+-      result = __GCONV_FULL_OUTPUT;
+-    }
+-
+-  return result;
+-}
+-#endif
+-
+ 
+ static inline int
+ __attribute ((always_inline))
+@@ -613,12 +441,9 @@ ucs4le_internal_loop (struct __gconv_step *step,
+ 
+   for (; inptr + 4 <= inend && outptr + 4 <= outend; inptr += 4)
+     {
+-      uint32_t inval;
+-
++      uint32_t inval = get32 (inptr);
+ #if __BYTE_ORDER == __BIG_ENDIAN
+-      inval = bswap_32 (*(const uint32_t *) inptr);
+-#else
+-      inval = *(const uint32_t *) inptr;
++      inval = __builtin_bswap32 (inval);
+ #endif
+ 
+       if (__glibc_unlikely (inval > 0x7fffffff))
+@@ -643,7 +468,7 @@ ucs4le_internal_loop (struct __gconv_step *step,
+ 	  return __gconv_mark_illegal_input (step_data);
+ 	}
+ 
+-      *((uint32_t *) outptr) = inval;
++      put32 (outptr, inval);
+       outptr += sizeof (uint32_t);
+     }
+ 
+@@ -664,79 +489,6 @@ ucs4le_internal_loop (struct __gconv_step *step,
+   return result;
+ }
+ 
+-#if !_STRING_ARCH_unaligned
+-static inline int
+-__attribute ((always_inline))
+-ucs4le_internal_loop_unaligned (struct __gconv_step *step,
+-				struct __gconv_step_data *step_data,
+-				const unsigned char **inptrp,
+-				const unsigned char *inend,
+-				unsigned char **outptrp,
+-				const unsigned char *outend,
+-				size_t *irreversible)
+-{
+-  int flags = step_data->__flags;
+-  const unsigned char *inptr = *inptrp;
+-  unsigned char *outptr = *outptrp;
+-  int result;
+-
+-  for (; inptr + 4 <= inend && outptr + 4 <= outend; inptr += 4)
+-    {
+-      if (__glibc_unlikely (inptr[3] > 0x80))
+-	{
+-	  /* The value is too large.  We don't try transliteration here since
+-	     this is not an error because of the lack of possibilities to
+-	     represent the result.  This is a genuine bug in the input since
+-	     UCS4 does not allow such values.  */
+-	  if (irreversible == NULL)
+-	    /* We are transliterating, don't try to correct anything.  */
+-	    return __GCONV_ILLEGAL_INPUT;
+-
+-	  if (flags & __GCONV_IGNORE_ERRORS)
+-	    {
+-	      /* Just ignore this character.  */
+-	      ++*irreversible;
+-	      continue;
+-	    }
+-
+-	  *inptrp = inptr;
+-	  *outptrp = outptr;
+-	  return __GCONV_ILLEGAL_INPUT;
+-	}
+-
+-# if __BYTE_ORDER == __BIG_ENDIAN
+-      outptr[3] = inptr[0];
+-      outptr[2] = inptr[1];
+-      outptr[1] = inptr[2];
+-      outptr[0] = inptr[3];
+-# else
+-      outptr[0] = inptr[0];
+-      outptr[1] = inptr[1];
+-      outptr[2] = inptr[2];
+-      outptr[3] = inptr[3];
+-# endif
+-
+-      outptr += 4;
+-    }
+-
+-  *inptrp = inptr;
+-  *outptrp = outptr;
+-
+-  /* Determine the status.  */
+-  if (*inptrp == inend)
+-    result = __GCONV_EMPTY_INPUT;
+-  else if (*inptrp + 4 > inend)
+-    result = __GCONV_INCOMPLETE_INPUT;
+-  else
+-    {
+-      assert (*outptrp + 4 > outend);
+-      result = __GCONV_FULL_OUTPUT;
+-    }
+-
+-  return result;
+-}
+-#endif
+-
+ 
+ static inline int
+ __attribute ((always_inline))
+diff --git a/iconv/loop.c b/iconv/loop.c
+index 851caa9d42d45a47..696caa212aaec4bd 100644
+--- a/iconv/loop.c
++++ b/iconv/loop.c
+@@ -59,12 +59,7 @@
+ #include <libc-diag.h>
+ 
+ #undef FCTNAME2
+-#if _STRING_ARCH_unaligned || !defined DEFINE_UNALIGNED
+-# define FCTNAME2(name) name
+-#else
+-# define FCTNAME2(name) name##_unaligned
+-#endif
+-#define FCTNAME(name) FCTNAME2(name)
++#define FCTNAME(name) name
+ 
+ 
+ /* We need at least one byte for the next round.  */
+@@ -282,20 +277,9 @@ FCTNAME (LOOPFCT) (struct __gconv_step *step,
+ }
+ 
+ 
+-/* Include the file a second time to define the function to handle
+-   unaligned access.  */
+-#if !defined DEFINE_UNALIGNED && !_STRING_ARCH_unaligned \
+-    && MIN_NEEDED_INPUT != 1 && MAX_NEEDED_INPUT % MIN_NEEDED_INPUT == 0 \
+-    && MIN_NEEDED_OUTPUT != 1 && MAX_NEEDED_OUTPUT % MIN_NEEDED_OUTPUT == 0
+-# undef unaligned
+-
+-# define DEFINE_UNALIGNED
+-# include "loop.c"
+-# undef DEFINE_UNALIGNED
+-#else
+-# if MAX_NEEDED_INPUT > 1
+-#  define SINGLE(fct) SINGLE2 (fct)
+-#  define SINGLE2(fct) fct##_single
++#if MAX_NEEDED_INPUT > 1
++# define SINGLE(fct) SINGLE2 (fct)
++# define SINGLE2(fct) fct##_single
+ static inline int
+ __attribute ((always_inline))
+ SINGLE(LOOPFCT) (struct __gconv_step *step,
+@@ -305,37 +289,37 @@ SINGLE(LOOPFCT) (struct __gconv_step *step,
+ 		 size_t *irreversible EXTRA_LOOP_DECLS)
+ {
+   mbstate_t *state = step_data->__statep;
+-#  ifdef LOOP_NEED_FLAGS
++# ifdef LOOP_NEED_FLAGS
+   int flags = step_data->__flags;
+-#  endif
+-#  ifdef LOOP_NEED_DATA
++# endif
++# ifdef LOOP_NEED_DATA
+   void *data = step->__data;
+-#  endif
++# endif
+   int result = __GCONV_OK;
+   unsigned char bytebuf[MAX_NEEDED_INPUT];
+   const unsigned char *inptr = *inptrp;
+   unsigned char *outptr = *outptrp;
+   size_t inlen;
+ 
+-#  ifdef INIT_PARAMS
++# ifdef INIT_PARAMS
+   INIT_PARAMS;
+-#  endif
++# endif
+ 
+-#  ifdef UNPACK_BYTES
++# ifdef UNPACK_BYTES
+   UNPACK_BYTES
+-#  else
++# else
+   /* Add the bytes from the state to the input buffer.  */
+   assert ((state->__count & 7) <= sizeof (state->__value));
+   for (inlen = 0; inlen < (size_t) (state->__count & 7); ++inlen)
+     bytebuf[inlen] = state->__value.__wchb[inlen];
+-#  endif
++# endif
+ 
+   /* Are there enough bytes in the input buffer?  */
+   if (MIN_NEEDED_INPUT > 1
+       && __builtin_expect (inptr + (MIN_NEEDED_INPUT - inlen) > inend, 0))
+     {
+       *inptrp = inend;
+-#  ifdef STORE_REST
++# ifdef STORE_REST
+ 
+       /* Building with -O3 GCC emits a `array subscript is above array
+ 	 bounds' warning.  GCC BZ #64739 has been opened for this.  */
+@@ -350,14 +334,14 @@ SINGLE(LOOPFCT) (struct __gconv_step *step,
+       inend = &bytebuf[inlen];
+ 
+       STORE_REST
+-#  else
++# else
+       /* We don't have enough input for another complete input
+ 	 character.  */
+       size_t inlen_after = inlen + (inend - inptr);
+       assert (inlen_after <= sizeof (state->__value.__wchb));
+       for (; inlen < inlen_after; inlen++)
+ 	state->__value.__wchb[inlen] = *inptr++;
+-#  endif
++# endif
+ 
+       return __GCONV_INCOMPLETE_INPUT;
+     }
+@@ -403,11 +387,11 @@ SINGLE(LOOPFCT) (struct __gconv_step *step,
+       result = __GCONV_OK;
+ 
+       /* Clear the state buffer.  */
+-#  ifdef CLEAR_STATE
++# ifdef CLEAR_STATE
+       CLEAR_STATE;
+-#  else
++# else
+       state->__count &= ~7;
+-#  endif
++# endif
+     }
+   else if (result == __GCONV_INCOMPLETE_INPUT)
+     {
+@@ -416,11 +400,11 @@ SINGLE(LOOPFCT) (struct __gconv_step *step,
+       assert (inend != &bytebuf[MAX_NEEDED_INPUT]);
+ 
+       *inptrp += inend - bytebuf - (state->__count & 7);
+-#  ifdef STORE_REST
++# ifdef STORE_REST
+       inptrp = &inptr;
+ 
+       STORE_REST
+-#  else
++# else
+       /* We don't have enough input for another complete input
+ 	 character.  */
+       assert (inend - inptr > (state->__count & ~7));
+@@ -429,14 +413,13 @@ SINGLE(LOOPFCT) (struct __gconv_step *step,
+       for (inlen = 0; inlen < inend - inptr; inlen++)
+ 	state->__value.__wchb[inlen] = inptr[inlen];
+       inptr = inend;
+-#  endif
++# endif
+     }
+ 
+   return result;
+ }
+-#  undef SINGLE
+-#  undef SINGLE2
+-# endif
++# undef SINGLE
++# undef SINGLE2
+ 
+ 
+ # ifdef ONEBYTE_BODY
+@@ -468,4 +451,3 @@ gconv_btowc (struct __gconv_step *step, unsigned char c)
+ #undef LOOP_NEED_STATE
+ #undef LOOP_NEED_FLAGS
+ #undef LOOP_NEED_DATA
+-#undef unaligned
+diff --git a/iconv/skeleton.c b/iconv/skeleton.c
+index 6992701808079ec2..e7933ae333a5eae5 100644
+--- a/iconv/skeleton.c
++++ b/iconv/skeleton.c
+@@ -451,33 +451,6 @@ FUNCTION_NAME (struct __gconv_step *step, struct __gconv_step_data *data,
+       size_t lirreversible = 0;
+       size_t *lirreversiblep = irreversible ? &lirreversible : NULL;
+ 
+-      /* The following assumes that encodings, which have a variable length
+-	 what might unalign a buffer even though it is an aligned in the
+-	 beginning, either don't have the minimal number of bytes as a divisor
+-	 of the maximum length or have a minimum length of 1.  This is true
+-	 for all known and supported encodings.
+-	 We use && instead of || to combine the subexpression for the FROM
+-	 encoding and for the TO encoding, because usually one of them is
+-	 INTERNAL, for which the subexpression evaluates to 1, but INTERNAL
+-	 buffers are always aligned correctly.  */
+-#define POSSIBLY_UNALIGNED \
+-  (!_STRING_ARCH_unaligned					              \
+-   && (((FROM_LOOP_MIN_NEEDED_FROM != 1					      \
+-	 && FROM_LOOP_MAX_NEEDED_FROM % FROM_LOOP_MIN_NEEDED_FROM == 0)	      \
+-	&& (FROM_LOOP_MIN_NEEDED_TO != 1				      \
+-	    && FROM_LOOP_MAX_NEEDED_TO % FROM_LOOP_MIN_NEEDED_TO == 0))	      \
+-       || ((TO_LOOP_MIN_NEEDED_FROM != 1				      \
+-	    && TO_LOOP_MAX_NEEDED_FROM % TO_LOOP_MIN_NEEDED_FROM == 0)	      \
+-	   && (TO_LOOP_MIN_NEEDED_TO != 1				      \
+-	       && TO_LOOP_MAX_NEEDED_TO % TO_LOOP_MIN_NEEDED_TO == 0))))
+-#if POSSIBLY_UNALIGNED
+-      int unaligned;
+-# define GEN_unaligned(name) GEN_unaligned2 (name)
+-# define GEN_unaligned2(name) name##_unaligned
+-#else
+-# define unaligned 0
+-#endif
+-
+ #ifdef PREPARE_LOOP
+       PREPARE_LOOP
+ #endif
+@@ -517,18 +490,6 @@ FUNCTION_NAME (struct __gconv_step *step, struct __gconv_step_data *data,
+ 	}
+ #endif
+ 
+-#if POSSIBLY_UNALIGNED
+-      unaligned =
+-	((FROM_DIRECTION
+-	  && ((uintptr_t) inptr % FROM_LOOP_MIN_NEEDED_FROM != 0
+-	      || ((data->__flags & __GCONV_IS_LAST)
+-		  && (uintptr_t) outbuf % FROM_LOOP_MIN_NEEDED_TO != 0)))
+-	 || (!FROM_DIRECTION
+-	     && (((data->__flags & __GCONV_IS_LAST)
+-		  && (uintptr_t) outbuf % TO_LOOP_MIN_NEEDED_TO != 0)
+-		 || (uintptr_t) inptr % TO_LOOP_MIN_NEEDED_FROM != 0)));
+-#endif
+-
+       while (1)
+ 	{
+ 	  /* Remember the start value for this round.  */
+@@ -546,34 +507,14 @@ FUNCTION_NAME (struct __gconv_step *step, struct __gconv_step_data *data,
+ 	  SAVE_RESET_STATE (1);
+ #endif
+ 
+-	  if (__glibc_likely (!unaligned))
+-	    {
+-	      if (FROM_DIRECTION)
+-		/* Run the conversion loop.  */
+-		status = FROM_LOOP (step, data, inptrp, inend, &outbuf, outend,
+-				    lirreversiblep EXTRA_LOOP_ARGS);
+-	      else
+-		/* Run the conversion loop.  */
+-		status = TO_LOOP (step, data, inptrp, inend, &outbuf, outend,
+-				  lirreversiblep EXTRA_LOOP_ARGS);
+-	    }
+-#if POSSIBLY_UNALIGNED
++	  if (FROM_DIRECTION)
++	    /* Run the conversion loop.  */
++	    status = FROM_LOOP (step, data, inptrp, inend, &outbuf, outend,
++				lirreversiblep EXTRA_LOOP_ARGS);
+ 	  else
+-	    {
+-	      if (FROM_DIRECTION)
+-		/* Run the conversion loop.  */
+-		status = GEN_unaligned (FROM_LOOP) (step, data, inptrp, inend,
+-						    &outbuf, outend,
+-						    lirreversiblep
+-						    EXTRA_LOOP_ARGS);
+-	      else
+-		/* Run the conversion loop.  */
+-		status = GEN_unaligned (TO_LOOP) (step, data, inptrp, inend,
+-						  &outbuf, outend,
+-						  lirreversiblep
+-						  EXTRA_LOOP_ARGS);
+-	    }
+-#endif
++	    /* Run the conversion loop.  */
++	    status = TO_LOOP (step, data, inptrp, inend, &outbuf, outend,
++			      lirreversiblep EXTRA_LOOP_ARGS);
+ 
+ 	  /* If we were called as part of an error handling module we
+ 	     don't do anything else here.  */
+@@ -638,41 +579,18 @@ FUNCTION_NAME (struct __gconv_step *step, struct __gconv_step_data *data,
+ 		      SAVE_RESET_STATE (0);
+ #endif
+ 
+-		      if (__glibc_likely (!unaligned))
+-			{
+-			  if (FROM_DIRECTION)
+-			    /* Run the conversion loop.  */
+-			    nstatus = FROM_LOOP (step, data, inptrp, inend,
+-						 &outbuf, outerr,
+-						 lirreversiblep
+-						 EXTRA_LOOP_ARGS);
+-			  else
+-			    /* Run the conversion loop.  */
+-			    nstatus = TO_LOOP (step, data, inptrp, inend,
+-					       &outbuf, outerr,
+-					       lirreversiblep
+-					       EXTRA_LOOP_ARGS);
+-			}
+-#if POSSIBLY_UNALIGNED
++		      if (FROM_DIRECTION)
++			/* Run the conversion loop.  */
++			nstatus = FROM_LOOP (step, data, inptrp, inend,
++					     &outbuf, outerr,
++					     lirreversiblep
++					     EXTRA_LOOP_ARGS);
+ 		      else
+-			{
+-			  if (FROM_DIRECTION)
+-			    /* Run the conversion loop.  */
+-			    nstatus = GEN_unaligned (FROM_LOOP) (step, data,
+-								 inptrp, inend,
+-								 &outbuf,
+-								 outerr,
+-								 lirreversiblep
+-								 EXTRA_LOOP_ARGS);
+-			  else
+-			    /* Run the conversion loop.  */
+-			    nstatus = GEN_unaligned (TO_LOOP) (step, data,
+-							       inptrp, inend,
+-							       &outbuf, outerr,
+-							       lirreversiblep
+-							       EXTRA_LOOP_ARGS);
+-			}
+-#endif
++			/* Run the conversion loop.  */
++			nstatus = TO_LOOP (step, data, inptrp, inend,
++					   &outbuf, outerr,
++					   lirreversiblep
++					   EXTRA_LOOP_ARGS);
+ 
+ 		      /* We must run out of output buffer space in this
+ 			 rerun.  */

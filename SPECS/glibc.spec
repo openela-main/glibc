@@ -1844,7 +1844,7 @@ build build-%{target}-32 \
 # Default set of compiler options.
 build build-%{target} \
   CC="gcc $glibc_flags_cc $glibc_flags_cc_main" \
-  CXX="gcc $glibc_flags_cc $glibc_flags_cc_main" \
+  CXX="g++ $glibc_flags_cc $glibc_flags_cc_main" \
   CFLAGS="$glibc_flags_cflags" \
   %{?glibc_rtld_early_cflags:--with-rtld-early-cflags=%glibc_rtld_early_cflags} \
 %ifarch x86_64
