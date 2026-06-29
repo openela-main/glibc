@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.37
+Release: %{glibcrelease}.38
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1330,6 +1330,10 @@ Patch1095: glibc-RHEL-162891-4.patch
 Patch1096: glibc-RHEL-168095.patch
 Patch1097: glibc-RHEL-173358-1.patch
 Patch1098: glibc-RHEL-173358-2.patch
+Patch1099: glibc-RHEL-172700-1.patch
+Patch1100: glibc-RHEL-172700-2.patch
+Patch1101: glibc-RHEL-172700-3.patch
+Patch1102: glibc-RHEL-172700-4.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2991,6 +2995,9 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
+ * Tue Jun 02 2026 Patsy Griffin <patsy@redhat.com> - 2.28-251.38
+ - CVE-2026-5450: Fix buffer overflow in scanf (RHEL-172700)
+
 * Mon May 11 2026 Arjun Shankar <arjun@redhat.com> - 2.28-251.37
 - Add tests for CVE-2026-4437 and CVE-2026-4438 (RHEL-173358)
 
