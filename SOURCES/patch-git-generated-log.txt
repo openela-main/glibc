@@ -1,3 +1,122 @@
+commit 50833c84b12427684b80cf68765ce770d76bca88
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Fri Jun 12 10:23:20 2026 +0200
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Tue Jun 23 06:04:31 2026 +0000
+
+    x86-64: Prefer EVEX512 string and memory functions on AMD Zen5 (RHEL-174869)
+    
+    Resolves: RHEL-174869
+
+:000000 100644 00000000 82eed26a A	glibc-RHEL-174869-1.patch
+:000000 100644 00000000 33ebed53 A	glibc-RHEL-174869-2.patch
+:000000 100644 00000000 6350257c A	glibc-RHEL-174869-3.patch
+
+commit 0d62f4876493c79f497ad980af5e6f80a568d56a
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Mon Jun 22 06:52:00 2026 -0400
+Commit:     pfrankli <pfrankli@redhat.com>
+CommitDate: Mon Jun 22 13:48:47 2026 +0000
+
+    CVE-2026-5450: Fix buffer overflow in scanf (RHEL-172694)
+    
+    Resolves: RHEL-172694
+
+:000000 100644 00000000 9c986da0 A	glibc-RHEL-172694-1.patch
+:000000 100644 00000000 a2d11824 A	glibc-RHEL-172694-2.patch
+:000000 100644 00000000 e12d92b2 A	glibc-RHEL-172694-3.patch
+:000000 100644 00000000 038227cd A	glibc-RHEL-172694-4.patch
+
+commit 04715b79ce9a5bfa65ed38d7f69418693d29700a
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Fri Jun 19 14:33:02 2026 +0200
+Commit:     Sergey Kolosov <skolosov@redhat.com>
+CommitDate: Fri Jun 19 14:33:02 2026 +0200
+
+    CI Gating: Add fail-fast test plan jobs as required rules
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 1a0987b9 1eb98681 M	gating.yaml
+
+commit d7685e74ea0ecdcbc8795726a26c0a1c3a2f4378
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Mon Jun 1 20:35:15 2026 +0200
+Commit:     Sergey Kolosov <skolosov@redhat.com>
+CommitDate: Mon Jun 1 20:35:15 2026 +0200
+
+    CI Tests: tests: require 2 CPUs in tmt provision and format ci.fmf
+    
+    Clean up YAML indentation in the CI gating plan and explicitly
+    request hardware with at least 2 processors. This is required
+    by some of the new tests.
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 7ebb7970 1ee4b711 M	plans/ci.fmf
+
+commit 46e756739a6ab1beee11438f3609ed29f3f90a5e
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Sun May 31 21:04:53 2026 +0200
+Commit:     Sergey Kolosov <skolosov@redhat.com>
+CommitDate: Mon Jun 1 12:55:56 2026 +0200
+
+    CI Tests: Expand Sanity test suite with branch-specific cases
+    
+    Add additional test cases to the tests/Sanity directory to expand test
+    coverage for this release branch.
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:000000 100644 00000000 21216a21 A	tests/Sanity/Improve-test-coverage-for-open/main.fmf
+:000000 100755 00000000 7f9066a1 A	tests/Sanity/Improve-test-coverage-for-open/runtest.sh
+:000000 100644 00000000 6feaa76a A	tests/Sanity/Improve-test-coverage-for-open/test.c
+:000000 100644 00000000 3623dff4 A	tests/Sanity/RHEL-10-IBM-POWER-float128-ABI-transition/float128-test.c
+:000000 100644 00000000 6224b462 A	tests/Sanity/RHEL-10-IBM-POWER-float128-ABI-transition/main.fmf
+:000000 100755 00000000 ac900188 A	tests/Sanity/RHEL-10-IBM-POWER-float128-ABI-transition/runtest.sh
+:000000 100644 00000000 28063177 A	tests/Sanity/RHEL-1018-iconv-restore-verbosity-with-unrecognized-encoding-names/main.fmf
+:000000 100755 00000000 c450ff2e A	tests/Sanity/RHEL-1018-iconv-restore-verbosity-with-unrecognized-encoding-names/runtest.sh
+:000000 100644 00000000 55759506 A	tests/Sanity/RHEL-106166-Add-Requires-pre-dependency-on-libgcc/main.fmf
+:000000 100755 00000000 7290ad4e A	tests/Sanity/RHEL-106166-Add-Requires-pre-dependency-on-libgcc/runtest.sh
+:000000 100644 00000000 666b8efa A	tests/Sanity/basic-stap-dyninst/main.fmf
+:000000 100755 00000000 54ca286a A	tests/Sanity/basic-stap-dyninst/runtest.sh
+:000000 100644 00000000 a49d51cd A	tests/Sanity/bz1414263-glibc-add-ibm-858-to-list-of-charsets-for-iconv/main.fmf
+:000000 100755 00000000 0ad4e0c3 A	tests/Sanity/bz1414263-glibc-add-ibm-858-to-list-of-charsets-for-iconv/runtest.sh
+:000000 100644 00000000 2df1c339 A	tests/Sanity/bz1577333-Remove-abort-warning-in-manual/main.fmf
+:000000 100755 00000000 b08ac5d4 A	tests/Sanity/bz1577333-Remove-abort-warning-in-manual/runtest.sh
+:000000 100644 00000000 cdbeeb62 A	tests/Sanity/bz1592475-glibc-headers-add-ipc-STAT-ANY-constants/main.fmf
+:000000 100755 00000000 a33b6bca A	tests/Sanity/bz1592475-glibc-headers-add-ipc-STAT-ANY-constants/runtest.sh
+:000000 100644 00000000 8ed2e085 A	tests/Sanity/bz1592475-glibc-headers-add-ipc-STAT-ANY-constants/tst-msgctl.c
+:000000 100644 00000000 1a7b54e8 A	tests/Sanity/bz1592475-glibc-headers-add-ipc-STAT-ANY-constants/tst-semctl.c
+:000000 100644 00000000 0b49e509 A	tests/Sanity/bz1592475-glibc-headers-add-ipc-STAT-ANY-constants/tst-shmctl.c
+:000000 100644 00000000 11ad614e A	tests/Sanity/bz1661508-glibc-Adjust-to-rpm-s-find-debuginfo-sh-changes/main.fmf
+:000000 100755 00000000 d2e9cf0e A	tests/Sanity/bz1661508-glibc-Adjust-to-rpm-s-find-debuginfo-sh-changes/runtest.sh
+:000000 100644 00000000 dbdcff97 A	tests/Sanity/bz1699194-glibc-Address-conflict-between-sys-stat-h-and/main.fmf
+:000000 100755 00000000 36c16166 A	tests/Sanity/bz1699194-glibc-Address-conflict-between-sys-stat-h-and/runtest.sh
+:000000 100644 00000000 38f5a204 A	tests/Sanity/bz1699194-glibc-Address-conflict-between-sys-stat-h-and/tst.c
+:000000 100644 00000000 abfe96f9 A	tests/Sanity/bz1930302-glibc-provide-IPPROTO-MPTCP-definition/main.fmf
+:000000 100755 00000000 1e7ca6d1 A	tests/Sanity/bz1930302-glibc-provide-IPPROTO-MPTCP-definition/runtest.sh
+:000000 100644 00000000 b68026be A	tests/Sanity/bz1930302-glibc-provide-IPPROTO-MPTCP-definition/tst-proto.c
+:000000 100644 00000000 964c54fc A	tests/Sanity/bz1940686-glibc-Remove-glibc-headers-x86-and/main.fmf
+:000000 100755 00000000 36ef331a A	tests/Sanity/bz1940686-glibc-Remove-glibc-headers-x86-and/runtest.sh
+:000000 100644 00000000 47ab7ca8 A	tests/Sanity/bz1971664-Split-extra-gconv-modules-into-a-separate-package/main.fmf
+:000000 100755 00000000 de2be4a3 A	tests/Sanity/bz1971664-Split-extra-gconv-modules-into-a-separate-package/runtest.sh
+:000000 100644 00000000 d4473588 A	tests/Sanity/bz2011754-add-PCI_MIO-andSIE-HWCAPs/main.fmf
+:000000 100755 00000000 5d0ca9a1 A	tests/Sanity/bz2011754-add-PCI_MIO-andSIE-HWCAPs/runtest.sh
+:000000 100644 00000000 b94d80cd A	tests/Sanity/bz2011754-add-PCI_MIO-andSIE-HWCAPs/test.c
+:000000 100644 00000000 8d01c187 A	tests/Sanity/bz2021671-glibc-Backport-glibc-docs-subpackage-to-support/main.fmf
+:000000 100755 00000000 457ce373 A	tests/Sanity/bz2021671-glibc-Backport-glibc-docs-subpackage-to-support/runtest.sh
+:000000 100644 00000000 f11f6151 A	tests/Sanity/bz2054790-locale-de-duplicate-LC_CTYPE-files-in-glibc-langpack/main.fmf
+:000000 100755 00000000 b8380b4a A	tests/Sanity/bz2054790-locale-de-duplicate-LC_CTYPE-files-in-glibc-langpack/runtest.sh
+:000000 100644 00000000 55c6d7ea A	tests/Sanity/bz2063247-Respin-glibc-with-new-systemtap-to-avoid-XMM-registers/main.fmf
+:000000 100755 00000000 b80185fb A	tests/Sanity/bz2063247-Respin-glibc-with-new-systemtap-to-avoid-XMM-registers/runtest.sh
+:000000 100644 00000000 3317abbf A	tests/Sanity/sched_getcpu-returns-correct-pinned-CPU/main.fmf
+:000000 100755 00000000 00205d8e A	tests/Sanity/sched_getcpu-returns-correct-pinned-CPU/runtest.sh
+:000000 100644 00000000 7a53a07f A	tests/Sanity/sched_getcpu-returns-correct-pinned-CPU/tst-bz31479.c
+
 commit 8f42d24c37304d4db88237907d86b220cf0ecf3c
 Author:     Frédéric Bérat <fberat@redhat.com>
 AuthorDate: Mon May 11 14:43:27 2026 +0200

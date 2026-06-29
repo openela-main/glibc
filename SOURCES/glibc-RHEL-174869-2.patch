@@ -1,0 +1,246 @@
+commit cd5fda114ece002945ace3d54a8f80a4f67d1fbb
+Author: Sajan Karumanchi <sajan.karumanchi@gmail.com>
+Date:   Thu Mar 26 09:21:30 2026 +0000
+
+    x86_64: Prefer EVEX512 code-path on AMD Zen5 CPUs
+    
+    Introduced a synthetic architecture preference flag (Prefer_EVEX512)
+    and enabled it for AMD Zen5 (CPUID Family 0x1A) when AVX-512 is supported.
+    
+    This flag modifies IFUNC dispatch to prefer 512-bit EVEX variants over
+    256-bit EVEX variants for string and memory functions on Zen5 processors,
+    leveraging their native 512-bit execution units for improved throughput.
+    When Prefer_EVEX512 is set, the dispatcher selects evex512 implementations;
+    otherwise, it falls back to evex (256-bit) variants.
+    
+    The implementation updates the IFUNC selection logic in ifunc-avx2.h and
+    ifunc-evex.h to check for the Prefer_EVEX512 flag before dispatching to
+    EVEX512 implementations. This change affects six string/memory functions:
+    
+      - strchr
+      - strlen
+      - strnlen
+      - strrchr
+      - strchrnul
+      - memchr
+    
+    Benchmarks conducted on AMD Zen5 hardware demonstrate significant
+    performance improvements across all affected functions:
+    
+    Function    Baseline   Patched    Avg         Avg        Avg      Max
+                Variant    Variant    Baseline    Patched    Change   Improve
+                                      (ns)        (ns)       %        %
+    ------------+----------+----------+-----------+----------+--------+--------
+    STRCHR      evex       evex512    16.408      12.293     25.08%   37.69%
+    STRLEN      evex       evex512    16.862      11.436     32.18%   56.74%
+    STRNLEN     evex       evex512    18.493      11.762     36.40%   64.40%
+    STRRCHR     evex       evex512    15.154      10.874     28.24%   44.38%
+    STRCHRNUL   evex       evex512    16.464      12.605     23.44%   45.56%
+    MEMCHR      evex       evex512    9.984       8.268      17.19%   39.99%
+    
+    Additionally, a tunable option (glibc.cpu.x86_cpu_features.preferred)
+    is provided to allow runtime control of the Prefer_EVEX512 flag for testing
+    and compatibility.
+    
+    Reviewed-by: Ganesh Gopalasubramanian <Ganesh.Gopalasubramanian@amd.com>
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+
+diff --git a/sysdeps/x86/cpu-features.c b/sysdeps/x86/cpu-features.c
+index e0728cb010aae637..55c952dded4c1030 100644
+--- a/sysdeps/x86/cpu-features.c
++++ b/sysdeps/x86/cpu-features.c
+@@ -1013,6 +1013,12 @@ disable_tsx:
+       cpu_features->preferred[index_arch_Avoid_Non_Temporal_Memset]
+ 	  &= ~bit_arch_Avoid_Non_Temporal_Memset;
+ 
++      /* Prefer EVEX512 string/memory variants on AMD Zen5 (Family 0x1A)
++         when AVX-512 is usable. */
++      if (family == 0x1A && CPU_FEATURE_USABLE_P (cpu_features, AVX512F))
++          cpu_features->preferred[index_arch_Prefer_EVEX512]
++            |= bit_arch_Prefer_EVEX512;
++
+       if (CPU_FEATURE_USABLE_P (cpu_features, AVX))
+ 	{
+ 	  /* Since the FMA4 bit is in CPUID_INDEX_80000001 and
+diff --git a/sysdeps/x86/cpu-tunables.c b/sysdeps/x86/cpu-tunables.c
+index 98da2c54a5c58851..4627748670f6da84 100644
+--- a/sysdeps/x86/cpu-tunables.c
++++ b/sysdeps/x86/cpu-tunables.c
+@@ -203,6 +203,12 @@ TUNABLE_CALLBACK (set_hwcaps) (tunable_val_t *valp)
+ 						     11);
+ 	    }
+ 	  break;
++	case 14:
++	    {
++	      CHECK_GLIBC_IFUNC_PREFERRED_NEED_BOTH
++		(n, cpu_features, Prefer_EVEX512, AVX512F, 14);
++	    }
++	  break;
+ 	case 15:
+ 	    {
+ 	      CHECK_GLIBC_IFUNC_PREFERRED_BOTH (n, cpu_features,
+diff --git a/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def b/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
+index 2a58000147d22ddb..25e535af62615449 100644
+--- a/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
++++ b/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
+@@ -35,3 +35,4 @@ BIT (Prefer_FSRM)
+ BIT (Avoid_Short_Distance_REP_MOVSB)
+ BIT (Avoid_Non_Temporal_Memset)
+ BIT (Avoid_STOSB)
++BIT (Prefer_EVEX512)
+diff --git a/sysdeps/x86_64/multiarch/ifunc-avx2.h b/sysdeps/x86_64/multiarch/ifunc-avx2.h
+index 4174928dab666878..5566e9760933ad2d 100644
+--- a/sysdeps/x86_64/multiarch/ifunc-avx2.h
++++ b/sysdeps/x86_64/multiarch/ifunc-avx2.h
+@@ -1,4 +1,4 @@
+-/* Common definition for ifunc selections optimized with SSE2 and AVX2.
++/* Common definition for ifunc selections optimized with SSE2, AVX2 and EVEX512.
+    All versions must be listed in ifunc-impl-list.c.
+    Copyright (C) 2017-2024 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+@@ -25,6 +25,10 @@
+ 
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (evex) attribute_hidden;
+ 
++#ifdef USE_EVEX512
++extern __typeof (REDIRECT_NAME) OPTIMIZE (evex512) attribute_hidden;
++#endif
++
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (avx2) attribute_hidden;
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (avx2_rtm) attribute_hidden;
+ 
+@@ -44,8 +48,13 @@ IFUNC_SELECTOR (void)
+     {
+       if (X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512VL)
+ 	  && X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512BW))
+-	return OPTIMIZE (evex);
+-
++      {
++#ifdef USE_EVEX512
++        if (CPU_FEATURES_ARCH_P (cpu_features, Prefer_EVEX512))
++      return OPTIMIZE (evex512);
++#endif
++	  return OPTIMIZE (evex);
++      }
+       if (CPU_FEATURE_USABLE_P (cpu_features, RTM))
+ 	return OPTIMIZE (avx2_rtm);
+ 
+diff --git a/sysdeps/x86_64/multiarch/ifunc-evex.h b/sysdeps/x86_64/multiarch/ifunc-evex.h
+index bbd1e3115f2e3a7c..643817a515b3fd71 100644
+--- a/sysdeps/x86_64/multiarch/ifunc-evex.h
++++ b/sysdeps/x86_64/multiarch/ifunc-evex.h
+@@ -1,4 +1,4 @@
+-/* Common definition for ifunc selection optimized with EVEX.
++/* Common definition for ifunc selection optimized with EVEX and EVEX512.
+    All versions must be listed in ifunc-impl-list.c.
+    Copyright (C) 2017-2024 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+@@ -22,6 +22,10 @@
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (evex) attribute_hidden;
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (evex_rtm) attribute_hidden;
+ 
++#ifdef USE_EVEX512
++extern __typeof (REDIRECT_NAME) OPTIMIZE (evex512) attribute_hidden;
++#endif
++
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (avx2) attribute_hidden;
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (avx2_rtm) attribute_hidden;
+ 
+@@ -42,6 +46,11 @@ IFUNC_SELECTOR (void)
+       if (X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512VL)
+ 	  && X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512BW))
+ 	{
++#ifdef USE_EVEX512
++      if (CPU_FEATURES_ARCH_P (cpu_features, Prefer_EVEX512))
++        return OPTIMIZE (evex512);
++#endif
++
+ 	  if (CPU_FEATURE_USABLE_P (cpu_features, RTM))
+ 	    return OPTIMIZE (evex_rtm);
+ 
+diff --git a/sysdeps/x86_64/multiarch/memchr.c b/sysdeps/x86_64/multiarch/memchr.c
+index 2c7754e759d2f1dd..9f915861a40498d8 100644
+--- a/sysdeps/x86_64/multiarch/memchr.c
++++ b/sysdeps/x86_64/multiarch/memchr.c
+@@ -24,6 +24,7 @@
+ # undef memchr
+ 
+ # define SYMBOL_NAME memchr
++# define USE_EVEX512 1
+ # include "ifunc-evex.h"
+ 
+ libc_ifunc_redirected (__redirect_memchr, memchr, IFUNC_SELECTOR ());
+diff --git a/sysdeps/x86_64/multiarch/strchr.c b/sysdeps/x86_64/multiarch/strchr.c
+index 4b15d53e97e682db..2d3d084aa8d3bdd1 100644
+--- a/sysdeps/x86_64/multiarch/strchr.c
++++ b/sysdeps/x86_64/multiarch/strchr.c
+@@ -27,6 +27,7 @@
+ # include <init-arch.h>
+ 
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (evex) attribute_hidden;
++extern __typeof (REDIRECT_NAME) OPTIMIZE (evex512) attribute_hidden;
+ 
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (avx2) attribute_hidden;
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (avx2_rtm) attribute_hidden;
+@@ -46,7 +47,12 @@ IFUNC_SELECTOR (void)
+     {
+       if (X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512VL)
+ 	  && X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512BW))
+-	return OPTIMIZE (evex);
++	{
++	  if (CPU_FEATURES_ARCH_P (cpu_features, Prefer_EVEX512))
++	    return OPTIMIZE (evex512);
++
++	  return OPTIMIZE (evex);
++	}
+ 
+       if (CPU_FEATURE_USABLE_P (cpu_features, RTM))
+ 	return OPTIMIZE (avx2_rtm);
+diff --git a/sysdeps/x86_64/multiarch/strchrnul.c b/sysdeps/x86_64/multiarch/strchrnul.c
+index 663819918e103083..e3fb2503eade9764 100644
+--- a/sysdeps/x86_64/multiarch/strchrnul.c
++++ b/sysdeps/x86_64/multiarch/strchrnul.c
+@@ -26,6 +26,7 @@
+ # undef strchrnul
+ 
+ # define SYMBOL_NAME strchrnul
++# define USE_EVEX512 1
+ # include "ifunc-avx2.h"
+ 
+ libc_ifunc_redirected (__redirect_strchrnul, __strchrnul,
+diff --git a/sysdeps/x86_64/multiarch/strlen.c b/sysdeps/x86_64/multiarch/strlen.c
+index a362c2bf8bce9dcf..9b39da5c760a9fa4 100644
+--- a/sysdeps/x86_64/multiarch/strlen.c
++++ b/sysdeps/x86_64/multiarch/strlen.c
+@@ -24,6 +24,7 @@
+ # undef strlen
+ 
+ # define SYMBOL_NAME strlen
++# define USE_EVEX512 1
+ # include "ifunc-avx2.h"
+ 
+ libc_ifunc_redirected (__redirect_strlen, strlen, IFUNC_SELECTOR ());
+diff --git a/sysdeps/x86_64/multiarch/strnlen.c b/sysdeps/x86_64/multiarch/strnlen.c
+index d1537e039052551d..a09ff4bea54bb0d1 100644
+--- a/sysdeps/x86_64/multiarch/strnlen.c
++++ b/sysdeps/x86_64/multiarch/strnlen.c
+@@ -26,6 +26,7 @@
+ # undef strnlen
+ 
+ # define SYMBOL_NAME strnlen
++# define USE_EVEX512 1
+ # include "ifunc-avx2.h"
+ 
+ libc_ifunc_redirected (__redirect_strnlen, __strnlen, IFUNC_SELECTOR ());
+diff --git a/sysdeps/x86_64/multiarch/strrchr.c b/sysdeps/x86_64/multiarch/strrchr.c
+index f14237d1ffeb8e11..2ad1192d3ec013d8 100644
+--- a/sysdeps/x86_64/multiarch/strrchr.c
++++ b/sysdeps/x86_64/multiarch/strrchr.c
+@@ -23,6 +23,7 @@
+ # undef strrchr
+ 
+ # define SYMBOL_NAME strrchr
++# define USE_EVEX512 1
+ # include "ifunc-avx2.h"
+ 
+ libc_ifunc_redirected (__redirect_strrchr, strrchr, IFUNC_SELECTOR ());

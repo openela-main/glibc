@@ -1,0 +1,199 @@
+commit f446d90fe6605ac473aaa6cd17a1800e72dcc1a2
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Wed Aug 14 14:37:31 2024 +0800
+
+    x86: Add `Avoid_STOSB` tunable to allow NT memset without ERMS
+
+    The goal of this flag is to allow targets which don't prefer/have ERMS
+    to still access the non-temporal memset implementation.
+
+    There are 4 cases for tuning memset:
+        1) `Avoid_STOSB && Avoid_Non_Temporal_Memset`
+            - Memset with temporal stores
+        2) `Avoid_STOSB && !Avoid_Non_Temporal_Memset`
+            - Memset with temporal/non-temporal stores. Non-temporal path
+              goes through `rep stosb` path. We accomplish this by setting
+              `x86_rep_stosb_threshold` to
+              `x86_memset_non_temporal_threshold`.
+        3) `!Avoid_STOSB && Avoid_Non_Temporal_Memset`
+            - Memset with temporal stores/`rep stosb`
+        3) `!Avoid_STOSB && !Avoid_Non_Temporal_Memset`
+            - Memset with temporal stores/`rep stosb`/non-temporal stores.
+    Reviewed-by: H.J. Lu <hjl.tools@gmail.com>
+
+diff --git a/sysdeps/x86/cpu-features.c b/sysdeps/x86/cpu-features.c
+index f87d6d354924f3d9..e0728cb010aae637 100644
+--- a/sysdeps/x86/cpu-features.c
++++ b/sysdeps/x86/cpu-features.c
+@@ -1103,6 +1103,10 @@ disable_tsx:
+   if (CPU_FEATURES_CPU_P (cpu_features, CMOV))
+     cpu_features->preferred[index_arch_I686] |= bit_arch_I686;
+ 
++  /* No ERMS, we want to avoid stosb for memset.  */
++  if (!CPU_FEATURE_USABLE_P (cpu_features, ERMS))
++    cpu_features->preferred[index_arch_Avoid_STOSB] |= bit_arch_Avoid_STOSB;
++
+ #if !HAS_CPUID
+ no_cpuid:
+ #endif
+diff --git a/sysdeps/x86/cpu-tunables.c b/sysdeps/x86/cpu-tunables.c
+index a0b31d80f64127c5..98da2c54a5c58851 100644
+--- a/sysdeps/x86/cpu-tunables.c
++++ b/sysdeps/x86/cpu-tunables.c
+@@ -195,6 +195,8 @@ TUNABLE_CALLBACK (set_hwcaps) (tunable_val_t *valp)
+ 						11);
+ 	      CHECK_GLIBC_IFUNC_PREFERRED_BOTH (n, cpu_features, Prefer_FSRM,
+ 						11);
++	      CHECK_GLIBC_IFUNC_PREFERRED_BOTH (n, cpu_features, Avoid_STOSB,
++						11);
+ 	      CHECK_GLIBC_IFUNC_PREFERRED_NEED_BOTH (n, cpu_features,
+ 						     Slow_SSE4_2,
+ 						     SSE4_2,
+diff --git a/sysdeps/x86/dl-cacheinfo.h b/sysdeps/x86/dl-cacheinfo.h
+index ebfea0a32ce0cff6..e21592e166a041dd 100644
+--- a/sysdeps/x86/dl-cacheinfo.h
++++ b/sysdeps/x86/dl-cacheinfo.h
+@@ -1039,18 +1039,42 @@ dl_init_cacheinfo (struct cpu_features *cpu_features)
+        slightly better than ERMS.  */
+     rep_stosb_threshold = SIZE_MAX;
+ 
++  /*
++     For memset, the non-temporal implementation is only accessed through the
++     stosb code. ie:
++     ```
++     if (size >= rep_stosb_thresh)
++     {
++    	if (size >= non_temporal_thresh)
++     {
++     do_non_temporal ();
++     }
++    	do_stosb ();
++     }
++     do_normal_vec_loop ();
++     ```
++     So if we prefer non-temporal, set `rep_stosb_thresh = non_temporal_thresh`
++     to enable the implementation. If `rep_stosb_thresh = non_temporal_thresh`,
++    `rep stosb` will never be used.
++   */
++  TUNABLE_SET_WITH_BOUNDS (x86_memset_non_temporal_threshold,
++			   memset_non_temporal_threshold,
++			   minimum_non_temporal_threshold, SIZE_MAX);
++  /* Do `rep_stosb_thresh = non_temporal_thresh` after setting/getting the
++     final value of `x86_memset_non_temporal_threshold`. In some cases this can
++     be a matter of correctness.  */
++  if (CPU_FEATURES_ARCH_P (cpu_features, Avoid_STOSB))
++    rep_stosb_threshold
++	= TUNABLE_GET (x86_memset_non_temporal_threshold, long int, NULL);
++  TUNABLE_SET_WITH_BOUNDS (x86_rep_stosb_threshold, rep_stosb_threshold, 1,
++			   SIZE_MAX);
+   TUNABLE_SET_WITH_BOUNDS (x86_data_cache_size, data, 0, SIZE_MAX);
+   TUNABLE_SET_WITH_BOUNDS (x86_shared_cache_size, shared, 0, SIZE_MAX);
+   TUNABLE_SET_WITH_BOUNDS (x86_non_temporal_threshold, non_temporal_threshold,
+ 			   minimum_non_temporal_threshold,
+ 			   maximum_non_temporal_threshold);
+-  TUNABLE_SET_WITH_BOUNDS (x86_memset_non_temporal_threshold,
+-			   memset_non_temporal_threshold,
+-			   minimum_non_temporal_threshold, SIZE_MAX);
+   TUNABLE_SET_WITH_BOUNDS (x86_rep_movsb_threshold, rep_movsb_threshold,
+ 			   minimum_rep_movsb_threshold, SIZE_MAX);
+-  TUNABLE_SET_WITH_BOUNDS (x86_rep_stosb_threshold, rep_stosb_threshold, 1,
+-			   SIZE_MAX);
+ 
+   unsigned long int rep_movsb_stop_threshold;
+   /* Setting the upper bound of ERMS to the computed value of
+diff --git a/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def b/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
+index 61bbbc2e8983482e..2a58000147d22ddb 100644
+--- a/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
++++ b/sysdeps/x86/include/cpu-features-preferred_feature_index_1.def
+@@ -34,3 +34,4 @@ BIT (MathVec_Prefer_No_AVX512)
+ BIT (Prefer_FSRM)
+ BIT (Avoid_Short_Distance_REP_MOVSB)
+ BIT (Avoid_Non_Temporal_Memset)
++BIT (Avoid_STOSB)
+diff --git a/sysdeps/x86/tst-hwcap-tunables.c b/sysdeps/x86/tst-hwcap-tunables.c
+index 94307283d7cdbdc7..1920f5057e69c48a 100644
+--- a/sysdeps/x86/tst-hwcap-tunables.c
++++ b/sysdeps/x86/tst-hwcap-tunables.c
+@@ -60,7 +60,8 @@ static const struct test_t
+     /* Disable everything.  */
+     "-Prefer_ERMS,-Prefer_FSRM,-AVX,-AVX2,-AVX512F,-AVX512VL,"
+     "-SSE4_1,-SSE4_2,-SSSE3,-Fast_Unaligned_Load,-ERMS,"
+-    "-AVX_Fast_Unaligned_Load,-Avoid_Non_Temporal_Memset",
++    "-AVX_Fast_Unaligned_Load,-Avoid_Non_Temporal_Memset,"
++    "-Avoid_STOSB",
+     test_1,
+     array_length (test_1)
+   },
+@@ -68,7 +69,8 @@ static const struct test_t
+     /* Same as before, but with some empty suboptions.  */
+     ",-,-Prefer_ERMS,-Prefer_FSRM,-AVX,-AVX2,-AVX512F,-AVX512VL,"
+     "-SSE4_1,-SSE4_2,-SSSE3,-Fast_Unaligned_Load,,-,"
+-    "-ERMS,-AVX_Fast_Unaligned_Load,-Avoid_Non_Temporal_Memset,-,",
++    "-ERMS,-AVX_Fast_Unaligned_Load,-Avoid_Non_Temporal_Memset,"
++    "-Avoid_STOSB,-,",
+     test_1,
+     array_length (test_1)
+   }
+diff --git a/sysdeps/x86_64/multiarch/ifunc-memset.h b/sysdeps/x86_64/multiarch/ifunc-memset.h
+index 7a637ef7ca286694..8dc3d7ab5abaaecb 100644
+--- a/sysdeps/x86_64/multiarch/ifunc-memset.h
++++ b/sysdeps/x86_64/multiarch/ifunc-memset.h
+@@ -46,6 +46,13 @@ extern __typeof (REDIRECT_NAME) OPTIMIZE (sse2_unaligned)
+ extern __typeof (REDIRECT_NAME) OPTIMIZE (sse2_unaligned_erms)
+   attribute_hidden;
+ 
++static inline int
++prefer_erms_nt_impl (const struct cpu_features *cpu_features)
++{
++  return CPU_FEATURE_USABLE_P (cpu_features, ERMS)
++	 || !CPU_FEATURES_ARCH_P (cpu_features, Avoid_Non_Temporal_Memset);
++}
++
+ static inline void *
+ IFUNC_SELECTOR (void)
+ {
+@@ -61,7 +68,7 @@ IFUNC_SELECTOR (void)
+ 	  && X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512BW)
+ 	  && X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, BMI2))
+ 	{
+-	  if (CPU_FEATURE_USABLE_P (cpu_features, ERMS))
++	  if (prefer_erms_nt_impl (cpu_features))
+ 	    return OPTIMIZE (avx512_unaligned_erms);
+ 
+ 	  return OPTIMIZE (avx512_unaligned);
+@@ -76,7 +83,7 @@ IFUNC_SELECTOR (void)
+ 	  && X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, AVX512BW)
+ 	  && X86_ISA_CPU_FEATURE_USABLE_P (cpu_features, BMI2))
+ 	{
+-	  if (CPU_FEATURE_USABLE_P (cpu_features, ERMS))
++	  if (prefer_erms_nt_impl (cpu_features))
+ 	    return OPTIMIZE (evex_unaligned_erms);
+ 
+ 	  return OPTIMIZE (evex_unaligned);
+@@ -84,7 +91,7 @@ IFUNC_SELECTOR (void)
+ 
+       if (CPU_FEATURE_USABLE_P (cpu_features, RTM))
+ 	{
+-	  if (CPU_FEATURE_USABLE_P (cpu_features, ERMS))
++	  if (prefer_erms_nt_impl (cpu_features))
+ 	    return OPTIMIZE (avx2_unaligned_erms_rtm);
+ 
+ 	  return OPTIMIZE (avx2_unaligned_rtm);
+@@ -93,14 +100,15 @@ IFUNC_SELECTOR (void)
+       if (X86_ISA_CPU_FEATURES_ARCH_P (cpu_features,
+ 				       Prefer_No_VZEROUPPER, !))
+ 	{
+-	  if (CPU_FEATURE_USABLE_P (cpu_features, ERMS))
++	  if (prefer_erms_nt_impl (cpu_features))
+ 	    return OPTIMIZE (avx2_unaligned_erms);
+ 
+ 	  return OPTIMIZE (avx2_unaligned);
+ 	}
+     }
+ 
+-  if (CPU_FEATURE_USABLE_P (cpu_features, ERMS))
++  if (CPU_FEATURE_USABLE_P (cpu_features, ERMS)
++      || !CPU_FEATURES_ARCH_P (cpu_features, Avoid_Non_Temporal_Memset))
+     return OPTIMIZE (sse2_unaligned_erms);
+ 
+   return OPTIMIZE (sse2_unaligned);

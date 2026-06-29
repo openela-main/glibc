@@ -1,0 +1,76 @@
+commit b866ef29773b22a1343ff9084374775114350b78
+Author: Maciej W. Rozycki <macro@redhat.com>
+Date:   Wed May 27 12:57:10 2026 -0400
+
+    support: Implement 'xfmemopen' for seamless 'fmemopen' use
+    
+    Add 'xfmemopen' wrapper for seamless 'fmemopen' use in tests, following
+    'xfopen', 'xfclose', etc., and providing a standardized error reporting
+    facility.
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+    (cherry picked from commit fe709cc24578ecfd2ff5b07e10e3829fcb55075b)
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/support/Makefile b/support/Makefile
+index d41278eeab..f67f38130a 100644
+--- a/support/Makefile
++++ b/support/Makefile
+@@ -134,6 +134,7 @@ libsupport-routines = \
+   xfclose \
+   xfdopendir \
+   xfgets \
++  xfmemopen \
+   xfopen \
+   xfork \
+   xfread \
+diff --git a/support/xfmemopen.c b/support/xfmemopen.c
+new file mode 100644
+index 0000000000..f1dbc72c67
+--- /dev/null
++++ b/support/xfmemopen.c
+@@ -0,0 +1,31 @@
++/* fmemopen with error checking.
++   Copyright (C) 2025 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <support/xstdio.h>
++
++#include <support/check.h>
++#include <stdlib.h>
++
++FILE *
++xfmemopen (void *mem, size_t len, const char *mode)
++{
++  FILE *fp = fmemopen (mem, len, mode);
++  if (fp == NULL)
++    FAIL_EXIT1 ("fmemopen (mode \"%s\"): %m", mode);
++  return fp;
++}
+diff --git a/support/xstdio.h b/support/xstdio.h
+index c3fdf9496f..70b83f11da 100644
+--- a/support/xstdio.h
++++ b/support/xstdio.h
+@@ -27,6 +27,7 @@ __BEGIN_DECLS
+ FILE *xfopen (const char *path, const char *mode);
+ void xfclose (FILE *);
+ FILE *xfreopen (const char *path, const char *mode, FILE *stream);
++FILE *xfmemopen (void *mem, size_t len, const char *mode);
+ void xfread (void *ptr, size_t size, size_t nmemb, FILE *stream);
+ char *xfgets (char *s, int size, FILE *stream);
+ 
