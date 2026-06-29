@@ -1,0 +1,123 @@
+commit 1cc165baed20b6589ef2f2c8c0e0415139bbb151
+Author: Frédéric Bérat <fberat@redhat.com>
+Date:   Wed Apr 29 13:26:38 2026 +0200
+
+    test: Add gconv refcount leak test for swscanf
+
+    Add a new internal test, `tst-wcsmbs-clone-overflow`, to verify correct
+    gconv module reference counting. The Makefile is updated to include this
+    test in the `tests-internal` list and ensure it runs with generated locales.
+
+    This test specifically checks that the `__counter` for `gconv_fcts->towc`
+    does not leak references when `swscanf` is used with a stack-allocated
+    wide character stream. It ensures that `_IO_wstrfile_fclose_stack`
+    properly decrements the module reference counter, preventing a module
+    from staying loaded indefinitely due to unreleased references.
+
+    Assisted-by: LLM
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+Conflicts:
+	wcsmbs/Makefile
+	  (test-c8rtomb, test-mbrtoc8, tst-wscanf-to_inpunct not present
+	  downstream)
+	wcsmbs/tst-wcsmbs-clone-overflow.c
+	  (struct lc_ctype_data not present downstream; use
+	  loc->private.ctype directly instead)
+
+diff --git a/wcsmbs/Makefile b/wcsmbs/Makefile
+index 0e5fe909a83c7a13..f74b06d9749eaa02 100644
+--- a/wcsmbs/Makefile
++++ b/wcsmbs/Makefile
+@@ -59,6 +59,12 @@ tests := tst-wcstof wcsmbs-tst1 tst-wcsnlen tst-btowc tst-mbrtowc \
+ # This test runs for a long time.
+ xtests += test-wcsncmp-nonarray
+ 
++tests-internal += \
++  tst-wcsmbs-clone-overflow
++
++tests-static += \
++  tst-wcsmbs-clone-overflow
++
+ 
+ include ../Rules
+ 
+@@ -77,6 +83,7 @@ $(objpfx)tst-wcstol-locale.out: $(gen-locales)
+ $(objpfx)tst-wcstod-nan-locale.out: $(gen-locales)
+ $(objpfx)tst-c16-surrogate.out: $(gen-locales)
+ $(objpfx)tst-c32-state.out: $(gen-locales)
++$(objpfx)tst-wcsmbs-clone-overflow.out: $(gen-locales)
+ endif
+ 
+ $(objpfx)tst-wcstod-round: $(libm)
+diff --git a/wcsmbs/tst-wcsmbs-clone-overflow.c b/wcsmbs/tst-wcsmbs-clone-overflow.c
+new file mode 100644
+index 0000000000000000..412e1c54085c68d5
+--- /dev/null
++++ b/wcsmbs/tst-wcsmbs-clone-overflow.c
+@@ -0,0 +1,65 @@
++/* Test for gconv module reference counter leak.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <locale.h>
++#include <stdio.h>
++#include <wchar.h>
++#include <support/check.h>
++#include <support/support.h>
++
++/* Internal headers for accessing the gconv structures.  */
++#include <locale/localeinfo.h>
++#include <iconv/gconv_int.h>
++#include <wcsmbs/wcsmbsload.h>
++
++static int
++do_test (void)
++{
++  if (setlocale (LC_ALL, "de_DE.ISO-8859-1") == NULL)
++    FAIL_EXIT1 ("setlocale failed, check if de_DE.ISO-8859-1 is generated");
++
++  wchar_t buf[32] = L"123";
++  int j;
++
++  /* First iteration initializes the gconv functions internally.  */
++  if (swscanf (buf, L"%d", &j) < 1)
++    FAIL_EXIT1 ("swscanf failed");
++
++  /* Retrieve the current gconv_fcts from the LC_CTYPE locale data.  */
++  struct __locale_data *loc = _NL_CURRENT_DATA (LC_CTYPE);
++  const struct gconv_fcts *fcts = loc->private.ctype;
++
++  TEST_VERIFY_EXIT (fcts != NULL);
++  TEST_VERIFY_EXIT (fcts->towc != NULL);
++
++  /* Capture the reference counter.  */
++  int initial_counter = fcts->towc->__counter;
++
++  /* Perform a second iteration of swscanf. If the stack-allocated FILE
++     leaks the gconv reference, the counter will increment.  */
++  if (swscanf (buf, L"%d", &j) < 1)
++    FAIL_EXIT1 ("swscanf failed");
++
++  /* The counter should be unchanged, as _IO_wstrfile_fclose_stack should
++     have decremented it correctly.  */
++  TEST_COMPARE (fcts->towc->__counter, initial_counter);
++
++  return 0;
++}
++
++#include <support/test-driver.c>

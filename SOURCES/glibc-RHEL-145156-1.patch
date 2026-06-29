@@ -1,0 +1,206 @@
+commit 0981c03c2752b5f12ede24e6e696d5a29f7c6396
+Author: Frédéric Bérat <fberat@redhat.com>
+Date:   Wed Apr 29 15:53:51 2026 +0200
+
+    libio: Fix gconv module reference counter overflow in swscanf
+
+    The swscanf family of functions creates a wide-oriented FILE stream
+    on the stack. Initialization of this stream invokes `_IO_fwide`, which
+    clones the global locale's gconv transformation steps via
+    `__wcsmbs_clone_conv`. This increments the reference counter (`__counter`)
+    of the gconv module.
+
+    Because the FILE stream is stack-allocated, `fclose` cannot be called,
+    and so `__gconv_release_step` is never invoked. The counter leaks,
+    eventually hitting the 32-bit integer overflow limit and aborting the
+    process.
+
+    To resolve this, we introduce `_IO_wstrfile_fclose_stack`, a dedicated
+    cleanup function for stack-allocated FILE streams. This function invokes
+    `_IO_FINISH` and correctly releases the gconv steps via
+    `__gconv_release_step` without attempting to `free` the FILE pointer.
+    This cleanup function is then hooked into all variants of swscanf right
+    before they return.
+
+    Reviewed-by: Adhemerval Zanella  <adhemerval.zanella@linaro.org>
+
+Conflicts:
+	sysdeps/ieee754/ldbl-opt/nldbl-compat.c
+	  (isoc23 variants not present downstream)
+	sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc23_swscanf.c
+	  (not present downstream)
+	sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc23_vswscanf.c
+	  (not present downstream)
+	wcsmbs/isoc23_swscanf.c
+	  (not present downstream)
+	wcsmbs/isoc23_vswscanf.c
+	  (not present downstream)
+
+diff --git a/libio/iofwide.c b/libio/iofwide.c
+index a7f29fa0b9693cc3..972f154365e88bb3 100644
+--- a/libio/iofwide.c
++++ b/libio/iofwide.c
+@@ -257,3 +257,18 @@ __libio_codecvt_length (struct _IO_codecvt *codecvt, __mbstate_t *statep,
+ 
+   return result;
+ }
++
++void
++_IO_wstrfile_fclose_stack (FILE *fp)
++{
++  _IO_FINISH (fp);
++  if (fp->_mode > 0)
++    {
++      struct _IO_codecvt *cc = fp->_codecvt;
++
++      __libc_lock_lock (__gconv_lock);
++      __gconv_release_step (cc->__cd_in.step);
++      __gconv_release_step (cc->__cd_out.step);
++      __libc_lock_unlock (__gconv_lock);
++    }
++}
+diff --git a/libio/iovswscanf.c b/libio/iovswscanf.c
+index 35bddc0daeca917f..284c61615ebddd47 100644
+--- a/libio/iovswscanf.c
++++ b/libio/iovswscanf.c
+@@ -38,6 +38,8 @@ __vswscanf (const wchar_t *string, const wchar_t *format, va_list args)
+   _IO_strfile sf;
+   struct _IO_wide_data wd;
+   FILE *f = _IO_strfile_readw (&sf, &wd, string);
+-  return __vfwscanf_internal (f, format, args, 0);
++  int done = __vfwscanf_internal (f, format, args, 0);
++  _IO_wstrfile_fclose_stack (f);
++  return done;
+ }
+ ldbl_weak_alias (__vswscanf, vswscanf)
+diff --git a/libio/libioP.h b/libio/libioP.h
+index 50570f89de5a7010..76fd7853dc087bf9 100644
+--- a/libio/libioP.h
++++ b/libio/libioP.h
+@@ -594,6 +594,7 @@ extern FILE* _IO_new_file_fopen (FILE *, const char *, const char *,
+ 				     int);
+ extern void _IO_no_init (FILE *, int, int, struct _IO_wide_data *,
+ 			 const struct _IO_jump_t *) __THROW;
++extern void _IO_wstrfile_fclose_stack (FILE *) attribute_hidden;
+ extern void _IO_new_file_init_internal (struct _IO_FILE_plus *)
+   __THROW attribute_hidden;
+ extern FILE* _IO_new_file_setbuf (FILE *, char *, ssize_t);
+diff --git a/libio/swscanf.c b/libio/swscanf.c
+index 88a19144342cdc38..cb3795599c6f70c6 100644
+--- a/libio/swscanf.c
++++ b/libio/swscanf.c
+@@ -37,7 +37,7 @@ __swscanf (const wchar_t *s, const wchar_t *format, ...)
+   va_start (arg, format);
+   done = __vfwscanf_internal (f, format, arg, 0);
+   va_end (arg);
+-
++  _IO_wstrfile_fclose_stack (f);
+   return done;
+ }
+ ldbl_strong_alias (__swscanf, swscanf)
+diff --git a/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc99_swscanf.c b/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc99_swscanf.c
+index ef8c1317dcd7f5e5..96bf2ac3559186e7 100644
+--- a/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc99_swscanf.c
++++ b/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc99_swscanf.c
+@@ -34,7 +34,7 @@ ___ieee128_isoc99_swscanf (const wchar_t *string, const wchar_t *format, ...)
+   va_start (ap, format);
+   done = __vfwscanf_internal (fp, format, ap, mode_flags);
+   va_end (ap);
+-
++  _IO_wstrfile_fclose_stack (fp);
+   return done;
+ }
+ strong_alias (___ieee128_isoc99_swscanf, __isoc99_swscanfieee128)
+diff --git a/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc99_vswscanf.c b/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc99_vswscanf.c
+index f77bb64638a4717f..8fa10ee2e22e238f 100644
+--- a/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc99_vswscanf.c
++++ b/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-isoc99_vswscanf.c
+@@ -27,6 +27,8 @@ ___ieee128_isoc99_vswscanf (wchar_t *string, const wchar_t *format, va_list ap)
+   struct _IO_wide_data wd;
+   FILE *fp = _IO_strfile_readw (&sf, &wd, string);
+   int mode_flags = SCANF_ISOC99_A | SCANF_LDBL_USES_FLOAT128;
+-  return __vfwscanf_internal (fp, format, ap, mode_flags);
++  int done = __vfwscanf_internal (fp, format, ap, mode_flags);
++  _IO_wstrfile_fclose_stack (fp);
++  return done;
+ }
+ strong_alias (___ieee128_isoc99_vswscanf, __isoc99_vswscanfieee128)
+diff --git a/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-swscanf.c b/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-swscanf.c
+index 04ee5419200298b1..509eaa663d0a9a33 100644
+--- a/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-swscanf.c
++++ b/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-swscanf.c
+@@ -34,7 +34,7 @@ ___ieee128_swscanf (const wchar_t *string, const wchar_t *format, ...)
+   done = __vfwscanf_internal (fp, format, ap,
+ 			      SCANF_LDBL_USES_FLOAT128);
+   va_end (ap);
+-
++  _IO_wstrfile_fclose_stack (fp);
+   return done;
+ }
+ strong_alias (___ieee128_swscanf, __swscanfieee128)
+diff --git a/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-vswscanf.c b/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-vswscanf.c
+index 7aebc5f1c12939b6..18aa6deaacdde682 100644
+--- a/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-vswscanf.c
++++ b/sysdeps/ieee754/ldbl-128ibm-compat/ieee128-vswscanf.c
+@@ -27,6 +27,8 @@ ___ieee128_vswscanf (const wchar_t *string, const wchar_t *format,
+   _IO_strfile sf;
+   struct _IO_wide_data wd;
+   FILE *fp = _IO_strfile_readw (&sf, &wd, string);
+-  return __vfwscanf_internal (fp, format, ap, SCANF_LDBL_USES_FLOAT128);
++  int done = __vfwscanf_internal (fp, format, ap, SCANF_LDBL_USES_FLOAT128);
++  _IO_wstrfile_fclose_stack (fp);
++  return done;
+ }
+ strong_alias (___ieee128_vswscanf, __vswscanfieee128)
+diff --git a/sysdeps/ieee754/ldbl-opt/nldbl-compat.c b/sysdeps/ieee754/ldbl-opt/nldbl-compat.c
+index a6c5c49ecb151bf5..81d53a4cf30acb89 100644
+--- a/sysdeps/ieee754/ldbl-opt/nldbl-compat.c
++++ b/sysdeps/ieee754/ldbl-opt/nldbl-compat.c
+@@ -388,7 +388,9 @@ __nldbl_vswscanf (const wchar_t *s, const wchar_t *fmt, va_list ap)
+   struct _IO_wide_data wd;
+   FILE *f = _IO_strfile_readw (&sf, &wd, s);
+ 
+-  return __vfwscanf_internal (f, fmt, ap, SCANF_LDBL_IS_DBL);
++  int ret = __vfwscanf_internal (f, fmt, ap, SCANF_LDBL_IS_DBL);
++  _IO_wstrfile_fclose_stack (f);
++  return ret;
+ }
+ libc_hidden_def (__nldbl_vswscanf)
+ 
+@@ -952,7 +954,9 @@ __nldbl___isoc99_vswscanf (const wchar_t *s, const wchar_t *fmt, va_list ap)
+   struct _IO_wide_data wd;
+   FILE *f = _IO_strfile_readw (&sf, &wd, s);
+ 
+-  return __vfwscanf_internal (f, fmt, ap, SCANF_LDBL_IS_DBL | SCANF_ISOC99_A);
++  int ret = __vfwscanf_internal (f, fmt, ap, SCANF_LDBL_IS_DBL | SCANF_ISOC99_A);
++  _IO_wstrfile_fclose_stack (f);
++  return ret;
+ }
+ libc_hidden_def (__nldbl___isoc99_vswscanf)
+ 
+diff --git a/wcsmbs/isoc99_swscanf.c b/wcsmbs/isoc99_swscanf.c
+index bb6d8f2035d8e4a4..3fda1f7be695b31e 100644
+--- a/wcsmbs/isoc99_swscanf.c
++++ b/wcsmbs/isoc99_swscanf.c
+@@ -32,6 +32,6 @@ __isoc99_swscanf (const wchar_t *s, const wchar_t *format, ...)
+   va_start (arg, format);
+   done = __vfwscanf_internal (f, format, arg, SCANF_ISOC99_A);
+   va_end (arg);
+-
++  _IO_wstrfile_fclose_stack (f);
+   return done;
+ }
+diff --git a/wcsmbs/isoc99_vswscanf.c b/wcsmbs/isoc99_vswscanf.c
+index 3cd0a28c21ffa36f..1df90438416d3bb7 100644
+--- a/wcsmbs/isoc99_vswscanf.c
++++ b/wcsmbs/isoc99_vswscanf.c
+@@ -33,6 +33,8 @@ __isoc99_vswscanf (const wchar_t *string, const wchar_t *format, va_list args)
+   _IO_strfile sf;
+   struct _IO_wide_data wd;
+   FILE *f = _IO_strfile_readw (&sf, &wd, string);
+-  return __vfwscanf_internal (f, format, args, SCANF_ISOC99_A);
++  int done = __vfwscanf_internal (f, format, args, SCANF_ISOC99_A);
++  _IO_wstrfile_fclose_stack (f);
++  return done;
+ }
+ libc_hidden_def (__isoc99_vswscanf)

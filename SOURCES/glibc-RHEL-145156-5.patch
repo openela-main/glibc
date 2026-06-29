@@ -1,0 +1,111 @@
+test: Add gconv refcount leak test for swprintf
+
+Add a new internal test, tst-wcsmbs-clone-overflow-swprintf, to verify
+correct gconv module reference counting for the swprintf path.
+
+This is the swprintf counterpart to tst-wcsmbs-clone-overflow (which
+tests swscanf).  The vswprintf/swprintf family creates a wide-oriented
+stack-allocated FILE stream via _IO_no_init and _IO_fwide, which clones
+the gconv transformation steps.  This test verifies that the __counter
+for gconv_fcts->towc does not leak references after swprintf returns,
+confirming that _IO_wstrfile_fclose_stack properly releases the gconv
+steps.
+
+diff --git a/wcsmbs/Makefile b/wcsmbs/Makefile
+index bb03d92576700a99..252630457146de35 100644
+--- a/wcsmbs/Makefile
++++ b/wcsmbs/Makefile
+@@ -60,7 +60,8 @@ tests := tst-wcstof wcsmbs-tst1 tst-wcsnlen tst-btowc tst-mbrtowc \
+ xtests += test-wcsncmp-nonarray
+ 
+ tests-internal += \
+-  tst-wcsmbs-clone-overflow
++  tst-wcsmbs-clone-overflow \
++  tst-wcsmbs-clone-overflow-swprintf
+ 
+ include ../Rules
+ 
+@@ -81,6 +82,7 @@ $(objpfx)tst-wcstod-nan-locale.out: $(gen-locales)
+ $(objpfx)tst-c16-surrogate.out: $(gen-locales)
+ $(objpfx)tst-c32-state.out: $(gen-locales)
+ $(objpfx)tst-wcsmbs-clone-overflow.out: $(gen-locales) $(gen-gconv-modules)
++$(objpfx)tst-wcsmbs-clone-overflow-swprintf.out: $(gen-locales) $(gen-gconv-modules)
+ endif
+ 
+ $(objpfx)tst-wcstod-round: $(libm)
+diff --git a/wcsmbs/tst-wcsmbs-clone-overflow-swprintf.c b/wcsmbs/tst-wcsmbs-clone-overflow-swprintf.c
+new file mode 100644
+index 0000000000000000..daccb08e6352a943
+--- /dev/null
++++ b/wcsmbs/tst-wcsmbs-clone-overflow-swprintf.c
+@@ -0,0 +1,70 @@
++/* Test for gconv module reference counter leak in swprintf.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <locale.h>
++#include <stdio.h>
++#include <wchar.h>
++#include <support/check.h>
++#include <support/support.h>
++
++/* Internal headers for accessing the gconv structures.  */
++#include <locale/localeinfo.h>
++#include <iconv/gconv_int.h>
++#include <wcsmbs/wcsmbsload.h>
++
++static int
++do_test (void)
++{
++  locale_t loc_obj = newlocale (LC_ALL_MASK, "de_DE.ISO-8859-1", NULL);
++  if (loc_obj == NULL)
++    FAIL_EXIT1 ("newlocale failed, check if de_DE.ISO-8859-1 is generated");
++
++  uselocale (loc_obj);
++
++  wchar_t buf[32];
++
++  /* First iteration initializes the gconv functions internally.  */
++  if (swprintf (buf, sizeof (buf) / sizeof (buf[0]), L"%d", 123) < 0)
++    FAIL_EXIT1 ("swprintf failed");
++
++  /* Retrieve the current gconv_fcts from the LC_CTYPE locale data.  */
++  struct __locale_data *loc = loc_obj->__locales[LC_CTYPE];
++  const struct gconv_fcts *fcts = loc->private.ctype;
++
++  TEST_VERIFY_EXIT (fcts != NULL);
++  TEST_VERIFY_EXIT (fcts->towc != NULL);
++
++  /* Capture the reference counter.  */
++  int initial_counter = fcts->towc->__counter;
++
++  if (fcts->towc->__shlib_handle == NULL)
++    FAIL_EXIT1 ("__shlib_handle is NULL!");
++
++  /* Perform a second iteration of swprintf.  If the stack-allocated FILE
++     leaks the gconv reference, the counter will increment.  */
++  if (swprintf (buf, sizeof (buf) / sizeof (buf[0]), L"%d", 456) < 0)
++    FAIL_EXIT1 ("swprintf failed");
++
++  /* The counter should be unchanged, as _IO_wstrfile_fclose_stack should
++     have decremented it correctly.  */
++  TEST_COMPARE (fcts->towc->__counter, initial_counter);
++
++  return 0;
++}
++
++#include <support/test-driver.c>

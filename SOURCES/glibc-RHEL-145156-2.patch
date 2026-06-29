@@ -1,0 +1,57 @@
+libio: Fix gconv module reference counter overflow in vswprintf
+
+The vswprintf family of functions (swprintf, vswprintf and their
+fortified/ldbl-compat wrappers) creates a wide-oriented FILE stream
+on the stack via _IO_no_init with _IO_wstrn_jumps, then calls
+_IO_fwide which clones the gconv transformation steps via
+__wcsmbs_clone_conv, incrementing the __counter reference counter.
+
+Because the FILE is stack-allocated, fclose is never called, and the
+counter is never decremented. In a long-running process calling
+swprintf repeatedly with a non-builtin locale (e.g. en_US.UTF-8),
+the counter eventually overflows, triggering a fatal abort.
+
+This is the same class of bug fixed upstream for swscanf in commit
+0981c03c2752b5f12ede24e6e696d5a29f7c6396. Upstream resolved the
+swprintf path architecturally by reworking the printf subsystem to
+use struct __wprintf_buffer instead of FILE * (commit 118816de3383),
+eliminating the _IO_fwide call entirely. That rework is too large
+to backport to glibc 2.34.
+
+Instead, apply the same pattern as the swscanf fix: call
+_IO_wstrfile_fclose_stack after __vfwprintf_internal returns to
+release the gconv steps before the stack FILE goes out of scope.
+All ldbl-compat wrappers (ieee128, nldbl) call __vswprintf_internal,
+so they are covered by this single change.
+
+Note: _IO_wstrfile_fclose_stack calls _IO_FINISH which invokes
+_IO_wstr_finish, and that NULLs out _IO_buf_base. Therefore the
+cleanup must happen after the overflow check (which compares
+_IO_buf_base against overflow_buf) and after string termination
+(which dereferences _IO_write_ptr).
+
+diff --git a/libio/vswprintf.c b/libio/vswprintf.c
+index b7036f1480733ac6..accbb8516f860680 100644
+--- a/libio/vswprintf.c
++++ b/libio/vswprintf.c
+@@ -111,13 +111,17 @@ __vswprintf_internal (wchar_t *string, size_t maxlen, const wchar_t *format,
+   ret = __vfwprintf_internal ((FILE *) &sf.f._sbf, format, args, mode_flags);
+ 
+   if (sf.f._sbf._f._wide_data->_IO_buf_base == sf.overflow_buf)
+-    /* ISO C99 requires swprintf/vswprintf to return an error if the
+-       output does not fit in the provided buffer.  */
+-    return -1;
++    {
++      /* ISO C99 requires swprintf/vswprintf to return an error if the
++	 output does not fit in the provided buffer.  */
++      _IO_wstrfile_fclose_stack ((FILE *) &sf.f._sbf);
++      return -1;
++    }
+ 
+   /* Terminate the string.  */
+   *sf.f._sbf._f._wide_data->_IO_write_ptr = '\0';
+ 
++  _IO_wstrfile_fclose_stack ((FILE *) &sf.f._sbf);
+   return ret;
+ }
+ 

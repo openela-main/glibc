@@ -1,3 +1,47 @@
+commit ec99e297ec21a794af038ae0b8ad9eae6a5b7a54
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Mon Jun 22 06:53:56 2026 -0400
+Commit:     pfrankli <pfrankli@redhat.com>
+CommitDate: Mon Jun 22 13:49:01 2026 +0000
+
+    CVE-2026-5450: Fix buffer overflow in scanf (RHEL-172710)
+    
+    Resolves: RHEL-172710
+
+:000000 100644 00000000 1bd6427a A	glibc-RHEL-172710-1.patch
+:000000 100644 00000000 a334a8cf A	glibc-RHEL-172710-2.patch
+:000000 100644 00000000 6bfe8c51 A	glibc-RHEL-172710-3.patch
+:000000 100644 00000000 12a03cd1 A	glibc-RHEL-172710-4.patch
+
+commit 396dbae5399bc8ee97a617cc9ad4e1d95d26faf1
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Fri Jun 19 14:54:09 2026 +0200
+Commit:     Sergey Kolosov <skolosov@redhat.com>
+CommitDate: Fri Jun 19 14:54:09 2026 +0200
+
+    CI Gating: Add fail-fast test plan jobs as required rules
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 ba7f921c 9300333a M	gating.yaml
+
+commit beeb5b354b9f5fd8745cc034694041b2ca91e31d
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Thu Jun 4 11:49:13 2026 +0200
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Tue Jun 9 11:29:39 2026 +0200
+
+    Fix gconv module reference counter overflow in swscanf and swprintf families
+    
+    Resolves: RHEL-145156
+
+:000000 100644 00000000 d591eeac A	glibc-RHEL-145156-1.patch
+:000000 100644 00000000 01b7d9cc A	glibc-RHEL-145156-2.patch
+:000000 100644 00000000 78b117e7 A	glibc-RHEL-145156-3.patch
+:000000 100644 00000000 62dec63f A	glibc-RHEL-145156-4.patch
+:000000 100644 00000000 41d91fda A	glibc-RHEL-145156-5.patch
+
 commit 381936891b4e421cd9a03b682bcb5a66039fd230
 Author:     Patsy Griffin <patsy@redhat.com>
 AuthorDate: Mon May 4 22:48:56 2026 -0400
