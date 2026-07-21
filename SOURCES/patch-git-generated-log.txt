@@ -1,3 +1,34 @@
+commit 3e2740ab956a975bc3d48bbf27cad51c2a12e0fb
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Wed Jun 24 18:46:48 2026 -0400
+Commit:     Frédéric Bérat <fberat@redhat.com>
+CommitDate: Tue Jul 7 12:36:50 2026 +0000
+
+    CVE-2026-5425: Fix out-of-bounds write via TSIG record processing
+    
+    Resolves: RHEL-180652
+    Resolves: RHEL-185612
+
+:000000 100644 00000000 98946223 A	glibc-RHEL-180652-1.patch
+:000000 100644 00000000 2f90da8a A	glibc-RHEL-180652-2.patch
+:000000 100644 00000000 cc495bc1 A	glibc-RHEL-180652-3.patch
+:000000 100644 00000000 acef6695 A	glibc-RHEL-180652-4.patch
+:000000 100644 00000000 ee53a303 A	glibc-RHEL-180652-5.patch
+:000000 100644 00000000 1222ad9f A	glibc-RHEL-180652-6.patch
+:000000 100644 00000000 3250e7b8 A	glibc-RHEL-180652-7.patch
+
+commit a6142787c4c409d20aac87b4980e40511e5e5313
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Fri Jun 26 12:02:07 2026 -0400
+Commit:     Patsy Griffin <patsy@redhat.com>
+CommitDate: Fri Jun 26 12:02:07 2026 -0400
+
+    CVE-2026-5928: Fix ungetwc operating on byte stream (RHEL-180654)
+    
+    Resolves: RHEL-180654
+
+:000000 100644 00000000 0771d0ac A	glibc-RHEL-180654.patch
+
 commit 50833c84b12427684b80cf68765ce770d76bca88
 Author:     Frédéric Bérat <fberat@redhat.com>
 AuthorDate: Fri Jun 12 10:23:20 2026 +0200
