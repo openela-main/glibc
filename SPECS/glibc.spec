@@ -115,7 +115,7 @@ end \
 Summary: The GNU libc libraries
 Name: glibc
 Version: %{glibcversion}
-Release: %{glibcrelease}.38
+Release: %{glibcrelease}.40
 
 # In general, GPLv2+ is used by programs, LGPLv2+ is used for
 # libraries.
@@ -1334,6 +1334,14 @@ Patch1099: glibc-RHEL-172700-1.patch
 Patch1100: glibc-RHEL-172700-2.patch
 Patch1101: glibc-RHEL-172700-3.patch
 Patch1102: glibc-RHEL-172700-4.patch
+Patch1103: glibc-RHEL-181725.patch
+Patch1104: glibc-RHEL-181724-1.patch
+Patch1105: glibc-RHEL-181724-2.patch
+Patch1106: glibc-RHEL-181724-3.patch
+Patch1107: glibc-RHEL-181724-4.patch
+Patch1108: glibc-RHEL-181724-5.patch
+Patch1109: glibc-RHEL-181724-6.patch
+Patch1110: glibc-RHEL-181724-7.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -2995,8 +3003,14 @@ fi
 %{_libdir}/libpthread_nonshared.a
 
 %changelog
- * Tue Jun 02 2026 Patsy Griffin <patsy@redhat.com> - 2.28-251.38
- - CVE-2026-5450: Fix buffer overflow in scanf (RHEL-172700)
+* Tue Jul 07 2026 DJ Delorie <dj@redhat.com> - 2.28-251.40
+- CVE-2026-5435 Out-of-bounds write via TSIG record processing (RHEL-181724)
+
+* Thu Jun 25 2026 Patsy Griffin <patsy@redhat.com> - 2.28-251.39
+- CVE-2026-5928: Fix ungetwc operating on byte stream (RHEL-181725)
+
+* Tue Jun 02 2026 Patsy Griffin <patsy@redhat.com> - 2.28-251.38
+- CVE-2026-5450: Fix buffer overflow in scanf (RHEL-172700)
 
 * Mon May 11 2026 Arjun Shankar <arjun@redhat.com> - 2.28-251.37
 - Add tests for CVE-2026-4437 and CVE-2026-4438 (RHEL-173358)
