@@ -1,3 +1,30 @@
+commit 4927d93cd55390c899eae233b64b508e599fc678
+Author:     Patsy Griffin <patsy@redhat.com>
+AuthorDate: Fri Jul 10 17:09:17 2026 -0400
+Commit:     pfrankli <pfrankli@redhat.com>
+CommitDate: Wed Jul 22 16:46:27 2026 +0000
+
+    iconv: Suppress intermediate errors with //TRANSLIT (RHEL-178279)
+    
+    Resolves: RHEL-178279
+
+:000000 100644 00000000 ded65f1e A	glibc-RHEL-178279.patch
+
+commit 16fb6ccc05ad3ba571a4adf64058fa7bc30e455f
+Author:     Lenka Špačková <lspackova@redhat.com>
+AuthorDate: Wed Jul 15 15:47:43 2026 +0200
+Commit:     Lenka Špačková <lspackova@redhat.com>
+CommitDate: Wed Jul 15 15:47:43 2026 +0200
+
+    Regression/bz2115831-glibc-missing-gnu-debuglink-section-in: adjust relevancy for RHEL 9
+    
+    Fixed in RHEL 9.8: RHEL-27851
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 36de4261 b9c1fe03 M	tests/Regression/bz2115831-glibc-missing-gnu-debuglink-section-in/main.fmf
+
 commit 1d22b956dda1e7fdc090165ae3bc8d882cd4e516
 Author:     DJ Delorie <dj@redhat.com>
 AuthorDate: Thu Jun 25 23:10:08 2026 -0400
