@@ -1,0 +1,31 @@
+commit 7c1ec1b7d0b476610c811b0babeab831e626c088
+Author: Paul Eggert <eggert@cs.ucla.edu>
+Date:   Sat Jun 15 08:40:41 2024 -0700
+
+    Minor code improvement to timespec_subtract example
+    
+    This saves a few instructions.
+    BORROW cannot be -1, since NSEC_DIFF is at most 999999999.
+    Idea taken from Gnulib, here:
+    https://git.savannah.gnu.org/cgit/gnulib.git/commit/?id=fe33f943054b93af8b965ce6564b8713b0979a21
+
+diff --git a/manual/examples/timespec_subtract.c b/manual/examples/timespec_subtract.c
+index 380d173aab..26607409c8 100644
+--- a/manual/examples/timespec_subtract.c
++++ b/manual/examples/timespec_subtract.c
+@@ -22,12 +22,12 @@
+ 
+ bool
+ timespec_subtract (struct timespec *r,
+-		   struct timespec x, struct timespec y)
++                   struct timespec x, struct timespec y)
+ {
+-  /* Compute nanoseconds, setting @var{borrow} to 1, 0, or -1
++  /* Compute nanoseconds, setting @var{borrow} to 1 or 0
+      for propagation into seconds.  */
+   long int nsec_diff = x.tv_nsec - y.tv_nsec;
+-  int borrow = (nsec_diff < 0) - ! (nsec_diff < 1000000000);
++  bool borrow = nsec_diff < 0;
+   r->tv_nsec = nsec_diff + 1000000000 * borrow;
+ 
+   /* Compute seconds, returning true if this overflows.  */

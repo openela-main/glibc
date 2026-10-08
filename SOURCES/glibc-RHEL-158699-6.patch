@@ -1,0 +1,26 @@
+commit 53ea6db9fd25af7486b14cd2bf3b0ae1046e0e98
+Author: Jitka Obselkova <jobselko@redhat.com>
+Date:   Sat Jun 14 11:19:46 2025 +0200
+
+    manual: Clarify renameat documentation
+    
+    Clarify the meaning of renameat arguments.
+    
+    Reviewed-by: Collin Funk <collin.funk1@gmail.com>
+
+diff --git a/manual/filesys.texi b/manual/filesys.texi
+index f21f218042..e1c7be867e 100644
+--- a/manual/filesys.texi
++++ b/manual/filesys.texi
+@@ -1940,7 +1940,10 @@ file systems.
+ @comment Unaudited and therefore marked AC-Unsafe and AS-Unsafe by default
+ @safety{@mtsafe{}@asunsafe{@asucorrupt{}}@acunsafe{@acucorrupt{}}}
+ This function is a descriptor-relative version of the @code{rename}
+-function above.  @xref{Descriptor-Relative Access}.
++function above.  @xref{Descriptor-Relative Access}.  If @var{oldname} or
++@var{newname} is a relative path, it is interpreted relative to the
++directory associated with @var{oldfiledes} or @var{newfiledes},
++respectively.  Absolute paths are interpreted in the usual way.
+ 
+ Compared to @code{rename}, some additional error conditions can occur.
+ @xref{Descriptor-Relative Access}.

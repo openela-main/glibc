@@ -102,6 +102,13 @@ local git_commit_file = 'patch-git-generated-commit.txt'
 -- This file contains git log --raw output.
 local git_log_file = 'patch-git-generated-log.txt'
 
+-- This file contains overridden git commits.
+local git_override_file = 'patch-git-override.txt'
+
+-- Output format required for git_log_file.
+local git_log_format_options =
+   '--first-parent --no-decorate --no-renames --pretty=fuller --date=default'
+
 -- Read the file with the specified name in the RPM source directory.
 -- Returns nil and an error message if the source file cannot be opened.
 local function read_source_file(name)
@@ -535,8 +542,8 @@ local function generate_files()
    -- patch depth sorting below).  To include committer dates, use
    -- --pretty=fuller.
    check_git(
-      'log --first-parent --no-decorate --no-renames --raw --pretty=fuller'
-      .. ' --date=default > ' .. git_log_file)
+      'log --raw ' .. git_log_format_options
+      .. ' > ' .. git_log_file)
 
    -- Atomically replace the contents of git_commit_file, confirming that
    -- the new Git log has been written.
@@ -589,16 +596,38 @@ local function emit_sources()
    emit(auto_generated .. git_commit_file)
    emit(auto_generated .. git_log_file)
    emit('patch-git.lua') -- This file.
+   local override_fp = io.open(sourcedir .. '/' .. git_override_file, 'r')
+   if override_fp then
+      override_fp:close()
+      emit(git_override_file)
+   end
 end
 
-local function parse_commits()
-   local fp = assert(io.open(sourcedir .. '/' .. git_log_file), 'r')
+local function parse_git_log_file(filename)
+   local fp, err = io.open(sourcedir .. '/' .. filename, 'r')
+   if not fp then
+      return fp, err
+   end
    local line -- The current line.  Updated by readline1(), readline().
    local lineno = 0 -- Its number.
+   local peeked_line
    local function readline1() -- No error checking, may return nil.
+      if peeked_line then
+         line = peeked_line
+         peeked_line = nil
+         lineno = lineno + 1
+         return line
+      end
       lineno = lineno + 1
       line = fp:read('L') -- Include '\n'.
       return line
+   end
+   local function peekline() -- Returns nil on EOF, doesn't consume line.
+      if peeked_line then
+         return peeked_line
+      end
+      peeked_line = fp:read('L')
+      return peeked_line
    end
    local function readline() -- Does not return nil.
       if not readline1() then
@@ -608,7 +637,7 @@ local function parse_commits()
    end
    local function check(cond) -- Report an error if not cond.
       if not cond then
-         io.stderr:write(git_log_file .. ':' .. lineno .. ': error: '
+         io.stderr:write(filename .. ':' .. lineno .. ': error: '
                          .. line)
          io.stderr:write(debug.traceback(nil, 2))
          error('git log parse error')
@@ -616,10 +645,10 @@ local function parse_commits()
    end
 
    local commits = {}
-   readline()
+   readline1()
 
    while line do
-      local commit = string.match(line, '^commit ([0-9-a-f]+)\n')
+      local commit = string.match(line, '^commit ([0-9a-f]+)\n')
       check(commit and #commit == 40)
       if string.match(readline(), '^Merge: ') then
          readline()
@@ -644,6 +673,15 @@ local function parse_commits()
             break
          end
          local l = string.match(line, remove_indent)
+         if not l and line == '\n' then
+            local next_line = peekline()
+            if not next_line or string.match(next_line, '^:') or string.match(next_line, '^commit ') then
+               -- End of message.
+               break
+            end
+            -- Internal blank line.
+            l = '\n'
+         end
          if not l then
             -- No longer the commit message.
             break
@@ -692,6 +730,44 @@ local function parse_commits()
       end
    end
    assert(fp:close())
+
+   return commits
+end
+
+local function parse_commits()
+   local commits = assert(parse_git_log_file(git_log_file))
+
+   local override_commits
+   do
+      local override_fp = io.open(sourcedir .. '/' .. git_override_file, 'r')
+      if override_fp then
+         override_fp:close()
+         override_commits = assert(parse_git_log_file(git_override_file))
+      end
+   end
+   if override_commits then
+      local overrides = {}
+      for _, c in ipairs(override_commits) do
+         overrides[c.commit] = c
+      end
+      local applied_overrides = {}
+      for i = 1, #commits do
+         local c = commits[i]
+         if overrides[c.commit] then
+            local override = overrides[c.commit]
+            assert(#override.changes == 0, c.commit)
+            override.changes = c.changes
+            commits[i] = override
+            applied_overrides[c.commit] = true
+         end
+      end
+      for _, c in ipairs(override_commits) do
+         if not applied_overrides[c.commit] then
+            error('override commit ' .. c.commit .. ' in '
+                  .. git_override_file .. ' was not found in git log')
+         end
+      end
+   end
 
    -- Reverse the order of the commits list, so that the oldest commit
    -- comes first.
@@ -1207,9 +1283,22 @@ do
       assert(not b and err == 'Branch must be zstream')
    end
 
+   -- Parser for ignored tags.
+   local function parse_ignore(tag, s)
+      return true
+   end
+
    -- These are the recognized trailer tags in Git commit messages.
    -- (Git calls them keys, see git-interpret-trailers(1).)
    local recognized_trailer_tags = {
+      ['Acked-By']={parse=parse_ignore, duplicates=true},
+      ['Assisted-By']={parse=parse_ignore, duplicates=true},
+      ['Co-Authored-By']={parse=parse_ignore, duplicates=true},
+      ['Reviewed-By']={parse=parse_ignore, duplicates=true},
+      ['Reported-By']={parse=parse_ignore, duplicates=true},
+      ['Signed-Off-By']={parse=parse_ignore, duplicates=true},
+      ['Suggested-By']={parse=parse_ignore, duplicates=true},
+      ['Tested-By']={parse=parse_ignore, duplicates=true},
       ['Resolves']={field='tickets',
                     parse=parse_ticket_string,
                     duplicates=true},
@@ -1231,6 +1320,20 @@ do
    for k, v in pairs(recognized_trailer_tags) do
       if not v.field then
          v.field = string.lower(string.gsub(k, '%-', '_'))
+      end
+   end
+
+   -- Automatically support lower-cased "-by" variants of dev-attribution tags.
+   do
+      local aliases = {}
+      for k, v in pairs(recognized_trailer_tags) do
+         if string.sub(k, -3) == '-By' then
+            aliases[string.sub(k, 1, 1) .. string.lower(string.sub(k, 2))] = v
+         end
+      end
+      -- Second loop to avoid structural mutation while iterating.
+      for k, v in pairs(aliases) do
+         recognized_trailer_tags[k] = v
       end
    end
 
@@ -1467,6 +1570,65 @@ RPM-Release: no
 ]])
       assert(not t)
       assert(err == 'malformed line in Git trailer after Resolves tag')
+
+      -- Ignored trailers.
+      t, err = parse_trailer([[Fix memory leak after fdopen seek failure
+
+- Backport: Remove memory leak in fdopen (bug 31840)
+
+Resolves: RHEL-108475
+Signed-Off-By: Signed Off <signedoff@example.com>
+Acked-by: Acked By <acked@example.com>
+Assisted-by: Assisted By <assisted@example.com>
+Co-authored-by: Co Authored <coauthored@example.com>
+Reviewed-by: Reviewed By <reviewed@example.com>
+Reviewed-By: Another Reviewed By <anotherreviewed@example.com>
+Reported-by: Reported By <reported@example.com>
+Suggested-by: Suggested By <suggested@example.com>
+Tested-by: Tested By <tested@example.com>
+Signed-off-by: Another Signed Off <anothersignedoff@example.com>
+]])
+      assert(t, err)
+      assert(t.tickets)
+      assert(#t.tickets == 1)
+      assert(t.tickets[1] == 'RHEL-108475')
+      assert(t.signed_off_by == true)
+      assert(t.acked_by == true)
+      assert(t.assisted_by == true)
+      assert(t.co_authored_by == true)
+      assert(t.reviewed_by == true)
+      assert(t.reported_by == true)
+      assert(t.suggested_by == true)
+      assert(t.tested_by == true)
+
+      -- Lowercase/incorrect casing for other tags is rejected.
+      t, err = parse_trailer([[Fix memory leak after fdopen seek failure
+
+resolves: RHEL-108475
+]])
+      assert(not t)
+      assert(err == 'not a recognized Git trailer tag: resolves')
+
+      t, err = parse_trailer([[Fix memory leak after fdopen seek failure
+
+acked-by: Acked By <acked@example.com>
+]])
+      assert(not t)
+      assert(err == 'not a recognized Git trailer tag: acked-by')
+
+      t, err = parse_trailer([[Fix memory leak after fdopen seek failure
+
+parent: 1234567890abcdef1234567890abcdef12345678
+]])
+      assert(not t)
+      assert(err == 'not a recognized Git trailer tag: parent')
+
+      t, err = parse_trailer([[Fix memory leak after fdopen seek failure
+
+Signed-off-By: Signed Off <signedoff@example.com>
+]])
+      assert(not t)
+      assert(err == 'not a recognized Git trailer tag: Signed-off-By')
    end
 end
 
@@ -1772,6 +1934,7 @@ local function process_commits(changelog, changelog_after_commit)
    local function set_release(rel)
       rpm_release_pre, rpm_release_num, rpm_release_post =
          assert_commit(commit, string.match(rel, '^(.-)(%d+)([^%d]*)$'))
+      rpm_release_num = tonumber(rpm_release_num)
    end
    local function get_release()
       return rpm_release_pre .. rpm_release_num .. rpm_release_post
@@ -1941,7 +2104,8 @@ else
     version    print the value of the computed RPM version at HEAD
     release    print the value of the computed RPM release at HEAD
     verrel     print the value of RPM version-release
-    changelog  show the auto-generated changelog entries]])
+    changelog  show the auto-generated changelog entries
+    show       display commit in patch-git-override.txt format (default: HEAD)]])
    end
    function cmds.patches(flag, extra)
       if extra then
@@ -2007,6 +2171,107 @@ else
          end
          print()
       end
+   end
+   function cmds.show(commit_ref, extra)
+      commit_ref = commit_ref or 'HEAD'
+      if extra then
+         error('unrecognized argument: ' .. extra)
+      end
+      io.stdout:write(run_git('show --no-patch ' .. git_log_format_options .. ' ' .. shell_quote(commit_ref)))
+   end
+   -- Tests for patch-git-override.txt replacement.
+   -- Note: This command destructively modifies global state (sourcedir,
+   -- patchgit.commits) and is intended to run within an isolated test process.
+   function cmds.selftest_override()
+      local test_dir = '_selftest_override_dir'
+
+      os.execute('mkdir -p ' .. test_dir)
+
+      local function write_file(filename, content)
+         local fp = assert(io.open(test_dir .. '/' .. filename, 'w'))
+         fp:write(content)
+         fp:close()
+      end
+
+      local function cleanup()
+         os.execute('rm -rf ' .. test_dir)
+      end
+
+      local status, err = pcall(function()
+         sourcedir = test_dir
+
+         write_file('patch-git-generated-log.txt', [[commit 1111111111111111111111111111111111111111
+Author:    Test Author <test@example.com>
+AuthorDate: Thu Jul 16 12:00:00 2026 +0000
+Commit:    Test Committer <test@example.com>
+CommitDate: Thu Jul 16 12:00:00 2026 +0000
+
+    Original message
+
+:100644 100644 38e0ee9353582fc6 642358e3e245c6ac M	patch-git.lua
+
+commit 2222222222222222222222222222222222222222
+Author:    Test Author <test@example.com>
+AuthorDate: Thu Jul 16 12:01:00 2026 +0000
+Commit:    Test Committer <test@example.com>
+CommitDate: Thu Jul 16 12:01:00 2026 +0000
+
+    Original message 2
+]])
+
+         write_file('patch-git-override.txt', [[commit 1111111111111111111111111111111111111111
+Author:    Overridden Author <overridden@example.com>
+AuthorDate: Thu Jul 16 12:00:00 2026 +0000
+Commit:    Overridden Committer <overridden@example.com>
+CommitDate: Thu Jul 16 12:00:00 2026 +0000
+
+    Overridden message
+
+    This is a second paragraph.
+]])
+
+         parse_commits()
+         assert(#patchgit.commits == 2)
+         assert(patchgit.commits[1].commit == '2222222222222222222222222222222222222222')
+         assert(patchgit.commits[1].message == 'Original message 2\n')
+         assert(patchgit.commits[1].author == 'Test Author <test@example.com>')
+
+         assert(patchgit.commits[2].commit == '1111111111111111111111111111111111111111')
+         assert(patchgit.commits[2].message == 'Overridden message\n\nThis is a second paragraph.\n')
+         assert(patchgit.commits[2].author == 'Overridden Author <overridden@example.com>')
+         assert(#patchgit.commits[2].changes == 1)
+         assert(patchgit.commits[2].changes[1].path == 'patch-git.lua')
+
+         -- Verify empty override files do not crash and leave commits unchanged
+         write_file('patch-git-override.txt', '')
+         parse_commits()
+         assert(#patchgit.commits == 2)
+         assert(patchgit.commits[2].commit == '1111111111111111111111111111111111111111')
+         assert(patchgit.commits[2].author == 'Test Author <test@example.com>')
+
+         -- Verify absent override files do not crash and leave commits unchanged
+         os.remove(test_dir .. '/patch-git-override.txt')
+         parse_commits()
+         assert(#patchgit.commits == 2)
+         assert(patchgit.commits[2].commit == '1111111111111111111111111111111111111111')
+         assert(patchgit.commits[2].author == 'Test Author <test@example.com>')
+
+         -- Verify error on unmatched override
+         write_file('patch-git-override.txt', [[commit 3333333333333333333333333333333333333333
+Author:    Unmatched Author <unmatched@example.com>
+AuthorDate: Thu Jul 16 12:00:00 2026 +0000
+Commit:    Unmatched Committer <unmatched@example.com>
+CommitDate: Thu Jul 16 12:00:00 2026 +0000
+
+    Unmatched message
+]])
+         local ok, err_msg = pcall(parse_commits)
+         assert(not ok)
+         assert(string.find(err_msg, "override commit 3333333333333333333333333333333333333333"))
+      end)
+
+      cleanup()
+      assert(status, err)
    end
    function cmds.selftest()
       -- Hidden command to run all subcommands.
