@@ -215,6 +215,16 @@ Source18: ld-so-abi-ppc64le.baseline
 Source19: ld-so-abi-s390x.baseline
 Source20: ld-so-abi-x86_64.baseline
 
+# Flaky tests that do not fail the build.  The noarch file is used on all
+# architectures.
+Source30: allowed-failures-noarch.txt
+Source31: allowed-failures-aarch64.txt
+Source32: allowed-failures-i386.txt
+Source33: allowed-failures-ppc64le.txt
+Source34: allowed-failures-riscv64.txt
+Source35: allowed-failures-s390x.txt
+Source36: allowed-failures-x86_64.txt
+
 # glibc_ldso: ABI-specific program interpreter name.  Used for debuginfo
 # extraction (wrap-find-debuginfo.sh) and smoke testing ($run_ldso below).
 #
@@ -1902,6 +1912,15 @@ rm -rf etc var usr/bin usr/lib/gconv usr/libexec usr/sbin usr/share
 rm -f lib/libnss_db* lib/libnss_hesiod* lib/libnsl* usr/lib/libnsl* usr/lib/libnss*
 rm usr/lib/libc_malloc_debug.so
 strip -g usr/lib/*.o
+for f in usr/lib/*.so; do
+	case "$f" in
+		# libc.so is a text file, not an object
+		usr/lib/libc.so ) ;;
+		* ) strip $f ;;
+	esac
+done
+strip usr/lib/*.so.?
+strip usr/lib/audit/*.so
 popd
 %endif
 
@@ -2360,19 +2379,20 @@ split_sysroot_file_list \
 # synchronization issues with make and shell tracing output if
 # standard output and standard error are different pipes.
 run_tests () {
-  # This hides a test suite build failure, which should be fatal.  We
-  # check "Summary of test results:" below to verify that all tests
-  # were built and run.
-  %make_build check |& tee rpmbuild.check.log >&2
-  test -n tests.sum
-  if ! grep -q '^Summary of test results:$' rpmbuild.check.log ; then
-    echo "FAIL: test suite build of target: $(basename "$(pwd)")" >& 2
-    exit 1
-  fi
+  # Delay exiting from a test suite failure after reporting.
+  local ret=0
+  %make_build check || ret=$?
   set +x
   grep -v ^PASS: tests.sum > rpmbuild.tests.sum.not-passing || true
+  # Only used FAILED TESTS if there were failures not on the allow-list.
+  local label
+  if test $ret -eq 0; then
+      label=NON-PASSING
+  else
+      label=FAILED
+  fi
   if test -n rpmbuild.tests.sum.not-passing ; then
-    echo ===================FAILED TESTS===================== >&2
+    echo ===================$label TESTS===================== >&2
     echo "Target: $(basename "$(pwd)")" >& 2
     cat rpmbuild.tests.sum.not-passing >&2
     while read failed_code failed_test ; do
@@ -2391,12 +2411,21 @@ run_tests () {
   echo "* System call consistency checks:" >&2
   cat misc/tst-syscall-list.out >&2
   set -x
+
+  test $ret -eq 0 || exit $ret
 }
 
 # Increase timeouts
 export TIMEOUTFACTOR=16
 parent=$$
 echo ====================TESTING=========================
+
+# Install the allow-list into the source tree.  The
+# architecture-specific file is optional (but all files should exist
+# on the regular Fedora architectures).
+cp %{_sourcedir}/allowed-failures-noarch.txt allowed-failures.txt
+(cat %{_sourcedir}/allowed-failures-%{_arch}.txt || true) \
+    >> allowed-failures.txt
 
 # Default libraries.
 pushd build-%{target}

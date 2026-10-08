@@ -1772,6 +1772,7 @@ local function process_commits(changelog, changelog_after_commit)
    local function set_release(rel)
       rpm_release_pre, rpm_release_num, rpm_release_post =
          assert_commit(commit, string.match(rel, '^(.-)(%d+)([^%d]*)$'))
+      rpm_release_num = tonumber(rpm_release_num)
    end
    local function get_release()
       return rpm_release_pre .. rpm_release_num .. rpm_release_post

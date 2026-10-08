@@ -1,3 +1,150 @@
+commit 9500d1d64d996ff3dc2e77e010cae86b86868bce
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Sep 14 16:28:25 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Thu Sep 17 18:41:17 2026 +0000
+
+    CVE-2026-77117, CVE-2026-80489: Non-progress DoS in JISX0213 decoding
+    
+    Resolves: RHEL-248058
+    Resolves: RHEL-249636
+    RPM-Changelog:
+     - CVE-2026-77117: Non-progress DoS in SHIFT_JISX0213 decoding
+       (RHEL-248058)
+     - CVE-2026-80489: Non-progress DoS in EUC_JISX0213 decoding (RHEL-249636)
+
+:000000 100644 00000000 0f6a8b37 A	glibc-RHEL-248058-1.patch
+:000000 100644 00000000 8369c1e8 A	glibc-RHEL-248058-2.patch
+:000000 100644 00000000 4625911b A	glibc-RHEL-248058-3.patch
+
+commit b7f5d2af2aa22678ed1f852cb011a871479d206a
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Sep 14 16:55:23 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Mon Sep 14 16:55:23 2026 +0200
+
+    CVE-2026-18374: Heap buffer overflow via attacker-controlled fopen mode string
+    
+    Resolves: RHEL-251524
+
+:000000 100644 00000000 7e2e0f67 A	glibc-RHEL-251524-1.patch
+:000000 100644 00000000 c19951d4 A	glibc-RHEL-251524-2.patch
+
+commit b4a04362edde9a4b17cdcf5d7d5f0125b274e6ab
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Wed Sep 9 13:54:10 2026 -0400
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Wed Sep 9 13:54:41 2026 -0400
+
+    CVE-2026-19542: Fix out-of-bounds array write in tdelete (RHEL-247963)
+    
+    Backport of e2789c46e3bfdcd67a82bea9946b315c179e83d3
+    
+    Resolves: RHEL-247963
+
+:000000 100644 00000000 b96f7a30 A	glibc-RHEL-247963.patch
+
+commit c91d51f3e9271bd6ba3983d6972a9df086ff7c91
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Thu Sep 3 10:14:45 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Sep 4 13:59:19 2026 +0000
+
+    patch-git: Avoid Lua string/number arithmetic in release bump
+    
+    Lua 5.3's string-to-number coercions always produce a float subtype,
+    which is formatted with an extra '.0'.  Calling tonumber earlier
+    avoids that because the number will be treated as an integer.
+    
+    Resolves: RHEL-253645
+
+:100644 100644 a362dd39 f2d27cee M	patch-git.lua
+
+commit 36ffcb017ee42b878756a01bc4e599346d546463
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Wed Sep 2 13:27:18 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Thu Sep 3 12:52:55 2026 +0000
+
+    Fail the build if there are unexpected test failures
+    
+    Resolves: RHEL-252939
+
+:000000 100644 00000000 e69de29b A	allowed-failures-aarch64.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-i386.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-noarch.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-ppc64le.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-riscv64.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-s390x.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-x86_64.txt
+:100644 100644 c7c189a5 97dc9b88 M	glibc.spec
+
+commit a67ebd94d3c2b568db08850d6c9b25dd0e7a4084
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Wed Sep 2 13:15:00 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Wed Sep 2 13:15:00 2026 +0200
+
+    Adjust support/tst-support_descriptors for running under Konflux
+    
+    Resolves: RHEL-252863
+
+:000000 100644 00000000 e1a06688 A	glibc-RHEL-252863.patch
+
+commit da1a3a316ddd6fcf0a6d9c988807956b99bb02c1
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Fri Aug 14 17:56:46 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Aug 14 18:08:27 2026 +0200
+
+    CVE-2026-6368: wordexp WRDE_APPEND state rollback on error
+    
+    Resolves: RHEL-238478
+    RPM-Skip-Release: yes
+
+:000000 100644 00000000 8728b151 A	glibc-RHEL-238478.patch
+
+commit 66f74f081a30fd4d8e2d499238cca571f75f8f3c
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Fri Aug 14 17:47:46 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Aug 14 18:08:05 2026 +0200
+
+    CVE-2026-6791: Stack overflow in wordexp tilde expansion
+    
+    Resolves: RHEL-238488
+
+:000000 100644 00000000 1b05ebf7 A	glibc-RHEL-238488.patch
+
+commit 92cd2bbb684588d562a37ffea13a37cccebe428a
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Wed Jul 29 13:35:13 2026 -0400
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Wed Jul 29 14:23:26 2026 -0400
+
+    Stop shipping glibc32-debuginfo (RHEL-219516)
+    
+    By stripping the symbol table from the glibc32 shared objects,
+    we disable the creation of debuginfo packages, which we do not
+    need nor want to ship.
+    
+    Resolves: RHEL-219516
+
+:100644 100644 509fa59d c7c189a5 M	glibc.spec
+
+commit 107c909712e52b9e6bd3792ac930d9436eb0ba8f
+Author:     Bruno Goncalves <bgoncalv@redhat.com>
+AuthorDate: Fri Jun 19 14:28:54 2026 +0200
+Commit:     Bruno Goncalves <bgoncalv@redhat.com>
+CommitDate: Tue Jul 28 09:55:38 2026 +0200
+
+    CI Gating: drop kernel-qe gating
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100644 100644 9300333a 2df044ab M	gating.yaml
+
 commit 4927d93cd55390c899eae233b64b508e599fc678
 Author:     Patsy Griffin <patsy@redhat.com>
 AuthorDate: Fri Jul 10 17:09:17 2026 -0400
