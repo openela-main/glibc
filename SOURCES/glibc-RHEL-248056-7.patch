@@ -1,0 +1,24 @@
+commit 4dafa087ff5fe7df45bd37dc727e988da6b8c935
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Fri Aug 28 10:26:07 2026 +0200
+
+    iconvdata: EUC_JISX0213 decoding lacks pending character reset (CVE-2026-80489)
+    
+    This fixes bug 34568.
+    
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+
+diff --git a/iconvdata/euc-jisx0213.c b/iconvdata/euc-jisx0213.c
+index f4e8f6c5eec99bb4..a84fa355406e4519 100644
+--- a/iconvdata/euc-jisx0213.c
++++ b/iconvdata/euc-jisx0213.c
+@@ -225,6 +225,9 @@
+ 	    STANDARD_FROM_LOOP_ERR_HANDLER (1);				      \
+ 	  }								      \
+       }									      \
++    else 								      \
++      /* There was a pending character.  Clear it.  */			      \
++      *statep = 0;							      \
+ 									      \
+     put32 (outptr, ch);							      \
+     outptr += 4;							      \

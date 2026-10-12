@@ -1,3 +1,99 @@
+commit 724fcd951de948c5382ddfad074757e1580a0cfc
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Sep 14 16:19:51 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Sep 25 11:21:07 2026 +0200
+
+    CVE-2026-77117, CVE-2026-80489: Non-progress DoS in JISX0213 decoding
+    
+    Resolves: RHEL-248056
+    Resolves: RHEL-249638
+    RPM-Changelog:
+     - CVE-2026-77117: Non-progress DoS in SHIFT_JISX0213 decoding
+       (RHEL-248056)
+     - CVE-2026-80489: Non-progress DoS in EUC_JISX0213 decoding (RHEL-249638)
+
+:000000 100644 00000000 ba6ee9d7 A	glibc-RHEL-248056-1.patch
+:000000 100644 00000000 fb6e0c24 A	glibc-RHEL-248056-2.patch
+:000000 100644 00000000 4979e10b A	glibc-RHEL-248056-3.patch
+:000000 100644 00000000 e4382530 A	glibc-RHEL-248056-4.patch
+:000000 100644 00000000 0effec3d A	glibc-RHEL-248056-5.patch
+:000000 100644 00000000 493bb556 A	glibc-RHEL-248056-6.patch
+:000000 100644 00000000 bbd3bfe4 A	glibc-RHEL-248056-7.patch
+:000000 100644 00000000 37a10306 A	glibc-RHEL-248056-8.patch
+
+commit 016e56aca0c3aee1467a609725d2cd7c5d3c0af5
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Sep 14 16:51:18 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Thu Sep 17 13:19:48 2026 +0000
+
+    CVE-2026-18374: Heap buffer overflow via attacker-controlled fopen mode string
+    
+    Resolves: RHEL-251521
+
+:000000 100644 00000000 74040b8d A	glibc-RHEL-251521-1.patch
+:000000 100644 00000000 401718d4 A	glibc-RHEL-251521-2.patch
+
+commit 4b16ff17d935a7cffa06b97f830d8b672c334646
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Wed Sep 2 13:27:18 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Tue Sep 15 13:30:36 2026 +0200
+
+    Fail the build if there are unexpected test failures
+    
+    Resolves: RHEL-252938
+
+:000000 100644 00000000 e69de29b A	allowed-failures-aarch64.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-i386.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-noarch.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-ppc64le.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-riscv64.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-s390x.txt
+:000000 100644 00000000 e69de29b A	allowed-failures-x86_64.txt
+:100644 100644 74670086 10808fc3 M	glibc.spec
+
+commit 41f774e9cb5c2cc13f86d0ae3c17ee7b07939333
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Sat Sep 12 21:34:10 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Sat Sep 12 21:34:10 2026 +0200
+
+    Update .gitignore to what the other branches use
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+    Resolves: RHEL-258939
+
+:100644 100644 e72da112 b90bfc67 M	.gitignore
+
+commit 48551dc04916a33ad0b22876ee4c5a7af17718f7
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Wed Sep 9 13:51:13 2026 -0400
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Wed Sep 9 13:51:13 2026 -0400
+
+    CVE-2026-19542: Fix out-of-bounds array write in tdelete (RHEL-247955)
+    
+    Backport of e2789c46e3bfdcd67a82bea9946b315c179e83d3
+    
+    Resolves: RHEL-247955
+
+:000000 100644 00000000 b96f7a30 A	glibc-RHEL-247955.patch
+
+commit 8ecc93e47f9ecbd6e27aa58c801b6f38efc1ff37
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Wed Sep 2 12:16:40 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Fri Sep 4 20:18:39 2026 +0000
+
+    elf: Adjust elf/tst-audit28 test expectations to avoid POWER9 failure
+    
+    Resolves: RHEL-168751
+
+:000000 100644 00000000 3899618e A	glibc-RHEL-168751.patch
+
 commit e956e857dd7466696dc2bbefe7611a3e48c6de32
 Author:     DJ Delorie <dj@redhat.com>
 AuthorDate: Wed Aug 26 22:54:43 2026 -0400

@@ -1,0 +1,53 @@
+Downstream-only patch to deal with an unexpected path in
+/etc/ld.so.cache that causes elf/tst-audit28 to fail.
+
+Upstream does not need this because we do not use symbolic links
+in any directory:
+
+commit 8208be389bce84be0e1c35a3daa0c3467418f921
+Author: Florian Weimer <fweimer@redhat.com>
+Date:   Mon Jun 28 08:33:57 2021 +0200
+
+    Install shared objects under their ABI names
+
+    Previously, the installed objects were named like libc-2.33.so,
+    and the ABI soname libc.so.6 was just a symbolic link.
+
+    The Makefile targets to install these symbolic links are no longer
+    needed after this, so they are removed with this commit.  The more
+    general $(make-link) command (which invokes scripts/rellns-sh) is
+    retained because other symbolic links are still needed.
+
+    Reviewed-by: Carlos O'Donell <carlos@redhat.com>
+    Tested-by: Carlos O'Donell <carlos@rehdat.com>
+
+We should not have used symbolic links downstream in glibc-hwcaps
+subdirectories, but it is really late to change this, so this patch
+adjusts the test expectations.
+
+diff --git a/elf/tst-auditmod28.c b/elf/tst-auditmod28.c
+index db7ba95abec20f53..22206e5d082b4481 100644
+--- a/elf/tst-auditmod28.c
++++ b/elf/tst-auditmod28.c
+@@ -65,7 +65,20 @@ la_version (unsigned int current)
+   if (strcmp (info.dli_sname, "_Exit") != 0) /* _Exit is an alias.  */
+     TEST_COMPARE_STRING (info.dli_sname, "_exit");
+   TEST_VERIFY (info.dli_saddr == &_exit);
+-  TEST_VERIFY (strstr (info.dli_fname, LIBC_SO));
++  /* Special case for RHEL 8: We still use symbolic links libc.so.6 ->
++     libc-2.28.so.  Upstream ldconfig does not have such special
++     symbolic link processing for glibc-hwcaps subdirectories, and we
++     did not add that during the backport.  This means that the
++     symbolic link target ends up in /etc/ld.so.cache, for example
++     /lib64/glibc-hwcaps/power9/libc-2.28.so.  For non-glibc-hwcaps
++     directories, we use the symbolic link, so /lib64/libc.so.6.  */
++  {
++    const char *glibc_hwcaps = "/lib64/glibc-hwcaps/";
++    if (strncmp (info.dli_fname, glibc_hwcaps, strlen (glibc_hwcaps)) == 0)
++      TEST_COMPARE_STRING (basename (info.dli_fname), "libc-2.28.so");
++    else
++      TEST_COMPARE_STRING (basename (info.dli_fname), LIBC_SO);
++  }
+   void *extra_info;
+   memset (&info, 0, sizeof (info));
+   TEST_VERIFY (dladdr1 (&_exit, &info, &extra_info, RTLD_DL_LINKMAP) != 0);

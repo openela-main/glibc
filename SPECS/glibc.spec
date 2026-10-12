@@ -162,6 +162,16 @@ Source12: ChangeLog.old
 
 Source13: wrap-find-debuginfo.sh
 
+# Flaky tests that do not fail the build.  The noarch file is used on all
+# architectures.
+Source30: allowed-failures-noarch.txt
+Source31: allowed-failures-aarch64.txt
+Source32: allowed-failures-i386.txt
+Source33: allowed-failures-ppc64le.txt
+Source34: allowed-failures-riscv64.txt
+Source35: allowed-failures-s390x.txt
+Source36: allowed-failures-x86_64.txt
+
 ######################################################################
 # Activate the wrapper script for debuginfo generation, by rewriting
 # the definition of __debug_install_post.
@@ -1837,19 +1847,20 @@ split_sysroot_file_list \
 # synchronization issues with make and shell tracing output if
 # standard output and standard error are different pipes.
 run_tests () {
-  # This hides a test suite build failure, which should be fatal.  We
-  # check "Summary of test results:" below to verify that all tests
-  # were built and run.
-  make %{?_smp_mflags} -O check |& tee rpmbuild.check.log >&2
-  test -n tests.sum
-  if ! grep -q '^Summary of test results:$' rpmbuild.check.log ; then
-    echo "FAIL: test suite build of target: $(basename "$(pwd)")" >& 2
-    exit 1
-  fi
+  # Delay exiting from a test suite failure after reporting.
+  local ret=0
+  %make_build check || ret=$?
   set +x
   grep -v ^PASS: tests.sum > rpmbuild.tests.sum.not-passing || true
+  # Only used FAILED TESTS if there were failures not on the allow-list.
+  local label
+  if test $ret -eq 0; then
+      label=NON-PASSING
+  else
+      label=FAILED
+  fi
   if test -n rpmbuild.tests.sum.not-passing ; then
-    echo ===================FAILED TESTS===================== >&2
+    echo ===================$label TESTS===================== >&2
     echo "Target: $(basename "$(pwd)")" >& 2
     cat rpmbuild.tests.sum.not-passing >&2
     while read failed_code failed_test ; do
@@ -1868,12 +1879,21 @@ run_tests () {
   echo "* System call consistency checks:" >&2
   cat misc/tst-syscall-list.out >&2
   set -x
+
+  test $ret -eq 0 || exit $ret
 }
 
 # Increase timeouts
 export TIMEOUTFACTOR=16
 parent=$$
 echo ====================TESTING=========================
+
+# Install the allow-list into the source tree.  The
+# architecture-specific file is optional (but all files should exist
+# on the regular Fedora architectures).
+cp %{_sourcedir}/allowed-failures-noarch.txt allowed-failures.txt
+(cat %{_sourcedir}/allowed-failures-%{_arch}.txt || true) \
+    >> allowed-failures.txt
 
 # Default libraries.
 pushd build-%{target}
