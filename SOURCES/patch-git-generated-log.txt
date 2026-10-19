@@ -1,3 +1,47 @@
+commit d3eaf89fef681857c405ec60c144ff5a0582756f
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Sep 21 10:23:35 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Mon Sep 21 17:42:53 2026 +0000
+
+    CVE-2026-8674: Denial of Service via long DNS search domain
+    
+    Resolves: RHEL-264714
+
+:000000 100644 0000000 67ff39f A	glibc-RHEL-264714.patch
+
+commit 27596c42cdb4b3b73e7c17fd21988d98328fd5f6
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Sep 14 16:41:40 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Thu Sep 17 18:41:20 2026 +0000
+
+    CVE-2026-77117, CVE-2026-80489: Non-progress DoS in JISX0213 decoding
+    
+    Resolves: RHEL-248057
+    Resolves: RHEL-249634
+    RPM-Changelog:
+     - CVE-2026-77117: Non-progress DoS in SHIFT_JISX0213 decoding
+       (RHEL-248057)
+     - CVE-2026-80489: Non-progress DoS in EUC_JISX0213 decoding (RHEL-249634)
+
+:000000 100644 0000000 af9ac7a A	glibc-RHEL-248057-1.patch
+:000000 100644 0000000 7915a4a A	glibc-RHEL-248057-2.patch
+:000000 100644 0000000 c95bbe4 A	glibc-RHEL-248057-3.patch
+
+commit b0156eeed36a923fcef5765023a187b500055662
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Sep 14 17:16:43 2026 +0200
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Wed Sep 16 15:10:46 2026 +0000
+
+    CVE-2026-18374: Heap buffer overflow via attacker-controlled fopen mode string
+    
+    Resolves: RHEL-251518
+
+:000000 100644 0000000 3d3b5e4 A	glibc-RHEL-251518-1.patch
+:000000 100644 0000000 2f67087 A	glibc-RHEL-251518-2.patch
+
 commit 3fee401dd53a643ddfc10ff68cd2804a2fe81dd9
 Author:     Florian Weimer <fweimer@redhat.com>
 AuthorDate: Fri Sep 11 18:58:00 2026 +0200
