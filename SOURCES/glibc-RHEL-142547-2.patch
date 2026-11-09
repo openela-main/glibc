@@ -1,0 +1,25 @@
+commit e0b712dd9183d527aae4506cd39564c14af3bb28
+Author: Sam James <sam@gentoo.org>
+Date:   Fri Aug 4 23:58:27 2023 +0100
+
+    sysdeps: tst-bz21269: fix test parameter
+    
+    All callers pass 1 or 0x11 anyway (same meaning according to man page),
+    but still.
+    
+    Reviewed-by: DJ Delorie <dj@redhat.com>
+    Signed-off-by: Sam James <sam@gentoo.org>
+
+diff --git a/sysdeps/unix/sysv/linux/i386/tst-bz21269.c b/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
+index 1cc2566d5099db31..0d6a9848986d7199 100644
+--- a/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
++++ b/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
+@@ -52,7 +52,7 @@ xset_thread_area (struct user_desc *u_info)
+ static void
+ xmodify_ldt (int func, const void *ptr, unsigned long bytecount)
+ {
+-  TEST_VERIFY_EXIT (syscall (SYS_modify_ldt, 1, ptr, bytecount) == 0);
++  TEST_VERIFY_EXIT (syscall (SYS_modify_ldt, func, ptr, bytecount) == 0);
+ }
+ 
+ static int

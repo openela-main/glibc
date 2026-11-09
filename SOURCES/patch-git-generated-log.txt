@@ -1,3 +1,77 @@
+commit 6300ea01574f5aadd4133be58b9a6670274e1c9b
+Author:     Arjun Shankar <arjun@redhat.com>
+AuthorDate: Mon Oct 19 15:37:00 2026 +0200
+Commit:     Arjun Shankar <arjun@redhat.com>
+CommitDate: Mon Oct 19 16:10:53 2026 +0200
+
+    CVE-2026-86805, CVE-2026-95818: Dynamic linker $ORIGIN privilege escalation in AT_SECURE programs
+    
+    tst-origin-secure UNSUPPORTED due to missing tunable:
+    glibc.rtld.enable_secure
+    
+    Resolves: RHEL-267203
+    Resolves: RHEL-267265
+    RPM-Changelog:
+     - CVE-2026-86805: Dynamic linker $ORIGIN privilege escalation in
+       AT_SECURE programs (RHEL-267203)
+     - CVE-2026-95818: Buffer overflow in dynamic linker $ORIGIN processing
+       (RHEL-267265)
+
+:000000 100644 00000000 be9d5cdd A	glibc-RHEL-267203-1.patch
+:000000 100644 00000000 6589e49e A	glibc-RHEL-267203-2.patch
+:000000 100644 00000000 64c8e2fa A	glibc-RHEL-267203-3.patch
+
+commit 709a4f16abf6dd8da69dd6c58874c84a9599529b
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Thu Oct 15 11:47:54 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Thu Oct 15 12:00:48 2026 +0200
+
+    Fix race condition in test misc/tst-bz21269
+    
+    Resolves: RHEL-142547
+
+:000000 100644 00000000 2206de1d A	glibc-RHEL-142547-1.patch
+:000000 100644 00000000 c308c3ea A	glibc-RHEL-142547-2.patch
+:000000 100644 00000000 f20eaba3 A	glibc-RHEL-142547-3.patch
+:000000 100644 00000000 ad272da1 A	glibc-RHEL-142547-4.patch
+
+commit bea49c40f2a5275e54a80a37b8b809272dd0536f
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Tue Oct 13 12:20:02 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Tue Oct 13 19:32:12 2026 +0000
+
+    Disable XFD testing against /proc/cpuinfo
+    
+    Resolves: RHEL-281785
+
+:000000 100644 00000000 47673583 A	glibc-RHEL-281785.patch
+
+commit 116855ec52ea980af91bb695e3248e98de088337
+Author:     DJ Delorie <dj@redhat.com>
+AuthorDate: Mon Oct 12 13:54:57 2026 -0400
+Commit:     DJ Delorie <dj@redhat.com>
+CommitDate: Mon Oct 12 13:55:32 2026 -0400
+
+    CVE-2026-89092: nscd: replace alloca with malloc in aicache, hstcache
+    
+    Resolves: RHEL-262552
+
+:000000 100644 00000000 cfc5a28a A	glibc-RHEL-262552.patch
+
+commit f0c4dc76a4c63f4e295d0e5d1363a4770591fb32
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Fri Sep 18 11:22:48 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Tue Sep 29 10:59:26 2026 +0000
+
+    CVE-2026-8674: Denial of Service via long DNS search domain
+    
+    Resolves: RHEL-263325
+
+:000000 100644 00000000 d0d56de2 A	glibc-RHEL-263325.patch
+
 commit 724fcd951de948c5382ddfad074757e1580a0cfc
 Author:     Florian Weimer <fweimer@redhat.com>
 AuthorDate: Mon Sep 14 16:19:51 2026 +0200

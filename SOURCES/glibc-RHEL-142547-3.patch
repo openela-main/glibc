@@ -1,0 +1,35 @@
+commit 652b9fdb77d9fd056d4dd26dad2c14142768ab49
+Author: Sam James <sam@gentoo.org>
+Date:   Sat Aug 5 00:04:33 2023 +0100
+
+    sysdeps: tst-bz21269: handle ENOSYS & skip appropriately
+    
+    SYS_modify_ldt requires CONFIG_MODIFY_LDT_SYSCALL to be set in the kernel, which
+    some distributions may disable for hardening. Check if that's the case (unset)
+    and mark the test as UNSUPPORTED if so.
+    
+    Reviewed-by: DJ Delorie <dj@redhat.com>
+    Signed-off-by: Sam James <sam@gentoo.org>
+
+diff --git a/sysdeps/unix/sysv/linux/i386/tst-bz21269.c b/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
+index 0d6a9848986d7199..27c901cc1cc5dcb3 100644
+--- a/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
++++ b/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
+@@ -52,7 +52,16 @@ xset_thread_area (struct user_desc *u_info)
+ static void
+ xmodify_ldt (int func, const void *ptr, unsigned long bytecount)
+ {
+-  TEST_VERIFY_EXIT (syscall (SYS_modify_ldt, func, ptr, bytecount) == 0);
++  long ret = syscall (SYS_modify_ldt, func, ptr, bytecount);
++
++  if (ret == -1)
++    {
++      if (errno == ENOSYS)
++	FAIL_UNSUPPORTED ("modify_ldt not supported");
++      FAIL_EXIT1 ("modify_ldt failed (errno=%d)", errno);
++    }
++
++  return 0;
+ }
+ 
+ static int
