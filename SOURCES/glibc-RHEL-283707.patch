@@ -1,0 +1,92 @@
+commit 088136aa02de6fa13061ef6f754071a5652fdabd
+Author: DJ Delorie <dj@redhat.com>
+Date:   Mon May 15 22:50:35 2023 -0400
+
+    i386: Use pthread_barrier for synchronization on tst-bz21269
+    
+    So I was able to reproduce the hangs in the original source, and debug
+    it, and fix it.  In doing so, I realized that we can't use anything
+    complex to trigger the thread because that "anything" might also cause
+    the expected segfault and force everything out of sync again.
+    
+    Here's what I ended up with, and it doesn't seem to hang where the
+    original one hung quite often (in a tight while..end loop).  The key
+    changes are:
+    
+    1. Calls to futex are error checked, with retries, to ensure that the
+       futexes are actually doing what they're supposed to be doing.  In the
+       original code, nearly every futex call returned an error.
+    
+    2. The main loop has checks for whether the thread ran or not, and
+       "unlocks" the thread if it didn't (this is how the original source
+       hangs).
+    
+    Note: the usleep() is not for timing purposes, but just to give the
+    kernel an excuse to run the other thread at that time.  The test will
+    not hang without it, but is more likely to test the right bugfix
+    if the usleep() is present.
+
+diff --git a/sysdeps/unix/sysv/linux/i386/tst-bz21269.c b/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
+index 0f64a6dbaeffb55e..748b4c4e68164317 100644
+--- a/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
++++ b/sysdeps/unix/sysv/linux/i386/tst-bz21269.c
+@@ -135,7 +135,14 @@ threadproc (void *ctx)
+ {
+   while (1)
+     {
+-      futex ((int *) &ftx, FUTEX_WAIT, 1, NULL, NULL, 0);
++      /* Continue to wait here until we've successfully waited, unless
++	 we're supposed to be clearing the LDT already.  */
++      while (futex ((int *) &ftx, FUTEX_WAIT, 1, NULL, NULL, 0) < 0)
++	if (atomic_load (&ftx) >= 2)
++	  break;
++
++      /* Normally there's time to hit this busy loop and wait for ftx
++	 to be set to 2.  */
+       while (atomic_load (&ftx) != 2)
+ 	{
+ 	  if (atomic_load (&ftx) >= 3)
+@@ -189,7 +196,14 @@ do_test (void)
+       if (sigsetjmp (jmpbuf, 1) != 0)
+ 	continue;
+ 
+-      /* Make sure the thread is ready after the last test. */
++      /* We may have longjmp'd before triggering the thread.  If so,
++	 trigger the thread now and wait for it.  */
++      if (atomic_load (&ftx) == 1)
++	atomic_store (&ftx, 2);
++
++      /* Make sure the thread is ready after the last test.  FTX is
++	 initially zero for the first loop, and set to zero each time
++	 the thread clears the LDT.  */
+       while (atomic_load (&ftx) != 0)
+ 	;
+ 
+@@ -207,15 +221,24 @@ do_test (void)
+ 
+       xmodify_ldt (0x11, &desc, sizeof (desc));
+ 
+-      /* Arm the thread.  */
+-      ftx = 1;
+-      futex ((int*) &ftx, FUTEX_WAKE, 0, NULL, NULL, 0);
++      /* Arm the thread.  We loop here until we've woken up one thread.  */
++      atomic_store (&ftx, 1);
++      while (futex ((int*) &ftx, FUTEX_WAKE, 1, NULL, NULL, 0) < 1)
++	;
++
++      /* Give the thread a chance to get into it's busy loop.  */
++      usleep (5);
+ 
++      /* At *ANY* point after this instruction, we may segfault and
++	 longjump back to the top of the loop.  The intention is to
++	 have this happen when the thread clears the LDT, but it could
++	 happen elsewhen.  */
+       asm volatile ("mov %0, %%ss" : : "r" (0x7));
+ 
+       /* Fire up thread modify_ldt call.  */
+       atomic_store (&ftx, 2);
+ 
++      /* And wait for it.  */
+       while (atomic_load (&ftx) != 0)
+ 	;
+ 
