@@ -1,0 +1,60 @@
+commit 5c28a3cf9f05481290509a27506d08734d1e7587
+Author: Martin Coufal <mcoufal@redhat.com>
+Date:   Thu Mar 19 14:09:22 2026 +0100
+
+    Makefile: add allow-list for failures
+    
+    Enable adding known failures to allowed-failures.txt and ignore failures
+    in case they are in the list.  In case the allowed-failures.txt does not
+    exist, all failures lead to a failed status as before.
+    
+    When the file is present, failures of listed tests are ignored and reported
+    on stdout. If tests not in the allowed list fail, summarize-tests exits with
+    status 1 and reports the failing tests.
+    
+    The expected format of allowed-failures.txt file is:
+    <test_name> # <comment>
+    
+    Reviewed-by: Florian Weimer <fweimer@redhat.com>
+
+diff --git a/Makefile b/Makefile
+index ae9bc09327dd2d5b..a32f495767bdf84e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -592,7 +592,35 @@ define summarize-tests
+ @grep -E '^[A-Z]+:' $(objpfx)$1 | grep -E -v '^(PASS|XFAIL):' || true
+ @echo "		=== Summary of results$2 ==="
+ @sed -e '/:.*/!d' -e 's/:.*//' < $(objpfx)$1 | sort | uniq -c
+-@! grep -E '^[A-Z]+:' $(objpfx)$1 | grep -E -q -v '^(X?PASS|XFAIL|UNSUPPORTED):'
++@{ \
++	grep -E '^[A-Z]+:' $(objpfx)$1 | \
++	grep -E -v '^(X?PASS|XFAIL|UNSUPPORTED):' | \
++	( \
++	  if ! test -f $(..)allowed-failures.txt; then \
++	    read -r _; exit $$(( $$? == 0 )); \
++	  fi; \
++	  status=0; \
++	  while IFS= read -r line; do \
++	    case "$$line" in \
++	      FAIL:*) \
++	        name=$${line#FAIL: }; \
++	        escaped_name=`printf '%s' "$$name" | sed 's/[.+]/\\&/g'`; \
++	        if grep -Eq -- "^$${escaped_name}[[:space:]]*#" \
++	          $(..)allowed-failures.txt; then \
++	          echo "Ignoring allowed FAIL: $${name}"; \
++	          continue; \
++	        fi; \
++	        echo "Unallowed FAIL: $${name}"; \
++	        status=1; \
++	        ;; \
++	      *) \
++	        status=1; \
++	        ;; \
++	    esac; \
++	  done; \
++	  exit $$status; \
++	); \
++      }
+ endef
+ 
+ # The intention here is to do ONE install of our build into the

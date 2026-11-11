@@ -1,3 +1,74 @@
+commit 85d3f7ae0a42ef58256b2bc3af33a13d87b81a24
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Tue Oct 13 12:11:42 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Wed Oct 14 10:00:12 2026 +0000
+
+    Disable XFD testing against /proc/cpuinfo
+    
+    Resolves: RHEL-281757
+
+:000000 100644 0000000 7f99d2c A	glibc-RHEL-281757.patch
+
+commit 68b41e045e453dbdbde21ec19c42e8fb69e75dd4
+Author:     Frédéric Bérat <fberat@redhat.com>
+AuthorDate: Thu Oct 8 12:05:10 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Mon Oct 12 11:34:39 2026 +0000
+
+    CVE-2026-86805, CVE-2026-95818: Dynamic linker $ORIGIN privilege escalation in AT_SECURE programs
+    
+    Resolves: RHEL-267199
+    Resolves: RHEL-267260
+    RPM-Changelog:
+     - CVE-2026-86805: Dynamic linker $ORIGIN privilege escalation in
+       AT_SECURE programs (RHEL-267199)
+     - CVE-2026-95818: Buffer overflow in dynamic linker $ORIGIN processing
+       (RHEL-267260)
+
+:000000 100644 0000000 61acda5 A	glibc-RHEL-267199.patch
+
+commit ed008ed55fea0ea67e21a46349f819ea4b6a240c
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Oct 12 10:50:34 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Mon Oct 12 12:39:39 2026 +0200
+
+    Temporarily disable error reporting for misc/tst-pidfd-consts
+    
+    RPM-Skip-Release: yes
+    RPM-Changelog: -
+    Resolves: RHEL-280240
+
+:100644 100644 e69de29 9f85278 M	allowed-failures-noarch.txt
+
+commit 3a3363dce0fa8f03f3d1c34367b9ee9393847b44
+Author:     Florian Weimer <fweimer@redhat.com>
+AuthorDate: Mon Oct 12 12:34:32 2026 +0200
+Commit:     Florian Weimer <fweimer@redhat.com>
+CommitDate: Mon Oct 12 12:35:11 2026 +0200
+
+    Apply upstream patch to handle test failure allow-list
+    
+    Resolves: RHEL-280260
+    RPM-Skip-Release: yes
+    RPM-Changelog: -
+
+:000000 100644 0000000 caa0835 A	glibc-RHEL-280260.patch
+
+commit b65a4efa4e72a45d27a85696a579f8d1b04dd092
+Author:     Sergey Kolosov <skolosov@redhat.com>
+AuthorDate: Tue Sep 29 10:12:52 2026 +0200
+Commit:     Martin Coufal <mcoufal@redhat.com>
+CommitDate: Tue Sep 29 08:17:38 2026 +0000
+
+    Regression/bz1472832-glibc-getifaddrs-returns-interfaces-with: fix pgrep race and submit loop logs
+    
+    RPM-Changelog: -
+    RPM-Skip-Release: yes
+
+:100755 100755 649c11f 2518921 M	tests/Regression/bz1472832-glibc-getifaddrs-returns-interfaces-with/runtest.sh
+
 commit d3eaf89fef681857c405ec60c144ff5a0582756f
 Author:     Florian Weimer <fweimer@redhat.com>
 AuthorDate: Mon Sep 21 10:23:35 2026 +0200
