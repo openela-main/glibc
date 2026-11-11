@@ -1,0 +1,59 @@
+Partial backport of b79f8ff26aa6.
+Upstream commit was skipped during backporting because most of the files
+impacted were re-written later. This missing backport left
+wcsnlen-evex.S pointing to strlen-evex.S. After strlen-evex.S dropped
+bounds checking (Patch 12) and strnlen-evex-base.S was introduced (Patch
+14), wcsnlen-evex.S must be updated to point to the new strnlen
+implementation.
+
+commit b79f8ff26aa6151d2d2167afcddcd1ec46cfbc81
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Tue Oct 18 17:44:05 2022 -0700
+
+    x86: Optimize strnlen-evex.S and implement with VMM headers
+    
+    Optimizations are:
+    1. Use the fact that bsf(0) leaves the destination unchanged to save a
+       branch in short string case.
+    2. Restructure code so that small strings are given the hot path.
+            - This is a net-zero on the benchmark suite but in general makes
+          sense as smaller sizes are far more common.
+    3. Use more code-size efficient instructions.
+            - tzcnt ...     -> bsf ...
+            - vpcmpb $0 ... -> vpcmpeq ...
+    4. Align labels less aggressively, especially if it doesn't save fetch
+       blocks / causes the basic-block to span extra cache-lines.
+    
+    The optimizations (especially for point 2) make the strnlen and
+    strlen code essentially incompatible so split strnlen-evex
+    to a new file.
+    
+    Code Size Changes:
+    strlen-evex.S       :  -23 bytes
+    strnlen-evex.S      : -167 bytes
+    
+    Net perf changes:
+    
+    Reported as geometric mean of all improvements / regressions from N=10
+    runs of the benchtests. Value as New Time / Old Time so < 1.0 is
+    improvement and 1.0 is regression.
+    
+    strlen-evex.S       : 0.992 (No real change)
+    strnlen-evex.S      : 0.947
+    
+    Full results attached in email.
+    
+    Full check passes on x86-64.
+
+diff --git a/sysdeps/x86_64/multiarch/wcsnlen-evex.S b/sysdeps/x86_64/multiarch/wcsnlen-evex.S
+index 24773bb4e2327ca4..920d860047e5a96c 100644
+--- a/sysdeps/x86_64/multiarch/wcsnlen-evex.S
++++ b/sysdeps/x86_64/multiarch/wcsnlen-evex.S
+@@ -1,5 +1,4 @@
+-#define STRLEN __wcsnlen_evex
++#define STRNLEN __wcsnlen_evex
+ #define USE_AS_WCSLEN 1
+-#define USE_AS_STRNLEN 1
+ 
+-#include "strlen-evex.S"
++#include "strnlen-evex.S"

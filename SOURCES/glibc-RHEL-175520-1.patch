@@ -1,0 +1,153 @@
+commit 43388b3ac09c757af1d94c9071e52b79b4bd8bb4
+Author: Noah Goldstein <goldstein.w.n@gmail.com>
+Date:   Mon Jan 10 15:35:36 2022 -0600
+
+    string/test-str*cmp: remove stupid_[strcmp, strncmp, wcscmp, wcsncmp].
+    
+    These implementations just add to test duration. Since we have
+    simple_* implementations we already have a safe reference
+    implementation.
+    
+    Signed-off-by: Noah Goldstein <goldstein.w.n@gmail.com>
+
+diff --git a/string/test-strcmp.c b/string/test-strcmp.c
+index a0255b9625fbcedd..a6b5344f5710effc 100644
+--- a/string/test-strcmp.c
++++ b/string/test-strcmp.c
+@@ -36,7 +36,6 @@
+ # define STRLEN wcslen
+ # define MEMCPY wmemcpy
+ # define SIMPLE_STRCMP simple_wcscmp
+-# define STUPID_STRCMP stupid_wcscmp
+ # define CHAR wchar_t
+ # define UCHAR wchar_t
+ # define CHARBYTES 4
+@@ -66,25 +65,6 @@ simple_wcscmp (const wchar_t *s1, const wchar_t *s2)
+   return c1 < c2 ? -1 : 1;
+ }
+ 
+-int
+-stupid_wcscmp (const wchar_t *s1, const wchar_t *s2)
+-{
+-  size_t ns1 = wcslen (s1) + 1;
+-  size_t ns2 = wcslen (s2) + 1;
+-  size_t n = ns1 < ns2 ? ns1 : ns2;
+-  int ret = 0;
+-
+-  wchar_t c1, c2;
+-
+-  while (n--) {
+-    c1 = *s1++;
+-    c2 = *s2++;
+-    if ((ret = c1 < c2 ? -1 : c1 == c2 ? 0 : 1) != 0)
+-      break;
+-  }
+-  return ret;
+-}
+-
+ #else
+ # include <limits.h>
+ 
+@@ -94,7 +74,6 @@ stupid_wcscmp (const wchar_t *s1, const wchar_t *s2)
+ # define STRLEN strlen
+ # define MEMCPY memcpy
+ # define SIMPLE_STRCMP simple_strcmp
+-# define STUPID_STRCMP stupid_strcmp
+ # define CHAR char
+ # define UCHAR unsigned char
+ # define CHARBYTES 1
+@@ -115,24 +94,10 @@ simple_strcmp (const char *s1, const char *s2)
+   return ret;
+ }
+ 
+-int
+-stupid_strcmp (const char *s1, const char *s2)
+-{
+-  size_t ns1 = strlen (s1) + 1;
+-  size_t ns2 = strlen (s2) + 1;
+-  size_t n = ns1 < ns2 ? ns1 : ns2;
+-  int ret = 0;
+-
+-  while (n--)
+-    if ((ret = *(unsigned char *) s1++ - *(unsigned char *) s2++) != 0)
+-      break;
+-  return ret;
+-}
+ #endif
+ 
+ typedef int (*proto_t) (const CHAR *, const CHAR *);
+ 
+-IMPL (STUPID_STRCMP, 1)
+ IMPL (SIMPLE_STRCMP, 1)
+ IMPL (STRCMP, 1)
+ 
+diff --git a/string/test-strncmp.c b/string/test-strncmp.c
+index 56e23670ae7f90e4..a761136e94d65efc 100644
+--- a/string/test-strncmp.c
++++ b/string/test-strncmp.c
+@@ -34,7 +34,6 @@
+ # define STRDUP wcsdup
+ # define MEMCPY wmemcpy
+ # define SIMPLE_STRNCMP simple_wcsncmp
+-# define STUPID_STRNCMP stupid_wcsncmp
+ # define CHAR wchar_t
+ # define UCHAR wchar_t
+ # define CHARBYTES 4
+@@ -58,25 +57,6 @@ simple_wcsncmp (const CHAR *s1, const CHAR *s2, size_t n)
+   return 0;
+ }
+ 
+-int
+-stupid_wcsncmp (const CHAR *s1, const CHAR *s2, size_t n)
+-{
+-  wchar_t c1, c2;
+-  size_t ns1 = wcsnlen (s1, n) + 1, ns2 = wcsnlen (s2, n) + 1;
+-
+-  n = ns1 < n ? ns1 : n;
+-  n = ns2 < n ? ns2 : n;
+-
+-  while (n--)
+-    {
+-      c1 = *s1++;
+-      c2 = *s2++;
+-      if (c1 != c2)
+-	return c1 > c2 ? 1 : -1;
+-    }
+-  return 0;
+-}
+-
+ #else
+ # define L(str) str
+ # define STRNCMP strncmp
+@@ -84,7 +64,6 @@ stupid_wcsncmp (const CHAR *s1, const CHAR *s2, size_t n)
+ # define STRDUP strdup
+ # define MEMCPY memcpy
+ # define SIMPLE_STRNCMP simple_strncmp
+-# define STUPID_STRNCMP stupid_strncmp
+ # define CHAR char
+ # define UCHAR unsigned char
+ # define CHARBYTES 1
+@@ -102,23 +81,10 @@ simple_strncmp (const char *s1, const char *s2, size_t n)
+   return ret;
+ }
+ 
+-int
+-stupid_strncmp (const char *s1, const char *s2, size_t n)
+-{
+-  size_t ns1 = strnlen (s1, n) + 1, ns2 = strnlen (s2, n) + 1;
+-  int ret = 0;
+-
+-  n = ns1 < n ? ns1 : n;
+-  n = ns2 < n ? ns2 : n;
+-  while (n-- && (ret = *(unsigned char *) s1++ - * (unsigned char *) s2++) == 0);
+-  return ret;
+-}
+-
+ #endif
+ 
+ typedef int (*proto_t) (const CHAR *, const CHAR *, size_t);
+ 
+-IMPL (STUPID_STRNCMP, 0)
+ IMPL (SIMPLE_STRNCMP, 0)
+ IMPL (STRNCMP, 1)
+ 

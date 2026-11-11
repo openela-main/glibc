@@ -1,0 +1,830 @@
+commit 67e3b0c63c35769c1ba28fa2a32446332bb4fcef
+Author: Siddhesh Poyarekar <siddhesh@sourceware.org>
+Date:   Wed Apr 6 20:53:24 2022 +0530
+
+    tests/string: Drop simple/stupid/builtin tests
+    
+    In most cases the simple/stupid/builtin functions were in there to
+    benchmark optimized implementations against.  Only in some cases the
+    functions are used to check expected results.
+    
+    Remove these tests from IMPL() and only keep them in wherever they're
+    used for a specific purpose, e.g. to generate expected results.
+    
+    This improves timing of `make subdirs=string` by over a minute and a
+    half (over 15%) on a Whiskey Lake laptop.
+    
+    Signed-off-by: Siddhesh Poyarekar <siddhesh@sourceware.org>
+    Reviewed-by: Noah Goldstein <libc-alpha@sourceware.org>
+
+Conflicts:
+	string/test-memcpy-support.h
+	  (modified string/test-memcpy.c instead)
+	string/test-memset.c
+	  (fixup context)
+
+diff --git a/string/test-memccpy.c b/string/test-memccpy.c
+index e0b1d5ae5283ccb1..5f7eeda5a224d7f5 100644
+--- a/string/test-memccpy.c
++++ b/string/test-memccpy.c
+@@ -21,13 +21,9 @@
+ #define TEST_NAME "memccpy"
+ #include "test-string.h"
+ 
+-void *simple_memccpy (void *, const void *, int, size_t);
+-void *stupid_memccpy (void *, const void *, int, size_t);
+-
+-IMPL (stupid_memccpy, 0)
+-IMPL (simple_memccpy, 0)
+ IMPL (memccpy, 1)
+ 
++/* Naive implementation to verify results.  */
+ void *
+ simple_memccpy (void *dst, const void *src, int c, size_t n)
+ {
+@@ -41,18 +37,6 @@ simple_memccpy (void *dst, const void *src, int c, size_t n)
+   return NULL;
+ }
+ 
+-void *
+-stupid_memccpy (void *dst, const void *src, int c, size_t n)
+-{
+-  void *p = memchr (src, c, n);
+-
+-  if (p != NULL)
+-    return mempcpy (dst, src, p - src + 1);
+-
+-  memcpy (dst, src, n);
+-  return NULL;
+-}
+-
+ typedef void *(*proto_t) (void *, const void *, int c, size_t);
+ 
+ static void
+diff --git a/string/test-memchr.c b/string/test-memchr.c
+index ce964284aa16508f..6e5f7795a09febcb 100644
+--- a/string/test-memchr.c
++++ b/string/test-memchr.c
+@@ -45,11 +45,10 @@
+ #endif /* WIDE */
+ 
+ typedef CHAR *(*proto_t) (const CHAR *, int, size_t);
+-CHAR *SIMPLE_MEMCHR (const CHAR *, int, size_t);
+ 
+-IMPL (SIMPLE_MEMCHR, 0)
+ IMPL (MEMCHR, 1)
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+ SIMPLE_MEMCHR (const CHAR *s, int c, size_t n)
+ {
+diff --git a/string/test-memcmp.c b/string/test-memcmp.c
+index fbda26a41e9731a5..480b3a0adcf3a644 100644
+--- a/string/test-memcmp.c
++++ b/string/test-memcmp.c
+@@ -73,7 +73,6 @@ simple_memcmp (const char *s1, const char *s2, size_t n)
+ 
+ typedef int (*proto_t) (const CHAR *, const CHAR *, size_t);
+ 
+-IMPL (SIMPLE_MEMCMP, 0)
+ IMPL (MEMCMP, 1)
+ 
+ static int
+diff --git a/string/test-memcpy.c b/string/test-memcpy.c
+index c9dfc88fedddc775..63c930627821ed93 100644
+--- a/string/test-memcpy.c
++++ b/string/test-memcpy.c
+@@ -24,13 +24,9 @@
+ # define TEST_NAME "memcpy"
+ # include "test-string.h"
+ 
+-char *simple_memcpy (char *, const char *, size_t);
+-char *builtin_memcpy (char *, const char *, size_t);
+-
+-IMPL (simple_memcpy, 0)
+-IMPL (builtin_memcpy, 0)
+ IMPL (memcpy, 1)
+ 
++/* Naive implementation to verify results.  */
+ char *
+ simple_memcpy (char *dst, const char *src, size_t n)
+ {
+@@ -40,11 +36,6 @@ simple_memcpy (char *dst, const char *src, size_t n)
+   return ret;
+ }
+ 
+-char *
+-builtin_memcpy (char *dst, const char *src, size_t n)
+-{
+-  return __builtin_memcpy (dst, src, n);
+-}
+ #endif
+ 
+ typedef char *(*proto_t) (char *, const char *, size_t);
+diff --git a/string/test-memmem.c b/string/test-memmem.c
+index 624d3106bfebf628..260116fcd80072cc 100644
+--- a/string/test-memmem.c
++++ b/string/test-memmem.c
+@@ -24,11 +24,10 @@
+ #include "test-string.h"
+ 
+ typedef char *(*proto_t) (const void *, size_t, const void *, size_t);
+-void *simple_memmem (const void *, size_t, const void *, size_t);
+ 
+-IMPL (simple_memmem, 0)
+ IMPL (memmem, 1)
+ 
++/* Naive implementation to verify results.  */
+ void *
+ simple_memmem (const void *haystack, size_t haystack_len, const void *needle,
+ 	       size_t needle_len)
+diff --git a/string/test-memmove.c b/string/test-memmove.c
+index b271248b1d903634..c4f9f6d11330016d 100644
+--- a/string/test-memmove.c
++++ b/string/test-memmove.c
+@@ -30,23 +30,23 @@ char *simple_memmove (char *, const char *, size_t);
+ 
+ #ifdef TEST_BCOPY
+ typedef void (*proto_t) (const char *, char *, size_t);
+-void simple_bcopy (const char *, char *, size_t);
+ 
+-IMPL (simple_bcopy, 0)
+ IMPL (bcopy, 1)
+ 
++/* Naive implementation to verify results.  */
+ void
+ simple_bcopy (const char *src, char *dst, size_t n)
+ {
+   simple_memmove (dst, src, n);
+ }
++
+ #else
+ typedef char *(*proto_t) (char *, const char *, size_t);
+ 
+-IMPL (simple_memmove, 0)
+ IMPL (memmove, 1)
+ #endif
+ 
++/* Naive implementation to verify results.  */
+ char *
+ inhibit_loop_to_libcall
+ simple_memmove (char *dst, const char *src, size_t n)
+diff --git a/string/test-mempcpy.c b/string/test-mempcpy.c
+index f80b014d41921462..1554af9b1587d5ca 100644
+--- a/string/test-mempcpy.c
++++ b/string/test-mempcpy.c
+@@ -23,11 +23,9 @@
+ #define TEST_NAME "mempcpy"
+ #include "test-string.h"
+ 
+-char *simple_mempcpy (char *, const char *, size_t);
+-
+-IMPL (simple_mempcpy, 0)
+ IMPL (mempcpy, 1)
+ 
++/* Naive implementation to verify results.  */
+ char *
+ simple_mempcpy (char *dst, const char *src, size_t n)
+ {
+diff --git a/string/test-memrchr.c b/string/test-memrchr.c
+index 1a3b9ce69d2729c2..5166f22a37893c98 100644
+--- a/string/test-memrchr.c
++++ b/string/test-memrchr.c
+@@ -22,11 +22,10 @@
+ #include "test-string.h"
+ 
+ typedef char *(*proto_t) (const char *, int, size_t);
+-char *simple_memrchr (const char *, int, size_t);
+ 
+-IMPL (simple_memrchr, 0)
+ IMPL (memrchr, 1)
+ 
++/* Naive implementation to verify results.  */
+ char *
+ simple_memrchr (const char *s, int c, size_t n)
+ {
+diff --git a/string/test-memset.c b/string/test-memset.c
+index fe89bb57c1c85892..bca571860ff82a19 100644
+--- a/string/test-memset.c
++++ b/string/test-memset.c
+@@ -51,51 +51,19 @@
+ # define BIG_CHAR WCHAR_MAX
+ #endif /* WIDE */
+ 
+-CHAR *SIMPLE_MEMSET (CHAR *, int, size_t);
+-
+ #ifdef TEST_BZERO
+ typedef void (*proto_t) (char *, size_t);
+-void simple_bzero (char *, size_t);
+-void builtin_bzero (char *, size_t);
+-
+-IMPL (simple_bzero, 0)
+-IMPL (builtin_bzero, 0)
+-#ifdef TEST_EXPLICIT_BZERO
++# ifdef TEST_EXPLICIT_BZERO
+ IMPL (explicit_bzero, 1)
+-#else
++# else
+ IMPL (bzero, 1)
+-#endif
+-
+-void
+-simple_bzero (char *s, size_t n)
+-{
+-  SIMPLE_MEMSET (s, 0, n);
+-}
+-
+-void
+-builtin_bzero (char *s, size_t n)
+-{
+-  __builtin_bzero (s, n);
+-}
++# endif
+ #else
+ typedef CHAR *(*proto_t) (CHAR *, int, size_t);
+-
+-IMPL (SIMPLE_MEMSET, 0)
+-# ifndef WIDE
+-char *builtin_memset (char *, int, size_t);
+-IMPL (builtin_memset, 0)
+-# endif /* !WIDE */
+ IMPL (MEMSET, 1)
+-
+-# ifndef WIDE
+-char *
+-builtin_memset (char *s, int c, size_t n)
+-{
+-  return __builtin_memset (s, c, n);
+-}
+-# endif /* !WIDE */
+ #endif /* !TEST_BZERO */
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+ inhibit_loop_to_libcall
+ SIMPLE_MEMSET (CHAR *s, int c, size_t n)
+@@ -117,7 +85,7 @@ do_one_test (impl_t *impl, CHAR *s, int c __attribute ((unused)), size_t n, int
+       s[n] = sentinel;
+   SIMPLE_MEMSET(s, ~c, n);
+ #ifdef TEST_BZERO
+-  simple_bzero (buf, n);
++  SIMPLE_MEMSET (buf, 0, n);
+   CALL (impl, s, n);
+   if (memcmp (s, buf, n) != 0
+       || (space_below && s[-1] != sentinel)
+diff --git a/string/test-strcasecmp.c b/string/test-strcasecmp.c
+index b380150cb74b5a8e..f4e002510cb6797b 100644
+--- a/string/test-strcasecmp.c
++++ b/string/test-strcasecmp.c
+@@ -24,14 +24,11 @@
+ #include "test-string.h"
+ 
+ typedef int (*proto_t) (const char *, const char *);
+-static int simple_strcasecmp (const char *, const char *);
+-static int stupid_strcasecmp (const char *, const char *);
+ 
+-IMPL (stupid_strcasecmp, 0)
+-IMPL (simple_strcasecmp, 0)
+ IMPL (strcasecmp, 1)
+ 
+-static int
++/* Naive implementation to verify results.  */
++int
+ simple_strcasecmp (const char *s1, const char *s2)
+ {
+   int ret;
+@@ -43,24 +40,6 @@ simple_strcasecmp (const char *s1, const char *s2)
+   return ret;
+ }
+ 
+-static int
+-stupid_strcasecmp (const char *s1, const char *s2)
+-{
+-  size_t ns1 = strlen (s1) + 1, ns2 = strlen (s2) + 1;
+-  size_t n = ns1 < ns2 ? ns1 : ns2;
+-  int ret = 0;
+-
+-  while (n--)
+-    {
+-      if ((ret = ((unsigned char) tolower (*s1)
+-		  - (unsigned char) tolower (*s2))) != 0)
+-	break;
+-      ++s1;
+-      ++s2;
+-    }
+-  return ret;
+-}
+-
+ static void
+ do_one_test (impl_t *impl, const char *s1, const char *s2, int exp_result)
+ {
+diff --git a/string/test-strcasestr.c b/string/test-strcasestr.c
+index 045156e6b8b87f51..0cdc5dcd97974694 100644
+--- a/string/test-strcasestr.c
++++ b/string/test-strcasestr.c
+@@ -22,15 +22,15 @@
+ #include "test-string.h"
+ 
+ 
+-#define STRCASESTR simple_strcasestr
++#define STRCASESTR c_strcasestr
+ #define NO_ALIAS
+ #define __strncasecmp strncasecmp
+ #define __strnlen strnlen
+ #include "strcasestr.c"
+ 
+-
++/* Naive implementation to verify results.  */
+ static char *
+-stupid_strcasestr (const char *s1, const char *s2)
++simple_strcasestr (const char *s1, const char *s2)
+ {
+   ssize_t s1len = strlen (s1);
+   ssize_t s2len = strlen (s2);
+@@ -54,8 +54,7 @@ stupid_strcasestr (const char *s1, const char *s2)
+ 
+ typedef char *(*proto_t) (const char *, const char *);
+ 
+-IMPL (stupid_strcasestr, 0)
+-IMPL (simple_strcasestr, 0)
++IMPL (c_strcasestr, 0)
+ IMPL (strcasestr, 1)
+ 
+ 
+@@ -130,7 +129,7 @@ check1 (void)
+   const char s2[] = "OK";
+   char *exp_result;
+ 
+-  exp_result = stupid_strcasestr (s1, s2);
++  exp_result = simple_strcasestr (s1, s2);
+   FOR_EACH_IMPL (impl, 0)
+     check_result (impl, s1, s2, exp_result);
+ }
+diff --git a/string/test-strcat.c b/string/test-strcat.c
+index dea1558b0c64c311..97cc1a2136800ee9 100644
+--- a/string/test-strcat.c
++++ b/string/test-strcat.c
+@@ -55,11 +55,10 @@
+ #endif /* WIDE */
+ 
+ typedef CHAR *(*proto_t) (CHAR *, const CHAR *);
+-CHAR *SIMPLE_STRCAT (CHAR *, const CHAR *);
+ 
+-IMPL (SIMPLE_STRCAT, 0)
+ IMPL (STRCAT, 1)
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+ SIMPLE_STRCAT (CHAR *dst, const CHAR *src)
+ {
+diff --git a/string/test-strchr.c b/string/test-strchr.c
+index 6c8ca54a7df8fa2b..f24ade10485853c3 100644
+--- a/string/test-strchr.c
++++ b/string/test-strchr.c
+@@ -37,7 +37,6 @@
+ #ifndef WIDE
+ # ifdef USE_FOR_STRCHRNUL
+ #  define STRCHR strchrnul
+-#  define stupid_STRCHR stupid_STRCHRNUL
+ #  define simple_STRCHR simple_STRCHRNUL
+ # else
+ #  define STRCHR strchr
+@@ -53,7 +52,6 @@
+ # include <wchar.h>
+ # ifdef USE_FOR_STRCHRNUL
+ #  define STRCHR wcschrnul
+-#  define stupid_STRCHR stupid_WCSCHRNUL
+ #  define simple_STRCHR simple_WCSCHRNUL
+ # else
+ #  define STRCHR wcschr
+@@ -76,17 +74,9 @@
+ 
+ typedef CHAR *(*proto_t) (const CHAR *, int);
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+ simple_STRCHR (const CHAR *s, int c)
+-{
+-  for (; *s != (CHAR) c; ++s)
+-    if (*s == '\0')
+-      return NULLRET ((CHAR *) s);
+-  return (CHAR *) s;
+-}
+-
+-CHAR *
+-stupid_STRCHR (const CHAR *s, int c)
+ {
+   size_t n = STRLEN (s) + 1;
+ 
+@@ -96,8 +86,6 @@ stupid_STRCHR (const CHAR *s, int c)
+   return NULLRET ((CHAR *) s - 1);
+ }
+ 
+-IMPL (stupid_STRCHR, 0)
+-IMPL (simple_STRCHR, 0)
+ IMPL (STRCHR, 1)
+ 
+ static int
+@@ -233,7 +221,7 @@ check1 (void)
+ {
+   CHAR s[] __attribute__((aligned(16))) = L ("\xff");
+   CHAR c = L ('\xfe');
+-  CHAR *exp_result = stupid_STRCHR (s, c);
++  CHAR *exp_result = simple_STRCHR (s, c);
+ 
+   FOR_EACH_IMPL (impl, 0)
+     check_result (impl, s, c, exp_result);
+diff --git a/string/test-strcmp.c b/string/test-strcmp.c
+index a6b5344f5710effc..7eeaf472de5ce178 100644
+--- a/string/test-strcmp.c
++++ b/string/test-strcmp.c
+@@ -98,7 +98,6 @@ simple_strcmp (const char *s1, const char *s2)
+ 
+ typedef int (*proto_t) (const CHAR *, const CHAR *);
+ 
+-IMPL (SIMPLE_STRCMP, 1)
+ IMPL (STRCMP, 1)
+ 
+ static int
+diff --git a/string/test-strcpy.c b/string/test-strcpy.c
+index 4c0a04f85d70104f..271b9251154fb0f6 100644
+--- a/string/test-strcpy.c
++++ b/string/test-strcpy.c
+@@ -56,11 +56,9 @@
+ #  define STRCPY wcscpy
+ # endif
+ 
+-CHAR *SIMPLE_STRCPY (CHAR *, const CHAR *);
+-
+-IMPL (SIMPLE_STRCPY, 0)
+ IMPL (STRCPY, 1)
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+ SIMPLE_STRCPY (CHAR *dst, const CHAR *src)
+ {
+diff --git a/string/test-strlen.c b/string/test-strlen.c
+index c9a7afb339a28114..06919fa9ce289b39 100644
+--- a/string/test-strlen.c
++++ b/string/test-strlen.c
+@@ -39,6 +39,7 @@
+ 
+ typedef size_t (*proto_t) (const CHAR *);
+ 
++/* Naive implementation to verify results.  */
+ size_t
+ simple_STRLEN (const CHAR *s)
+ {
+@@ -57,7 +58,6 @@ builtin_strlen (const CHAR *p)
+ IMPL (builtin_strlen, 0)
+ #endif
+ 
+-IMPL (simple_STRLEN, 0)
+ IMPL (STRLEN, 1)
+ 
+ 
+diff --git a/string/test-strncasecmp.c b/string/test-strncasecmp.c
+index ace94e83eca9bd72..6662dab672378ae1 100644
+--- a/string/test-strncasecmp.c
++++ b/string/test-strncasecmp.c
+@@ -25,12 +25,10 @@
+ 
+ typedef int (*proto_t) (const char *, const char *, size_t);
+ static int simple_strncasecmp (const char *, const char *, size_t);
+-static int stupid_strncasecmp (const char *, const char *, size_t);
+ 
+-IMPL (stupid_strncasecmp, 0)
+-IMPL (simple_strncasecmp, 0)
+ IMPL (strncasecmp, 1)
+ 
++/* Naive implementation to verify results.  */
+ static int
+ simple_strncasecmp (const char *s1, const char *s2, size_t n)
+ {
+@@ -50,27 +48,6 @@ simple_strncasecmp (const char *s1, const char *s2, size_t n)
+   return ret;
+ }
+ 
+-static int
+-stupid_strncasecmp (const char *s1, const char *s2, size_t max)
+-{
+-  size_t ns1 = strlen (s1) + 1;
+-  size_t ns2 = strlen (s2) + 1;
+-  size_t n = ns1 < ns2 ? ns1 : ns2;
+-  if (n > max)
+-    n = max;
+-  int ret = 0;
+-
+-  while (n--)
+-    {
+-      if ((ret = ((unsigned char) tolower (*s1)
+-		  - (unsigned char) tolower (*s2))) != 0)
+-	break;
+-      ++s1;
+-      ++s2;
+-    }
+-  return ret;
+-}
+-
+ static int
+ check_result (impl_t *impl, const char *s1, const char *s2, size_t n,
+ 	      int exp_result)
+diff --git a/string/test-strncat.c b/string/test-strncat.c
+index 37ea26ea057938a4..982c1dff0421ce45 100644
+--- a/string/test-strncat.c
++++ b/string/test-strncat.c
+@@ -29,7 +29,6 @@
+ # define CHAR char
+ # define UCHAR unsigned char
+ # define SIMPLE_STRNCAT simple_strncat
+-# define STUPID_STRNCAT stupid_strncat
+ # define STRLEN strlen
+ # define MEMSET memset
+ # define MEMCPY memcpy
+@@ -42,7 +41,6 @@
+ # define CHAR wchar_t
+ # define UCHAR wchar_t
+ # define SIMPLE_STRNCAT simple_wcsncat
+-# define STUPID_STRNCAT stupid_wcsncat
+ # define STRLEN wcslen
+ # define MEMSET wmemset
+ # define MEMCPY wmemcpy
+@@ -52,14 +50,12 @@
+ #endif /* WIDE */
+ 
+ typedef CHAR *(*proto_t) (CHAR *, const CHAR *, size_t);
+-CHAR *STUPID_STRNCAT (CHAR *, const CHAR *, size_t);
+-CHAR *SIMPLE_STRNCAT (CHAR *, const CHAR *, size_t);
+ 
+-IMPL (STUPID_STRNCAT, 0)
+ IMPL (STRNCAT, 2)
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+-STUPID_STRNCAT (CHAR *dst, const CHAR *src, size_t n)
++SIMPLE_STRNCAT (CHAR *dst, const CHAR *src, size_t n)
+ {
+   CHAR *ret = dst;
+   while (*dst++ != '\0');
+diff --git a/string/test-strncmp.c b/string/test-strncmp.c
+index a761136e94d65efc..5e481d260b52ff9d 100644
+--- a/string/test-strncmp.c
++++ b/string/test-strncmp.c
+@@ -85,7 +85,6 @@ simple_strncmp (const char *s1, const char *s2, size_t n)
+ 
+ typedef int (*proto_t) (const CHAR *, const CHAR *, size_t);
+ 
+-IMPL (SIMPLE_STRNCMP, 0)
+ IMPL (STRNCMP, 1)
+ 
+ 
+diff --git a/string/test-strncpy.c b/string/test-strncpy.c
+index 84a3b83bbc185802..7ee1b53ef5a219fb 100644
+--- a/string/test-strncpy.c
++++ b/string/test-strncpy.c
+@@ -48,21 +48,16 @@
+ # include "test-string.h"
+ # ifndef WIDE
+ #  define SIMPLE_STRNCPY simple_strncpy
+-#  define STUPID_STRNCPY stupid_strncpy
+ #  define STRNCPY strncpy
+ # else
+ #  define SIMPLE_STRNCPY simple_wcsncpy
+-#  define STUPID_STRNCPY stupid_wcsncpy
+ #  define STRNCPY wcsncpy
+ # endif /* WIDE */
+ 
+-CHAR *SIMPLE_STRNCPY (CHAR *, const CHAR *, size_t);
+-CHAR *STUPID_STRNCPY (CHAR *, const CHAR *, size_t);
+ 
+-IMPL (STUPID_STRNCPY, 0)
+-IMPL (SIMPLE_STRNCPY, 0)
+ IMPL (STRNCPY, 1)
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+ SIMPLE_STRNCPY (CHAR *dst, const CHAR *src, size_t n)
+ {
+@@ -77,18 +72,6 @@ SIMPLE_STRNCPY (CHAR *dst, const CHAR *src, size_t n)
+   return ret;
+ }
+ 
+-CHAR *
+-STUPID_STRNCPY (CHAR *dst, const CHAR *src, size_t n)
+-{
+-  size_t nc = STRNLEN (src, n);
+-  size_t i;
+-
+-  for (i = 0; i < nc; ++i)
+-    dst[i] = src[i];
+-  for (; i < n; ++i)
+-    dst[i] = '\0';
+-  return dst;
+-}
+ #endif /* !STRNCPY_RESULT */
+ 
+ typedef CHAR *(*proto_t) (CHAR *, const CHAR *, size_t);
+diff --git a/string/test-strnlen.c b/string/test-strnlen.c
+index eac84cd17526d5d9..18d1c93f3e0cd315 100644
+--- a/string/test-strnlen.c
++++ b/string/test-strnlen.c
+@@ -43,11 +43,10 @@
+ #endif /* !WIDE */
+ 
+ typedef size_t (*proto_t) (const CHAR *, size_t);
+-size_t SIMPLE_STRNLEN (const CHAR *, size_t);
+ 
+-IMPL (SIMPLE_STRNLEN, 0)
+ IMPL (STRNLEN, 1)
+ 
++/* Naive implementation to verify results.  */
+ size_t
+ SIMPLE_STRNLEN (const CHAR *s, size_t maxlen)
+ {
+diff --git a/string/test-strpbrk.c b/string/test-strpbrk.c
+index 3f81c2edc35af161..89586a9ab685eec6 100644
+--- a/string/test-strpbrk.c
++++ b/string/test-strpbrk.c
+@@ -48,22 +48,17 @@
+ # ifndef WIDE
+ #  define STRPBRK strpbrk
+ #  define SIMPLE_STRPBRK simple_strpbrk
+-#  define STUPID_STRPBRK stupid_strpbrk
+ # else
+ #  include <wchar.h>
+ #  define STRPBRK wcspbrk
+ #  define SIMPLE_STRPBRK simple_wcspbrk
+-#  define STUPID_STRPBRK stupid_wcspbrk
+ # endif /* WIDE */
+ 
+ typedef CHAR *(*proto_t) (const CHAR *, const CHAR *);
+-CHAR *SIMPLE_STRPBRK (const CHAR *, const CHAR *);
+-CHAR *STUPID_STRPBRK (const CHAR *, const CHAR *);
+ 
+-IMPL (STUPID_STRPBRK, 0)
+-IMPL (SIMPLE_STRPBRK, 0)
+ IMPL (STRPBRK, 1)
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+ SIMPLE_STRPBRK (const CHAR *s, const CHAR *rej)
+ {
+@@ -73,22 +68,10 @@ SIMPLE_STRPBRK (const CHAR *s, const CHAR *rej)
+   while ((c = *s++) != '\0')
+     for (r = rej; *r != '\0'; ++r)
+       if (*r == c)
+-	return (CHAR *) s - 1;
++       return (CHAR *) s - 1;
+   return NULL;
+ }
+ 
+-CHAR *
+-STUPID_STRPBRK (const CHAR *s, const CHAR *rej)
+-{
+-  size_t ns = STRLEN (s), nrej = STRLEN (rej);
+-  size_t i, j;
+-
+-  for (i = 0; i < ns; ++i)
+-    for (j = 0; j < nrej; ++j)
+-      if (s[i] == rej[j])
+-	return (CHAR *) s + i;
+-  return NULL;
+-}
+ #endif /* !STRPBRK_RESULT */
+ 
+ static void
+diff --git a/string/test-strrchr.c b/string/test-strrchr.c
+index 9f85dc681ef075b8..d6018f2324eb8ad0 100644
+--- a/string/test-strrchr.c
++++ b/string/test-strrchr.c
+@@ -45,11 +45,10 @@
+ #endif
+ 
+ typedef CHAR *(*proto_t) (const CHAR *, int);
+-CHAR *SIMPLE_STRRCHR (const CHAR *, int);
+ 
+-IMPL (SIMPLE_STRRCHR, 0)
+ IMPL (STRRCHR, 1)
+ 
++/* Naive implementation to verify results.  */
+ CHAR *
+ SIMPLE_STRRCHR (const CHAR *s, int c)
+ {
+diff --git a/string/test-strspn.c b/string/test-strspn.c
+index ccbed1ca2f6cf8f0..24d79770cde1f28d 100644
+--- a/string/test-strspn.c
++++ b/string/test-strspn.c
+@@ -30,7 +30,6 @@
+ # define CHAR char
+ # define UCHAR unsigned char
+ # define SIMPLE_STRSPN simple_strspn
+-# define STUPID_STRSPN stupid_strspn
+ # define STRLEN strlen
+ # define STRCHR strchr
+ # define BIG_CHAR CHAR_MAX
+@@ -41,7 +40,6 @@
+ # define CHAR wchar_t
+ # define UCHAR wchar_t
+ # define SIMPLE_STRSPN simple_wcsspn
+-# define STUPID_STRSPN stupid_wcsspn
+ # define STRLEN wcslen
+ # define STRCHR wcschr
+ # define BIG_CHAR WCHAR_MAX
+@@ -49,13 +47,10 @@
+ #endif /* WIDE */
+ 
+ typedef size_t (*proto_t) (const CHAR *, const CHAR *);
+-size_t SIMPLE_STRSPN (const CHAR *, const CHAR *);
+-size_t STUPID_STRSPN (const CHAR *, const CHAR *);
+ 
+-IMPL (STUPID_STRSPN, 0)
+-IMPL (SIMPLE_STRSPN, 0)
+ IMPL (STRSPN, 1)
+ 
++/* Naive implementation to verify results.  */
+ size_t
+ SIMPLE_STRSPN (const CHAR *s, const CHAR *acc)
+ {
+@@ -73,23 +68,6 @@ SIMPLE_STRSPN (const CHAR *s, const CHAR *acc)
+   return s - str - 1;
+ }
+ 
+-size_t
+-STUPID_STRSPN (const CHAR *s, const CHAR *acc)
+-{
+-  size_t ns = STRLEN (s), nacc = STRLEN (acc);
+-  size_t i, j;
+-
+-  for (i = 0; i < ns; ++i)
+-    {
+-      for (j = 0; j < nacc; ++j)
+-	if (s[i] == acc[j])
+-	  break;
+-      if (j == nacc)
+-	return i;
+-    }
+-  return i;
+-}
+-
+ static void
+ do_one_test (impl_t *impl, const CHAR *s, const CHAR *acc, size_t exp_res)
+ {
+diff --git a/string/test-strstr.c b/string/test-strstr.c
+index 2c40d929f27843fa..958c4842af92c1f1 100644
+--- a/string/test-strstr.c
++++ b/string/test-strstr.c
+@@ -22,14 +22,14 @@
+ #include "test-string.h"
+ 
+ 
+-#define STRSTR simple_strstr
++#define STRSTR c_strstr
+ #define libc_hidden_builtin_def(arg) /* nothing */
+ #define __strnlen strnlen
+ #include "strstr.c"
+ 
+-
++/* Naive implementation to verify results.  */
+ static char *
+-stupid_strstr (const char *s1, const char *s2)
++simple_strstr (const char *s1, const char *s2)
+ {
+   ssize_t s1len = strlen (s1);
+   ssize_t s2len = strlen (s2);
+@@ -53,8 +53,7 @@ stupid_strstr (const char *s1, const char *s2)
+ 
+ typedef char *(*proto_t) (const char *, const char *);
+ 
+-IMPL (stupid_strstr, 0)
+-IMPL (simple_strstr, 0)
++IMPL (c_strstr, 0)
+ IMPL (strstr, 1)
+ 
+ 
+@@ -131,7 +130,7 @@ check1 (void)
+   const char s2[] = "_EF_BF_BD_EF_BF_BD_EF_BF_BD_EF_BF_BD_EF_BF_BD";
+   char *exp_result;
+ 
+-  exp_result = stupid_strstr (s1, s2);
++  exp_result = simple_strstr (s1, s2);
+   FOR_EACH_IMPL (impl, 0)
+     check_result (impl, s1, s2, exp_result);
+ }
+@@ -164,7 +163,7 @@ check2 (void)
+   char *s2_page_cross = (void *) buf2 + page_size_real - 8;
+   strcpy (s2_page_cross, s2_stack);
+ 
+-  exp_result = stupid_strstr (s1_stack, s2_stack);
++  exp_result = simple_strstr (s1_stack, s2_stack);
+   FOR_EACH_IMPL (impl, 0)
+     {
+       check_result (impl, s1_stack, s2_stack, exp_result);
+@@ -202,7 +201,7 @@ pr23637 (void)
+   /* Ensure we don't match at the first 'x'.  */
+   h[0] = 'x';
+ 
+-  char *exp_result = stupid_strstr (h, n);
++  char *exp_result = simple_strstr (h, n);
+   FOR_EACH_IMPL (impl, 0)
+     check_result (impl, h, n, exp_result);
+ }
